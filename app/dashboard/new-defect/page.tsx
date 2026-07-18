@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 export default function NewDefectPage() {
   const supabase = createClient()
 
-  const [projects, setProjects] = useState([])
+  const [projects, setProjects] = useState<any[]>([])
   const [projectId, setProjectId] = useState('')
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState(null)
