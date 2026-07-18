@@ -39,7 +39,7 @@ Respond with ONLY valid JSON, no other text, in this exact structure:
 
   const data = await response.json()
   const text =
-    data.content?.map((block) => block.text || '').join('') || ''
+        data.content?.map((block: { text?: string }) => block.text || '').join('') || ''
   const cleaned = text.replace(/```json|```/g, '').trim()
 
   return JSON.parse(cleaned)
