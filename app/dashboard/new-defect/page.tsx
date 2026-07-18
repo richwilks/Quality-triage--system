@@ -170,7 +170,6 @@ export default function NewDefectPage() {
           <input
             type="file"
             accept="image/*"
-            capture="environment"
             onChange={handleFileChange}
             className="mt-1 w-full text-sm"
           />
