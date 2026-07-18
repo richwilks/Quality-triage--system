@@ -3,17 +3,25 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
+type Project = { id: string; name: string }
+type Analysis = {
+  defect_found: boolean
+  description: string
+  confidence: number
+  standard_reference: string
+}
+
 export default function NewDefectPage() {
   const supabase = createClient()
 
-  const [projects, setProjects] = useState<any[]>([])
+  const [projects, setProjects] = useState<Project[]>([])
   const [projectId, setProjectId] = useState('')
-  const [file, setFile] = useState(null)
-  const [preview, setPreview] = useState(null)
+  const [file, setFile] = useState<File | null>(null)
+  const [preview, setPreview] = useState<string | null>(null)
   const [analyzing, setAnalyzing] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [analysis, setAnalysis] = useState(null)
-  const [error, setError] = useState(null)
+  const [analysis, setAnalysis] = useState<Analysis | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
@@ -28,7 +36,7 @@ export default function NewDefectPage() {
         .select('projects(id, name)')
         .eq('user_id', user.id)
 
-      const list = (data || []).flatMap((row) =>
+      const list: Project[] = (data || []).flatMap((row: any) =>
         Array.isArray(row.projects)
           ? row.projects
           : row.projects
@@ -42,7 +50,7 @@ export default function NewDefectPage() {
     loadProjects()
   }, [])
 
-  function handleFileChange(e) {
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files?.[0]
     if (!selected) return
     setFile(selected)
@@ -51,10 +59,10 @@ export default function NewDefectPage() {
     setPreview(URL.createObjectURL(selected))
   }
 
-  function fileToBase64(f) {
+  function fileToBase64(f: File): Promise<string> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
-      reader.onload = () => resolve(reader.result.split(',')[1])
+      reader.onload = () => resolve((reader.result as string).split(',')[1])
       reader.onerror = reject
       reader.readAsDataURL(f)
     })
@@ -168,6 +176,7 @@ export default function NewDefectPage() {
           />
 
           {preview && (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={preview}
               alt="Preview"
