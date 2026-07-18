@@ -28,9 +28,13 @@ export default function NewDefectPage() {
         .select('projects(id, name)')
         .eq('user_id', user.id)
 
-      const list = (data || [])
-        .map((row) => row.projects)
-        .filter(Boolean)
+      const list = (data || []).flatMap((row) =>
+        Array.isArray(row.projects)
+          ? row.projects
+          : row.projects
+          ? [row.projects]
+          : []
+      )
 
       setProjects(list)
       if (list.length > 0) setProjectId(list[0].id)
