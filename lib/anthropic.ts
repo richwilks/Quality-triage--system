@@ -1,7 +1,3 @@
-import Anthropic from '@anthropic-ai/sdk'
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-
 export type DetectedDefect = {
   description: string
   confidence: number
@@ -15,20 +11,27 @@ export async function analyzeDefectImage(
   projectDescription: string,
   standards: string
 ): Promise<DetectedDefect[]> {
-  const message = await anthropic.messages.create({
-    model: 'claude-sonnet-5',
-    max_tokens: 1500,
-    messages: [
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'image',
-            source: { type: 'base64', media_type: mimeType as any, data: base64Image },
-          },
-          {
-            type: 'text',
-            text: `You are a construction quality inspector reviewing a site photo.
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': process.env.ANTHROPIC_API_KEY as string,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-5',
+      max_tokens: 1500,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: { type: 'base64', media_type: mimeType, data: base64Image },
+            },
+            {
+              type: 'text',
+              text: `You are a construction quality inspector reviewing a site photo.
 
 Project: ${projectDescription}
 Applicable standards: ${standards}
@@ -44,14 +47,16 @@ Respond with ONLY a JSON array, no markdown formatting, no other text. Each elem
 }
 
 If you see no defects, respond with an empty array: []`,
-          },
-        ],
-      },
-    ],
+            },
+          ],
+        },
+      ],
+    }),
   })
 
-  const textBlock = message.content.find((c) => c.type === 'text')
-  const raw = textBlock && 'text' in textBlock ? textBlock.text : '[]'
+  const data = await response.json()
+  const textBlock = data.content?.find((c: any) => c.type === 'text')
+  const raw = textBlock?.text || '[]'
   const cleaned = raw.replace(/```json|```/g, '').trim()
 
   try {
