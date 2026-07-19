@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
 type Project = { id: string; name: string }
@@ -23,13 +25,23 @@ const BOX_COLORS = ['#ef4444', '#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ec4
 
 export default function NewDefectPage() {
   const supabase = createClient()
+  const searchParams = useSearchParams()
+
+  const initialProjectId = searchParams.get('projectId') || ''
+  const initialLocation = searchParams.get('location') || ''
+  const initialDrawingId = searchParams.get('drawingId') || ''
+  const initialPinX = searchParams.get('pinX')
+  const initialPinY = searchParams.get('pinY')
 
   const [projects, setProjects] = useState<Project[]>([])
-  const [projectId, setProjectId] = useState('')
+  const [projectId, setProjectId] = useState(initialProjectId)
   const [partners, setPartners] = useState<Partner[]>([])
   const [assignedPartnerId, setAssignedPartnerId] = useState('')
 
-  const [location, setLocation] = useState('')
+  const [location, setLocation] = useState(initialLocation)
+  const [drawingId] = useState(initialDrawingId || null)
+  const [pinX] = useState(initialPinX ? parseFloat(initialPinX) : null)
+  const [pinY] = useState(initialPinY ? parseFloat(initialPinY) : null)
   const [targetDate, setTargetDate] = useState('')
 
   const [file, setFile] = useState<File | null>(null)
@@ -62,7 +74,12 @@ export default function NewDefectPage() {
         Array.isArray(row.projects) ? row.projects : row.projects ? [row.projects] : []
       )
       setProjects(projectList)
-      if (projectList.length > 0) setProjectId(projectList[0].id)
+
+      if (initialProjectId && projectList.some((p: Project) => p.id === initialProjectId)) {
+        setProjectId(initialProjectId)
+      } else if (projectList.length > 0) {
+        setProjectId(projectList[0].id)
+      }
 
       const { data: partnerData } = await supabase
         .from('profiles')
@@ -168,6 +185,9 @@ export default function NewDefectPage() {
         project_id: projectId,
         title: it.title,
         location,
+        drawing_id: drawingId,
+        pin_x: pinX,
+        pin_y: pinY,
         photo_url: publicUrl,
         ai_description: it.description,
         ai_confidence: it.confidence,
@@ -216,7 +236,17 @@ export default function NewDefectPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700">Location</label>
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-medium text-slate-700">Location</label>
+              {projectId && (
+                <Link
+                  href={`/dashboard/drawings?projectId=${projectId}`}
+                  className="text-xs font-medium text-slate-900 underline"
+                >
+                  Choose on drawing
+                </Link>
+              )}
+            </div>
             <input
               type="text"
               value={location}
@@ -224,6 +254,9 @@ export default function NewDefectPage() {
               placeholder="e.g. Block A, Level 2, Room 214"
               className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
             />
+            {drawingId && (
+              <p className="mt-1 text-xs text-slate-500">Pinned location attached from drawing.</p>
+            )}
           </div>
 
           <div>
@@ -238,6 +271,7 @@ export default function NewDefectPage() {
 
           {preview && (
             <div className="relative w-full">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={preview} alt="Preview" className="w-full rounded-md" />
               {items.map((it, i) => (
                 <div
