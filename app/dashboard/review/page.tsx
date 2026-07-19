@@ -3,14 +3,19 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
+type Partner = { id: string; full_name: string | null; company_name: string | null }
+
 type Defect = {
   id: string
   project_id: string
+  title: string | null
   photo_url: string | null
   ai_description: string | null
   ai_confidence: number | null
   standard_reference: string | null
   description: string | null
+  assigned_partner_id: string | null
+  target_close_date: string | null
   projects: { name: string } | { name: string }[] | null
 }
 
@@ -18,7 +23,10 @@ export default function ReviewDefectsPage() {
   const supabase = createClient()
 
   const [defects, setDefects] = useState<Defect[]>([])
+  const [partners, setPartners] = useState<Partner[]>([])
   const [editedText, setEditedText] = useState<Record<string, string>>({})
+  const [assignedPartner, setAssignedPartner] = useState<Record<string, string>>({})
+  const [targetDate, setTargetDate] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [rejectingId, setRejectingId] = useState<string | null>(null)
@@ -32,7 +40,9 @@ export default function ReviewDefectsPage() {
     setLoading(true)
     const { data } = await supabase
       .from('defects')
-      .select('id, project_id, photo_url, ai_description, ai_confidence, standard_reference, description, projects(name)')
+      .select(
+        'id, project_id, title, photo_url, ai_description, ai_confidence, standard_reference, description, assigned_partner_id, target_close_date, projects(name)'
+      )
       .eq('status', 'draft')
       .order('created_at', { ascending: false })
 
@@ -40,10 +50,23 @@ export default function ReviewDefectsPage() {
     setDefects(list)
 
     const initialText: Record<string, string> = {}
+    const initialPartner: Record<string, string> = {}
+    const initialDate: Record<string, string> = {}
     list.forEach((d) => {
       initialText[d.id] = d.description || d.ai_description || ''
+      initialPartner[d.id] = d.assigned_partner_id || ''
+      initialDate[d.id] = d.target_close_date || ''
     })
     setEditedText(initialText)
+    setAssignedPartner(initialPartner)
+    setTargetDate(initialDate)
+
+    const { data: partnerData } = await supabase
+      .from('profiles')
+      .select('id, full_name, company_name')
+      .eq('role', 'partner')
+    setPartners(partnerData || [])
+
     setLoading(false)
   }
 
@@ -58,11 +81,16 @@ export default function ReviewDefectsPage() {
       data: { user },
     } = await supabase.auth.getUser()
 
+    const partnerId = assignedPartner[defect.id] || null
+    const newStatus = partnerId ? 'assigned' : 'confirmed'
+
     await supabase
       .from('defects')
       .update({
-        status: 'confirmed',
+        status: newStatus,
         description: editedText[defect.id],
+        assigned_partner_id: partnerId,
+        target_close_date: targetDate[defect.id] || null,
         confirmed_at: new Date().toISOString(),
       })
       .eq('id', defect.id)
@@ -71,8 +99,19 @@ export default function ReviewDefectsPage() {
       defect_id: defect.id,
       changed_by: user?.id,
       old_status: 'draft',
-      new_status: 'confirmed',
+      new_status: newStatus,
     })
+
+    if (partnerId) {
+      await supabase.from('notifications').insert({
+        user_id: partnerId,
+        defect_id: defect.id,
+        is_read: false,
+        message: `You've been assigned a defect: ${defect.title || editedText[defect.id]}${
+          targetDate[defect.id] ? ` (due ${targetDate[defect.id]})` : ''
+        }`,
+      })
+    }
 
     setDefects((prev) => prev.filter((d) => d.id !== defect.id))
     setBusyId(null)
@@ -116,7 +155,7 @@ export default function ReviewDefectsPage() {
       <div className="mx-auto max-w-md">
         <h1 className="text-xl font-semibold text-slate-900">Review Defects</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Confirm or reject each AI-flagged item before it moves forward.
+          Confirm or reject each item. Assigning a partner will notify them and move it straight to Assigned.
         </p>
 
         {defects.length === 0 && (
@@ -134,6 +173,9 @@ export default function ReviewDefectsPage() {
               <p className="text-xs font-medium text-slate-500">
                 {getProjectName(defect)}
               </p>
+              {defect.title && (
+                <p className="mt-1 text-sm font-semibold text-slate-900">{defect.title}</p>
+              )}
 
               {defect.photo_url && (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -166,6 +208,38 @@ export default function ReviewDefectsPage() {
                 rows={3}
                 className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
               />
+
+              <div className="mt-3">
+                <label className="block text-sm font-medium text-slate-700">Assigned</label>
+                <select
+                  value={assignedPartner[defect.id] || ''}
+                  onChange={(e) =>
+                    setAssignedPartner((prev) => ({ ...prev, [defect.id]: e.target.value }))
+                  }
+                  className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                >
+                  <option value="">Unassigned</option>
+                  {partners.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.company_name || p.full_name || 'Partner'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="mt-3">
+                <label className="block text-sm font-medium text-slate-700">
+                  Target completion
+                </label>
+                <input
+                  type="date"
+                  value={targetDate[defect.id] || ''}
+                  onChange={(e) =>
+                    setTargetDate((prev) => ({ ...prev, [defect.id]: e.target.value }))
+                  }
+                  className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                />
+              </div>
 
               {rejectingId === defect.id ? (
                 <div className="mt-3">
@@ -202,7 +276,11 @@ export default function ReviewDefectsPage() {
                     disabled={busyId === defect.id}
                     className="flex-1 rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
                   >
-                    {busyId === defect.id ? 'Saving...' : 'Confirm defect'}
+                    {busyId === defect.id
+                      ? 'Saving...'
+                      : assignedPartner[defect.id]
+                      ? 'Confirm & assign'
+                      : 'Confirm defect'}
                   </button>
                   <button
                     onClick={() => setRejectingId(defect.id)}
