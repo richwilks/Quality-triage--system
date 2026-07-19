@@ -21,6 +21,13 @@ export default function DashboardPage() {
         >
           Review queue
         </Link>
+         <Link
+  href="/dashboard/new-defect-video"
+  className="inline-block rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
+>
+  + From video
+        </Link>
+
       </div>
     </div>
   )
