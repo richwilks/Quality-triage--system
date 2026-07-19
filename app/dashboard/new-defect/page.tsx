@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 type Project = { id: string; name: string }
+type Partner = { id: string; full_name: string | null; company_name: string | null }
 type Analysis = {
   defect_found: boolean
   description: string
@@ -16,38 +17,54 @@ export default function NewDefectPage() {
 
   const [projects, setProjects] = useState<Project[]>([])
   const [projectId, setProjectId] = useState('')
+  const [partners, setPartners] = useState<Partner[]>([])
+  const [assignedPartnerId, setAssignedPartnerId] = useState('')
+
+  const [title, setTitle] = useState('')
+  const [location, setLocation] = useState('')
+  const [targetDate, setTargetDate] = useState('')
+
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [analyzing, setAnalyzing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [analysis, setAnalysis] = useState<Analysis | null>(null)
+  const [description, setDescription] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
 
+  const todayLabel = new Date().toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+
   useEffect(() => {
-    async function loadProjects() {
+    async function loadData() {
       const {
         data: { user },
       } = await supabase.auth.getUser()
       if (!user) return
 
-      const { data } = await supabase
+      const { data: projectData } = await supabase
         .from('project_members')
         .select('projects(id, name)')
         .eq('user_id', user.id)
 
-      const list: Project[] = (data || []).flatMap((row: any) =>
-        Array.isArray(row.projects)
-          ? row.projects
-          : row.projects
-          ? [row.projects]
-          : []
+      const projectList = (projectData || []).flatMap((row: any) =>
+        Array.isArray(row.projects) ? row.projects : row.projects ? [row.projects] : []
       )
+      setProjects(projectList)
+      if (projectList.length > 0) setProjectId(projectList[0].id)
 
-      setProjects(list)
-      if (list.length > 0) setProjectId(list[0].id)
+      const { data: partnerData } = await supabase
+        .from('profiles')
+        .select('id, full_name, company_name')
+        .eq('role', 'partner')
+
+      setPartners(partnerData || [])
     }
-    loadProjects()
+    loadData()
   }, [])
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -55,6 +72,7 @@ export default function NewDefectPage() {
     if (!selected) return
     setFile(selected)
     setAnalysis(null)
+    setDescription('')
     setSaved(false)
     setPreview(URL.createObjectURL(selected))
   }
@@ -88,8 +106,9 @@ export default function NewDefectPage() {
 
       if (!res.ok) throw new Error('Analysis failed')
 
-      const result = await res.json()
+      const result: Analysis = await res.json()
       setAnalysis(result)
+      setDescription(result.description)
     } catch (err) {
       setError('Something went wrong analyzing the photo. Try again.')
     } finally {
@@ -97,8 +116,11 @@ export default function NewDefectPage() {
     }
   }
 
-  async function handleSaveDraft() {
-    if (!file || !analysis || !projectId) return
+  async function handleSave() {
+    if (!file || !projectId || !title) {
+      setError('Please add a title and photo before saving.')
+      return
+    }
     setSaving(true)
     setError(null)
 
@@ -121,11 +143,15 @@ export default function NewDefectPage() {
 
       const { error: insertError } = await supabase.from('defects').insert({
         project_id: projectId,
+        title,
+        location,
         photo_url: publicUrl,
-        ai_description: analysis.description,
-        ai_confidence: analysis.confidence,
-        standard_reference: analysis.standard_reference,
-        description: analysis.description,
+        ai_description: analysis?.description || null,
+        ai_confidence: analysis?.confidence ?? null,
+        standard_reference: analysis?.standard_reference || null,
+        description,
+        assigned_partner_id: assignedPartnerId || null,
+        target_close_date: targetDate || null,
         status: 'draft',
         created_by: user.id,
       })
@@ -145,42 +171,62 @@ export default function NewDefectPage() {
       <div className="mx-auto max-w-md">
         <h1 className="text-xl font-semibold text-slate-900">New Defect</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Take or upload a photo to check it against the project spec.
+          Fill in the details and analyze a photo against the project spec.
         </p>
 
-        <div className="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <label className="block text-sm font-medium text-slate-700">
-            Project
-          </label>
-          <select
-            value={projectId}
-            onChange={(e) => setProjectId(e.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-          >
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+        <div className="mt-6 space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Project</label>
+            <select
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            >
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          <label className="mt-4 block text-sm font-medium text-slate-700">
-            Photo
-          </label>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleFileChange}
-            className="mt-1 w-full text-sm"
-          />
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Title</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. Cracked render, east elevation"
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+          </div>
 
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Location</label>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g. Block A, Level 2, Room 214"
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Photo</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="mt-1 w-full text-sm"
+            />
+          </div>
 
           {preview && (
-            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={preview}
               alt="Preview"
-              className="mt-4 max-h-64 w-full rounded-md object-cover"
+              className="max-h-64 w-full rounded-md object-cover"
             />
           )}
 
@@ -188,43 +234,80 @@ export default function NewDefectPage() {
             <button
               onClick={handleAnalyze}
               disabled={analyzing || !projectId}
-              className="mt-4 w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+              className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
             >
               {analyzing ? 'Analyzing...' : 'Analyze photo'}
             </button>
           )}
 
-          {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-
-          {analysis && !saved && (
-            <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
-              <p className="text-sm font-medium text-slate-900">
-                {analysis.defect_found
-                  ? 'Potential defect identified'
-                  : 'No defect identified'}
-              </p>
-              <p className="mt-1 text-sm text-slate-600">{analysis.description}</p>
-              {analysis.standard_reference && (
-                <p className="mt-1 text-xs text-slate-500">
-                  Standard: {analysis.standard_reference}
-                </p>
-              )}
-              <p className="mt-1 text-xs text-slate-500">
-                Confidence: {Math.round(analysis.confidence * 100)}%
-              </p>
-
-              <button
-                onClick={handleSaveDraft}
-                disabled={saving}
-                className="mt-4 w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-              >
-                {saving ? 'Saving...' : 'Confirm & save as draft'}
-              </button>
-            </div>
+          {analysis && (
+            <p className="text-xs text-slate-500">
+              AI confidence: {Math.round(analysis.confidence * 100)}%
+              {analysis.standard_reference && ` · Standard: ${analysis.standard_reference}`}
+            </p>
           )}
 
-          {saved && (
-            <p className="mt-4 text-sm font-medium text-green-600">
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Description</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              placeholder="Analyze a photo to auto-fill, or type your own"
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Assigned</label>
+            <select
+              value={assignedPartnerId}
+              onChange={(e) => setAssignedPartnerId(e.target.value)}
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="">Unassigned</option>
+              {partners.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.company_name || p.full_name || 'Partner'}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-slate-700">
+                Date created
+              </label>
+              <p className="mt-1 rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-500">
+                {todayLabel}
+              </p>
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-slate-700">
+                Target completion
+              </label>
+              <input
+                type="date"
+                value={targetDate}
+                onChange={(e) => setTargetDate(e.target.value)}
+                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+
+          {error && <p className="text-sm text-red-600">{error}</p>}
+
+          {!saved ? (
+            <button
+              onClick={handleSave}
+              disabled={saving || !file || !title}
+              className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+            >
+              {saving ? 'Saving...' : 'Save defect'}
+            </button>
+          ) : (
+            <p className="text-sm font-medium text-green-600">
               Saved as a draft defect. You can review it on the dashboard.
             </p>
           )}
