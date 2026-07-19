@@ -3,14 +3,25 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
+type Defect = {
+  id: string
+  project_id: string
+  photo_url: string | null
+  ai_description: string | null
+  ai_confidence: number | null
+  standard_reference: string | null
+  description: string | null
+  projects: { name: string } | { name: string }[] | null
+}
+
 export default function ReviewDefectsPage() {
   const supabase = createClient()
 
-  const [defects, setDefects] = useState([])
-  const [editedText, setEditedText] = useState({})
+  const [defects, setDefects] = useState<Defect[]>([])
+  const [editedText, setEditedText] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
-  const [busyId, setBusyId] = useState(null)
-  const [rejectingId, setRejectingId] = useState(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState('')
 
   useEffect(() => {
@@ -25,10 +36,10 @@ export default function ReviewDefectsPage() {
       .eq('status', 'draft')
       .order('created_at', { ascending: false })
 
-    const list = data || []
+    const list = (data || []) as unknown as Defect[]
     setDefects(list)
 
-    const initialText = {}
+    const initialText: Record<string, string> = {}
     list.forEach((d) => {
       initialText[d.id] = d.description || d.ai_description || ''
     })
@@ -36,12 +47,12 @@ export default function ReviewDefectsPage() {
     setLoading(false)
   }
 
-  function getProjectName(d) {
+  function getProjectName(d: Defect) {
     if (!d.projects) return ''
     return Array.isArray(d.projects) ? d.projects[0]?.name : d.projects.name
   }
 
-  async function handleConfirm(defect) {
+  async function handleConfirm(defect: Defect) {
     setBusyId(defect.id)
     const {
       data: { user },
@@ -67,7 +78,7 @@ export default function ReviewDefectsPage() {
     setBusyId(null)
   }
 
-  async function handleReject(defect) {
+  async function handleReject(defect: Defect) {
     setBusyId(defect.id)
     const {
       data: { user },
@@ -125,6 +136,7 @@ export default function ReviewDefectsPage() {
               </p>
 
               {defect.photo_url && (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={defect.photo_url}
                   alt="Defect"
