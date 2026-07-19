@@ -174,6 +174,7 @@ export default function NewDefectPage() {
             className="mt-1 w-full text-sm"
           />
 
+
           {preview && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
