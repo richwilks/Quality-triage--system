@@ -1,46 +1,63 @@
+import Anthropic from '@anthropic-ai/sdk'
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
+export type DetectedDefect = {
+  description: string
+  confidence: number
+  standard_reference: string
+  box: { x: number; y: number; width: number; height: number }
+}
+
 export async function analyzeDefectImage(
-  imageBase64: string,
+  base64Image: string,
   mimeType: string,
-  projectSpec: string
-) {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY!,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-5',
-      max_tokens: 1000,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: { type: 'base64', media_type: mimeType, data: imageBase64 },
-            },
-            {
-              type: 'text',
-              text: `You are assisting a construction quality manager reviewing a site photo. Compare what you see against the project specification and standards below, and identify any potential defect or non-conformance.
+  projectDescription: string,
+  standards: string
+): Promise<DetectedDefect[]> {
+  const message = await anthropic.messages.create({
+    model: 'claude-sonnet-5',
+    max_tokens: 1500,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'image',
+            source: { type: 'base64', media_type: mimeType as any, data: base64Image },
+          },
+          {
+            type: 'text',
+            text: `You are a construction quality inspector reviewing a site photo.
 
-Project specification / standards:
-${projectSpec}
+Project: ${projectDescription}
+Applicable standards: ${standards}
 
-Respond with ONLY valid JSON, no other text, in this exact structure:
-{"defect_found": true or false, "description": "plain description of the issue, or why nothing looks wrong", "confidence": a number between 0 and 1, "standard_reference": "which standard/spec clause this relates to, or empty string if none"}`,
-            },
-          ],
-        },
-      ],
-    }),
+Look carefully at the photo and identify EVERY distinct defect or non-conformance you can see - there may be one, several, or none. For each defect found, estimate a bounding box around just that defect, given as percentages of the image width and height (0-100), where x/y is the top-left corner.
+
+Respond with ONLY a JSON array, no markdown formatting, no other text. Each element must have this exact shape:
+{
+  "description": "specific description of the defect",
+  "confidence": 0.0 to 1.0,
+  "standard_reference": "relevant standard or clause, or empty string if none applies",
+  "box": { "x": 0-100, "y": 0-100, "width": 0-100, "height": 0-100 }
+}
+
+If you see no defects, respond with an empty array: []`,
+          },
+        ],
+      },
+    ],
   })
 
-  const data = await response.json()
-  const text =
-        data.content?.map((block: { text?: string }) => block.text || '').join('') || ''
-  const cleaned = text.replace(/```json|```/g, '').trim()
+  const textBlock = message.content.find((c) => c.type === 'text')
+  const raw = textBlock && 'text' in textBlock ? textBlock.text : '[]'
+  const cleaned = raw.replace(/```json|```/g, '').trim()
 
-  return JSON.parse(cleaned)
+  try {
+    const parsed = JSON.parse(cleaned)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
 }
