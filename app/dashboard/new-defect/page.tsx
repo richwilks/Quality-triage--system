@@ -5,12 +5,21 @@ import { createClient } from '@/lib/supabase/client'
 
 type Project = { id: string; name: string }
 type Partner = { id: string; full_name: string | null; company_name: string | null }
-type Analysis = {
-  defect_found: boolean
+
+type DetectedDefect = {
   description: string
   confidence: number
   standard_reference: string
+  box: { x: number; y: number; width: number; height: number }
 }
+
+type ReviewItem = DetectedDefect & {
+  localId: string
+  title: string
+  included: boolean
+}
+
+const BOX_COLORS = ['#ef4444', '#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899']
 
 export default function NewDefectPage() {
   const supabase = createClient()
@@ -20,7 +29,6 @@ export default function NewDefectPage() {
   const [partners, setPartners] = useState<Partner[]>([])
   const [assignedPartnerId, setAssignedPartnerId] = useState('')
 
-  const [title, setTitle] = useState('')
   const [location, setLocation] = useState('')
   const [targetDate, setTargetDate] = useState('')
 
@@ -28,8 +36,7 @@ export default function NewDefectPage() {
   const [preview, setPreview] = useState<string | null>(null)
   const [analyzing, setAnalyzing] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [analysis, setAnalysis] = useState<Analysis | null>(null)
-  const [description, setDescription] = useState('')
+  const [items, setItems] = useState<ReviewItem[]>([])
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
 
@@ -71,9 +78,9 @@ export default function NewDefectPage() {
     const selected = e.target.files?.[0]
     if (!selected) return
     setFile(selected)
-    setAnalysis(null)
-    setDescription('')
+    setItems([])
     setSaved(false)
+    setError(null)
     setPreview(URL.createObjectURL(selected))
   }
 
@@ -106,9 +113,21 @@ export default function NewDefectPage() {
 
       if (!res.ok) throw new Error('Analysis failed')
 
-      const result: Analysis = await res.json()
-      setAnalysis(result)
-      setDescription(result.description)
+      const result: { defects: DetectedDefect[] } = await res.json()
+
+      if (!result.defects || result.defects.length === 0) {
+        setItems([])
+        setError('No defects were spotted in that photo.')
+        return
+      }
+
+      const mapped: ReviewItem[] = result.defects.map((d, i) => ({
+        ...d,
+        localId: `${Date.now()}-${i}`,
+        title: `Defect ${i + 1}`,
+        included: true,
+      }))
+      setItems(mapped)
     } catch (err) {
       setError('Something went wrong analyzing the photo. Try again.')
     } finally {
@@ -116,9 +135,14 @@ export default function NewDefectPage() {
     }
   }
 
+  function updateItem(localId: string, patch: Partial<ReviewItem>) {
+    setItems((prev) => prev.map((it) => (it.localId === localId ? { ...it, ...patch } : it)))
+  }
+
   async function handleSave() {
-    if (!file || !projectId || !title) {
-      setError('Please add a title and photo before saving.')
+    const included = items.filter((it) => it.included)
+    if (!file || !projectId || included.length === 0) {
+      setError('Select at least one defect to save.')
       return
     }
     setSaving(true)
@@ -134,33 +158,34 @@ export default function NewDefectPage() {
       const { error: uploadError } = await supabase.storage
         .from('defect-photos')
         .upload(filePath, file)
-
       if (uploadError) throw uploadError
 
       const {
         data: { publicUrl },
       } = supabase.storage.from('defect-photos').getPublicUrl(filePath)
 
-      const { error: insertError } = await supabase.from('defects').insert({
+      const rows = included.map((it) => ({
         project_id: projectId,
-        title,
+        title: it.title,
         location,
         photo_url: publicUrl,
-        ai_description: analysis?.description || null,
-        ai_confidence: analysis?.confidence ?? null,
-        standard_reference: analysis?.standard_reference || null,
-        description,
+        ai_description: it.description,
+        ai_confidence: it.confidence,
+        standard_reference: it.standard_reference,
+        description: it.description,
+        bounding_box: it.box,
         assigned_partner_id: assignedPartnerId || null,
         target_close_date: targetDate || null,
         status: 'draft',
         created_by: user.id,
-      })
+      }))
 
+      const { error: insertError } = await supabase.from('defects').insert(rows)
       if (insertError) throw insertError
 
       setSaved(true)
     } catch (err) {
-      setError('Could not save the defect. Try again.')
+      setError('Could not save the defects. Try again.')
     } finally {
       setSaving(false)
     }
@@ -171,7 +196,7 @@ export default function NewDefectPage() {
       <div className="mx-auto max-w-md">
         <h1 className="text-xl font-semibold text-slate-900">New Defect</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Fill in the details and analyze a photo against the project spec.
+          Analyze a photo - the AI will highlight each defect it finds for you to approve.
         </p>
 
         <div className="mt-6 space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -188,17 +213,6 @@ export default function NewDefectPage() {
                 </option>
               ))}
             </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Title</label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Cracked render, east elevation"
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-            />
           </div>
 
           <div>
@@ -223,14 +237,33 @@ export default function NewDefectPage() {
           </div>
 
           {preview && (
-            <img
-              src={preview}
-              alt="Preview"
-              className="max-h-64 w-full rounded-md object-cover"
-            />
+            <div className="relative w-full">
+              <img src={preview} alt="Preview" className="w-full rounded-md" />
+              {items.map((it, i) => (
+                <div
+                  key={it.localId}
+                  style={{
+                    position: 'absolute',
+                    left: `${it.box.x}%`,
+                    top: `${it.box.y}%`,
+                    width: `${it.box.width}%`,
+                    height: `${it.box.height}%`,
+                    border: `2px solid ${BOX_COLORS[i % BOX_COLORS.length]}`,
+                    opacity: it.included ? 1 : 0.3,
+                  }}
+                >
+                  <span
+                    style={{ backgroundColor: BOX_COLORS[i % BOX_COLORS.length] }}
+                    className="absolute -top-5 left-0 rounded px-1 text-[10px] font-semibold text-white"
+                  >
+                    {i + 1}
+                  </span>
+                </div>
+              ))}
+            </div>
           )}
 
-          {file && !analysis && (
+          {file && items.length === 0 && (
             <button
               onClick={handleAnalyze}
               disabled={analyzing || !projectId}
@@ -240,23 +273,47 @@ export default function NewDefectPage() {
             </button>
           )}
 
-          {analysis && (
-            <p className="text-xs text-slate-500">
-              AI confidence: {Math.round(analysis.confidence * 100)}%
-              {analysis.standard_reference && ` · Standard: ${analysis.standard_reference}`}
-            </p>
+          {items.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-slate-700">
+                {items.length} defect{items.length > 1 ? 's' : ''} found - review below
+              </p>
+              {items.map((it, i) => (
+                <div
+                  key={it.localId}
+                  className="rounded-lg border border-slate-200 p-3"
+                  style={{ borderLeftWidth: 4, borderLeftColor: BOX_COLORS[i % BOX_COLORS.length] }}
+                >
+                  <div className="flex items-center justify-between">
+                    <input
+                      type="text"
+                      value={it.title}
+                      onChange={(e) => updateItem(it.localId, { title: e.target.value })}
+                      className="w-2/3 rounded-md border border-slate-300 px-2 py-1 text-sm font-medium"
+                    />
+                    <label className="flex items-center gap-1 text-xs text-slate-600">
+                      <input
+                        type="checkbox"
+                        checked={it.included}
+                        onChange={(e) => updateItem(it.localId, { included: e.target.checked })}
+                      />
+                      Include
+                    </label>
+                  </div>
+                  <textarea
+                    value={it.description}
+                    onChange={(e) => updateItem(it.localId, { description: e.target.value })}
+                    rows={2}
+                    className="mt-2 w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
+                  />
+                  <p className="mt-1 text-xs text-slate-500">
+                    Confidence: {Math.round(it.confidence * 100)}%
+                    {it.standard_reference && ` · Standard: ${it.standard_reference}`}
+                  </p>
+                </div>
+              ))}
+            </div>
           )}
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Description</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              placeholder="Analyze a photo to auto-fill, or type your own"
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-            />
-          </div>
 
           <div>
             <label className="block text-sm font-medium text-slate-700">Assigned</label>
@@ -301,14 +358,14 @@ export default function NewDefectPage() {
           {!saved ? (
             <button
               onClick={handleSave}
-              disabled={saving || !file || !title}
+              disabled={saving || items.filter((i) => i.included).length === 0}
               className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
             >
-              {saving ? 'Saving...' : 'Save defect'}
+              {saving ? 'Saving...' : 'Save selected defects'}
             </button>
           ) : (
             <p className="text-sm font-medium text-green-600">
-              Saved as a draft defect. You can review it on the dashboard.
+              Saved. You can review them on the dashboard.
             </p>
           )}
         </div>
