@@ -6,7 +6,7 @@ export async function POST(req: NextRequest) {
   try {
     const { imageBase64, mimeType, projectId } = await req.json()
 
-    const supabase = createClient()
+    const supabase = await createClient()
     const { data: project } = await supabase
       .from('projects')
       .select('description, standards')
