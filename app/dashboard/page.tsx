@@ -8,12 +8,20 @@ export default function DashboardPage() {
         Project overview coming soon.
       </p>
 
-      <Link
-        href="/dashboard/new-defect"
-        className="mt-6 inline-block rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white"
-      >
-        + New defect
-      </Link>
+      <div className="mt-6 flex gap-3">
+        <Link
+          href="/dashboard/new-defect"
+          className="inline-block rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white"
+        >
+          + New defect
+        </Link>
+        <Link
+          href="/dashboard/review"
+          className="inline-block rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
+        >
+          Review queue
+        </Link>
+      </div>
     </div>
   )
 }
