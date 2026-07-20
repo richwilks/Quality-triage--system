@@ -8,7 +8,7 @@ export default function DashboardPage() {
         Project overview coming soon.
       </p>
 
-      <div className="mt-6 flex gap-3">
+      <div className="mt-6 flex flex-wrap gap-3">
         <Link
           href="/dashboard/new-defect"
           className="inline-block rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white"
@@ -21,24 +21,30 @@ export default function DashboardPage() {
         >
           Review queue
         </Link>
-         <Link
-  href="/dashboard/new-defect-video"
-  className="inline-block rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
->
-  + From video
-        </<Link
-  href="/dashboard/notifications"
-  className="inline-block rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
->
-  Notifications
-</Link>
-<Link
-  href="/dashboard/my-defects"
-  className="inline-block rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
->
-  My assigned defects
-</Link>
-
+        <Link
+          href="/dashboard/new-defect-video"
+          className="inline-block rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
+        >
+          + From video
+        </Link>
+        <Link
+          href="/dashboard/notifications"
+          className="inline-block rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
+        >
+          Notifications
+        </Link>
+        <Link
+          href="/dashboard/my-defects"
+          className="inline-block rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
+        >
+          My assigned defects
+        </Link>
+        <Link
+          href="/dashboard/drawings"
+          className="inline-block rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
+        >
+          Drawings
+        </Link>
       </div>
     </div>
   )
