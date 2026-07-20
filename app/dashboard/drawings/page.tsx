@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
@@ -8,7 +8,7 @@ import Link from 'next/link'
 type Project = { id: string; name: string }
 type Drawing = { id: string; name: string | null; image_url: string | null }
 
-export default function DrawingsPage() {
+function DrawingsPageInner() {
   const supabase = createClient()
   const searchParams = useSearchParams()
 
@@ -118,7 +118,6 @@ export default function DrawingsPage() {
               className="overflow-hidden rounded-lg border border-slate-200 bg-white"
             >
               {d.image_url && (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img src={d.image_url} alt={d.name || 'Drawing'} className="h-28 w-full object-cover" />
               )}
               <p className="p-2 text-xs font-medium text-slate-700 truncate">{d.name}</p>
@@ -158,5 +157,19 @@ export default function DrawingsPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function DrawingsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-50 p-8">
+          <p className="text-sm text-slate-500">Loading...</p>
+        </div>
+      }
+    >
+      <DrawingsPageInner />
+    </Suspense>
   )
 }
