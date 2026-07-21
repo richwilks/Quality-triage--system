@@ -54,47 +54,43 @@ export async function analyzeDefectImage(
     { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64Image } },
   ]
 
-  let contextText = `You are a construction quality inspector reviewing a site photo.
-
-Project: ${projectDescription}
+  let referenceText = `Project: ${projectDescription}
 Applicable standards (summary): ${standards}
-${location ? `Location as recorded by the inspector: ${location}` : ''}
-`
+${location ? `Location as recorded by the inspector: ${location}` : ''}`
 
   if (specText) {
-    contextText += `\nExtracted project specification requirements:\n${specText}\n`
+    referenceText += `\n\nExtracted project specification requirements:\n${specText}`
   }
 
   if (extraStandards && extraStandards.length > 0) {
     for (const std of extraStandards) {
-      contextText += `\nExtracted requirements from referenced standard ${std.code}:\n${std.text}\n`
+      referenceText += `\n\nExtracted requirements from referenced standard ${std.code}:\n${std.text}`
     }
   }
 
-  contextText += `
-IMPORTANT - before assessing defects, you must first determine what building element this actually is: floor, wall, ceiling, structural steel, external cladding, etc. Do this by reading the physical evidence in the photo itself:
-- Camera angle and perspective (are you looking down at a horizontal surface, or across at a vertical one?)
-- Gravity cues (pooling, dripping, or settling patterns only make sense on horizontal surfaces; running or streaking patterns suggest vertical ones)
-- Junction details (skirting boards, floor-wall junctions, ceiling coving, corner details)
-- Surrounding context visible in frame (visible floor plane, visible ceiling, adjacent walls)
+  const instructions = `You are a construction quality inspector reviewing a single site photo.
 
-Treat this as a required first step every time, independent of any location text supplied - the photo itself is the primary evidence. If location text is provided and it agrees with the visual evidence, use it to add detail (e.g. which wall, which room). If it's missing, absent, or seems to conflict with what the photo shows, rely on the visual evidence alone and describe what you actually see rather than guessing from habit or assumption.
+${referenceText}
 
-IMPORTANT - only cite a specific standard, clause, or number if it appears in the extracted specification or standards text provided above. If no attached document covers the relevant point, either leave standard_reference empty or describe the general requirement without inventing a specific clause number. If you do reference a standard from general knowledge rather than an attached document, explicitly say so in the description (e.g. "note: verify this standard is still current, as it is not from an attached document") rather than stating it as settled fact - standards are periodically revised or withdrawn and your training knowledge may be out of date.
+Your task, in order:
+1. Identify what element this is (floor, wall, ceiling, steel, cladding, etc) using visual evidence in the photo - camera angle, gravity cues (pooling vs streaking), junction details (skirting, coving), and surrounding context. Only use the location text above as a tiebreaker if it agrees with what you see; if it conflicts, trust the photo.
+2. Find every distinct defect visible in the photo - there may be one, several, or none.
+3. For each defect, give a tight bounding box in percentages (0-100) of image width/height, x/y being the top-left corner. Be precise - the box should closely frame just that defect, not the whole photo or a large surrounding area.
+4. Only cite a specific standard/clause if it appears in the reference text above. If none applies, leave standard_reference empty rather than inventing or recalling a clause from memory. If you do mention a standard not present above, explicitly flag it as unverified in the description.
 
-Look carefully at the photo and identify EVERY distinct defect or non-conformance you can see - there may be one, several, or none. For each defect found, estimate a bounding box around just that defect, given as percentages of the image width and height (0-100), where x/y is the top-left corner.
+Respond with ONLY a JSON array, no markdown, no other text:
+[
+  {
+    "description": "specific description of the defect",
+    "confidence": 0.0 to 1.0,
+    "standard_reference": "clause/standard from the reference text only, or empty string",
+    "box": { "x": 0-100, "y": 0-100, "width": 0-100, "height": 0-100 }
+  }
+]
 
-Respond with ONLY a JSON array, no markdown formatting, no other text. Each element must have this exact shape:
-{
-  "description": "specific description of the defect",
-  "confidence": 0.0 to 1.0,
-  "standard_reference": "relevant clause number and standard from attached documents only, or empty string if none applies",
-  "box": { "x": 0-100, "y": 0-100, "width": 0-100, "height": 0-100 }
-}
+If no defects, respond with: []`
 
-If you see no defects, respond with an empty array: []`
-
-  content.push({ type: 'text', text: contextText })
+  content.push({ type: 'text', text: instructions })
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
