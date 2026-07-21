@@ -129,9 +129,12 @@ function NewDefectPageInner() {
         }),
       })
 
-      if (!res.ok) throw new Error('Analysis failed')
+      const result = await res.json()
 
-      const result: { defects: DetectedDefect[] } = await res.json()
+      if (!res.ok) {
+        setError(`Analysis failed: ${result.error || res.status}`)
+        return
+      }
 
       if (!result.defects || result.defects.length === 0) {
         setItems([])
@@ -139,15 +142,15 @@ function NewDefectPageInner() {
         return
       }
 
-      const mapped: ReviewItem[] = result.defects.map((d, i) => ({
+      const mapped: ReviewItem[] = result.defects.map((d: DetectedDefect, i: number) => ({
         ...d,
         localId: `${Date.now()}-${i}`,
         title: `Defect ${i + 1}`,
         included: true,
       }))
       setItems(mapped)
-    } catch (err) {
-      setError('Something went wrong analyzing the photo. Try again.')
+    } catch (err: any) {
+      setError(`Unexpected error: ${err?.message || 'unknown'}`)
     } finally {
       setAnalyzing(false)
     }
