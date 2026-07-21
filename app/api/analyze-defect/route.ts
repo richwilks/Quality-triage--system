@@ -6,7 +6,7 @@ export const maxDuration = 30
 
 export async function POST(req: NextRequest) {
   try {
-    const { imageBase64, mimeType, projectId } = await req.json()
+    const { imageBase64, mimeType, projectId, location } = await req.json()
 
     const supabase = await createClient()
     const { data: project } = await supabase
@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
       mimeType,
       project?.description || '',
       project?.standards || '',
+      location || null,
       project?.spec_extracted_text || null,
       extraStandards
     )
