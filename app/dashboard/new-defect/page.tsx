@@ -132,22 +132,34 @@ function NewDefectPageInner() {
       try {
         base64 = await fileToBase64(file)
       } catch (err: any) {
-        setError(err?.message || 'Failed to read the photo file.')
+        setError(`${err?.message || 'Failed to read the photo file.'} (file size: ${Math.round(file.size / 1024)}KB)`)
         return
       }
 
-      const res = await fetch('/api/analyze-defect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          imageBase64: base64,
-          mimeType: file.type,
-          projectId,
-          location,
-        }),
-      })
+      let res: Response
+      try {
+        res = await fetch('/api/analyze-defect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            imageBase64: base64,
+            mimeType: file.type,
+            projectId,
+            location,
+          }),
+        })
+      } catch (err: any) {
+        setError(`Request failed to send (payload ~${Math.round(base64.length / 1024)}KB): ${err?.message || 'unknown'}`)
+        return
+      }
 
-      const result = await res.json()
+      let result: any
+      try {
+        result = await res.json()
+      } catch (err: any) {
+        setError(`Server did not return valid JSON (status ${res.status}): ${err?.message || 'unknown'}`)
+        return
+      }
 
       if (!res.ok) {
         setError(`Analysis failed: ${result.error || res.status}`)
@@ -168,7 +180,7 @@ function NewDefectPageInner() {
       }))
       setItems(mapped)
     } catch (err: any) {
-      setError(`Unexpected error (network step): ${err?.message || 'unknown'}`)
+      setError(`Unexpected error (outer): ${err?.message || 'unknown'}`)
     } finally {
       setAnalyzing(false)
     }
