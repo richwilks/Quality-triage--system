@@ -104,8 +104,20 @@ function NewDefectPageInner() {
   function fileToBase64(f: File): Promise<string> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
-      reader.onload = () => resolve((reader.result as string).split(',')[1])
-      reader.onerror = reject
+      reader.onload = () => {
+        try {
+          const result = reader.result as string
+          const parts = result.split(',')
+          if (parts.length < 2) {
+            reject(new Error('File reading step: unexpected file format'))
+            return
+          }
+          resolve(parts[1])
+        } catch (err) {
+          reject(new Error('File reading step: could not process this file'))
+        }
+      }
+      reader.onerror = () => reject(new Error('File reading step: FileReader failed'))
       reader.readAsDataURL(f)
     })
   }
@@ -116,7 +128,13 @@ function NewDefectPageInner() {
     setError(null)
 
     try {
-      const base64 = await fileToBase64(file)
+      let base64: string
+      try {
+        base64 = await fileToBase64(file)
+      } catch (err: any) {
+        setError(err?.message || 'Failed to read the photo file.')
+        return
+      }
 
       const res = await fetch('/api/analyze-defect', {
         method: 'POST',
@@ -150,7 +168,7 @@ function NewDefectPageInner() {
       }))
       setItems(mapped)
     } catch (err: any) {
-      setError(`Unexpected error: ${err?.message || 'unknown'}`)
+      setError(`Unexpected error (network step): ${err?.message || 'unknown'}`)
     } finally {
       setAnalyzing(false)
     }
