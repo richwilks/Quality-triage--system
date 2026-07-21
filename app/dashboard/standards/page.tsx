@@ -3,7 +3,13 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-type StandardDoc = { id: string; code: string; title: string | null; document_url: string | null }
+type StandardDoc = {
+  id: string
+  code: string
+  title: string | null
+  document_url: string | null
+  extracted_text: string | null
+}
 
 export default function StandardsLibraryPage() {
   const supabase = createClient()
@@ -12,6 +18,7 @@ export default function StandardsLibraryPage() {
   const [title, setTitle] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [extracting, setExtracting] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -21,7 +28,7 @@ export default function StandardsLibraryPage() {
   async function load() {
     const { data } = await supabase
       .from('standards_library')
-      .select('id, code, title, document_url')
+      .select('id, code, title, document_url, extracted_text')
       .order('code', { ascending: true })
     setStandards(data || [])
     setLoading(false)
@@ -32,32 +39,36 @@ export default function StandardsLibraryPage() {
     setUploading(true)
 
     const path = `${Date.now()}-${file.name}`
-    const { error: uploadError } = await supabase.storage
-      .from('standards-library')
-      .upload(path, file)
+    const { error: uploadError } = await supabase.storage.from('standards-library').upload(path, file)
 
     if (!uploadError) {
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from('standards-library').getPublicUrl(path)
+      const { data: { publicUrl } } = supabase.storage.from('standards-library').getPublicUrl(path)
+      const { data: { user } } = await supabase.auth.getUser()
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      await supabase.from('standards_library').insert({
-        code,
-        title: title || null,
-        document_url: publicUrl,
-        created_by: user?.id,
-      })
+      const { data: inserted } = await supabase
+        .from('standards_library')
+        .insert({ code, title: title || null, document_url: publicUrl, created_by: user?.id })
+        .select()
+        .single()
 
       setCode('')
       setTitle('')
       setFile(null)
+      setUploading(false)
+
+      if (inserted) {
+        setExtracting(true)
+        await fetch('/api/extract-standard-text', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ standardId: inserted.id }),
+        })
+        setExtracting(false)
+      }
       load()
+    } else {
+      setUploading(false)
     }
-    setUploading(false)
   }
 
   if (loading) {
@@ -73,8 +84,7 @@ export default function StandardsLibraryPage() {
       <div className="mx-auto max-w-md">
         <h1 className="text-xl font-semibold text-slate-900">Standards Library</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Upload standards SPHL already holds a licensed copy of. When a project spec
-          references one of these codes, it's automatically checked during analysis.
+          Upload standards SPHL holds a licensed copy of. Each is processed once, then reused instantly for every relevant analysis.
         </p>
 
         <div className="mt-6 space-y-2">
@@ -82,6 +92,13 @@ export default function StandardsLibraryPage() {
             <div key={s.id} className="rounded-lg border border-slate-200 bg-white p-3">
               <p className="text-sm font-semibold text-slate-900">{s.code}</p>
               {s.title && <p className="text-xs text-slate-500">{s.title}</p>}
+              <p className="mt-1 text-xs">
+                {s.extracted_text ? (
+                  <span className="text-green-700">Ready for analysis</span>
+                ) : (
+                  <span className="text-amber-600">Processing...</span>
+                )}
+              </p>
             </div>
           ))}
           {standards.length === 0 && (
@@ -113,10 +130,10 @@ export default function StandardsLibraryPage() {
           />
           <button
             onClick={handleUpload}
-            disabled={uploading || !file || !code}
+            disabled={uploading || extracting || !file || !code}
             className="mt-3 w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
-            {uploading ? 'Uploading...' : 'Add to library'}
+            {uploading ? 'Uploading...' : extracting ? 'Processing document...' : 'Add to library'}
           </button>
           <p className="mt-2 text-xs text-slate-400">
             Only upload standards SPHL is properly licensed to hold - these are copyrighted BSI documents.
