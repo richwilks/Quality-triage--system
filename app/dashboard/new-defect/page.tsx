@@ -125,6 +125,7 @@ function NewDefectPageInner() {
           imageBase64: base64,
           mimeType: file.type,
           projectId,
+          location,
         }),
       })
 
@@ -175,7 +176,11 @@ function NewDefectPageInner() {
       const { error: uploadError } = await supabase.storage
         .from('defect-photos')
         .upload(filePath, file)
-      if (uploadError) throw uploadError
+      if (uploadError) {
+        setError(`Upload failed: ${uploadError.message}`)
+        setSaving(false)
+        return
+      }
 
       const {
         data: { publicUrl },
@@ -201,11 +206,15 @@ function NewDefectPageInner() {
       }))
 
       const { error: insertError } = await supabase.from('defects').insert(rows)
-      if (insertError) throw insertError
+      if (insertError) {
+        setError(`Save failed: ${insertError.message}`)
+        setSaving(false)
+        return
+      }
 
       setSaved(true)
-    } catch (err) {
-      setError('Could not save the defects. Try again.')
+    } catch (err: any) {
+      setError(`Unexpected error: ${err?.message || 'unknown'}`)
     } finally {
       setSaving(false)
     }
