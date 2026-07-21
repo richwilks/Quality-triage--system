@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -22,6 +22,7 @@ type ReviewItem = DetectedDefect & {
 }
 
 const BOX_COLORS = ['#ef4444', '#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899']
+const ESTIMATED_ANALYSIS_SECONDS = 18
 
 function NewDefectPageInner() {
   const supabase = createClient()
@@ -47,10 +48,14 @@ function NewDefectPageInner() {
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [analyzing, setAnalyzing] = useState(false)
+  const [analyzeProgress, setAnalyzeProgress] = useState(0)
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [saving, setSaving] = useState(false)
   const [items, setItems] = useState<ReviewItem[]>([])
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+
+  const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const todayLabel = new Date().toLocaleDateString('en-GB', {
     day: 'numeric',
@@ -91,6 +96,40 @@ function NewDefectPageInner() {
     loadData()
   }, [])
 
+  useEffect(() => {
+    return () => {
+      if (progressTimerRef.current) clearInterval(progressTimerRef.current)
+    }
+  }, [])
+
+  function startProgressSimulation() {
+    setAnalyzeProgress(0)
+    setElapsedSeconds(0)
+    const startTime = Date.now()
+
+    progressTimerRef.current = setInterval(() => {
+      const secondsPassed = (Date.now() - startTime) / 1000
+      setElapsedSeconds(Math.round(secondsPassed))
+
+      const estimatedPercent = (secondsPassed / ESTIMATED_ANALYSIS_SECONDS) * 100
+      const capped = Math.min(estimatedPercent, 92)
+      setAnalyzeProgress(capped)
+    }, 200)
+  }
+
+  function stopProgressSimulation(finished: boolean) {
+    if (progressTimerRef.current) {
+      clearInterval(progressTimerRef.current)
+      progressTimerRef.current = null
+    }
+    if (finished) {
+      setAnalyzeProgress(100)
+      setTimeout(() => setAnalyzeProgress(0), 600)
+    } else {
+      setAnalyzeProgress(0)
+    }
+  }
+
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files?.[0]
     if (!selected) return
@@ -103,22 +142,53 @@ function NewDefectPageInner() {
 
   function fileToBase64(f: File): Promise<string> {
     return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => {
+      const img = new Image()
+      const objectUrl = URL.createObjectURL(f)
+
+      img.onload = () => {
         try {
-          const result = reader.result as string
-          const parts = result.split(',')
+          const maxDimension = 1600
+          let { width, height } = img
+
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = Math.round((height * maxDimension) / width)
+              width = maxDimension
+            } else {
+              width = Math.round((width * maxDimension) / height)
+              height = maxDimension
+            }
+          }
+
+          const canvas = document.createElement('canvas')
+          canvas.width = width
+          canvas.height = height
+          const ctx = canvas.getContext('2d')
+          if (!ctx) {
+            reject(new Error('Could not process image (no canvas context)'))
+            return
+          }
+          ctx.drawImage(img, 0, 0, width, height)
+
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85)
+          const parts = dataUrl.split(',')
           if (parts.length < 2) {
             reject(new Error('File reading step: unexpected file format'))
             return
           }
+          URL.revokeObjectURL(objectUrl)
           resolve(parts[1])
         } catch (err) {
           reject(new Error('File reading step: could not process this file'))
         }
       }
-      reader.onerror = () => reject(new Error('File reading step: FileReader failed'))
-      reader.readAsDataURL(f)
+
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl)
+        reject(new Error('File reading step: could not load this image'))
+      }
+
+      img.src = objectUrl
     })
   }
 
@@ -126,6 +196,7 @@ function NewDefectPageInner() {
     if (!file || !projectId) return
     setAnalyzing(true)
     setError(null)
+    startProgressSimulation()
 
     try {
       let base64: string
@@ -133,6 +204,7 @@ function NewDefectPageInner() {
         base64 = await fileToBase64(file)
       } catch (err: any) {
         setError(`${err?.message || 'Failed to read the photo file.'} (file size: ${Math.round(file.size / 1024)}KB)`)
+        stopProgressSimulation(false)
         return
       }
 
@@ -143,13 +215,14 @@ function NewDefectPageInner() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             imageBase64: base64,
-            mimeType: file.type,
+            mimeType: 'image/jpeg',
             projectId,
             location,
           }),
         })
       } catch (err: any) {
         setError(`Request failed to send (payload ~${Math.round(base64.length / 1024)}KB): ${err?.message || 'unknown'}`)
+        stopProgressSimulation(false)
         return
       }
 
@@ -158,17 +231,20 @@ function NewDefectPageInner() {
         result = await res.json()
       } catch (err: any) {
         setError(`Server did not return valid JSON (status ${res.status}): ${err?.message || 'unknown'}`)
+        stopProgressSimulation(false)
         return
       }
 
       if (!res.ok) {
         setError(`Analysis failed: ${result.error || res.status}`)
+        stopProgressSimulation(false)
         return
       }
 
       if (!result.defects || result.defects.length === 0) {
         setItems([])
         setError('No defects were spotted in that photo.')
+        stopProgressSimulation(true)
         return
       }
 
@@ -179,8 +255,10 @@ function NewDefectPageInner() {
         included: true,
       }))
       setItems(mapped)
+      stopProgressSimulation(true)
     } catch (err: any) {
       setError(`Unexpected error (outer): ${err?.message || 'unknown'}`)
+      stopProgressSimulation(false)
     } finally {
       setAnalyzing(false)
     }
@@ -338,14 +416,29 @@ function NewDefectPageInner() {
             </div>
           )}
 
-          {file && items.length === 0 && (
+          {file && items.length === 0 && !analyzing && (
             <button
               onClick={handleAnalyze}
-              disabled={analyzing || !projectId}
+              disabled={!projectId}
               className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
             >
-              {analyzing ? 'Analyzing...' : 'Analyze photo'}
+              Analyze photo
             </button>
+          )}
+
+          {analyzing && (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <p className="text-sm font-medium text-slate-700">Analyzing photo...</p>
+              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                <div
+                  className="h-2 bg-slate-900 transition-all duration-200"
+                  style={{ width: `${analyzeProgress}%` }}
+                />
+              </div>
+              <p className="mt-1 text-xs text-slate-500">
+                {elapsedSeconds}s elapsed - usually takes around {ESTIMATED_ANALYSIS_SECONDS}s, keep this tab open
+              </p>
+            </div>
           )}
 
           {items.length > 0 && (
