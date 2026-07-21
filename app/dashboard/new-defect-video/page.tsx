@@ -88,6 +88,7 @@ export default function NewDefectVideoPage() {
   const [items, setItems] = useState<ReviewItem[]>([])
   const [processing, setProcessing] = useState(false)
   const [progress, setProgress] = useState('')
+  const [framesDone, setFramesDone] = useState(0)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -128,6 +129,7 @@ export default function NewDefectVideoPage() {
     setItems([])
     setSaved(false)
     setError(null)
+    setFramesDone(0)
   }
 
   function base64FromDataUrl(dataUrl: string) {
@@ -138,6 +140,7 @@ export default function NewDefectVideoPage() {
     if (!videoFile || !projectId) return
     setProcessing(true)
     setError(null)
+    setFramesDone(0)
 
     try {
       setProgress('Reading video...')
@@ -152,39 +155,44 @@ export default function NewDefectVideoPage() {
         setProgress(`Analyzing frame ${i + 1} of ${extracted.length}...`)
         const base64 = base64FromDataUrl(extracted[i].dataUrl)
 
-        const res = await fetch('/api/analyze-defect', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageBase64: base64, mimeType: 'image/jpeg', projectId }),
-        })
-
-        if (!res.ok) {
-          frameErrors++
-          try {
-            const errBody = await res.json()
-            lastErrorMessage = errBody.error || `status ${res.status}`
-          } catch {
-            lastErrorMessage = `status ${res.status}`
-          }
-          continue
-        }
-        const result: { defects: DetectedDefect[] } = await res.json()
-
-        result.defects?.forEach((d, j) => {
-          allItems.push({
-            ...d,
-            localId: `${i}-${j}`,
-            title: `Defect ${allItems.length + 1}`,
-            included: true,
-            frameIndex: i,
+        try {
+          const res = await fetch('/api/analyze-defect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageBase64: base64, mimeType: 'image/jpeg', projectId }),
           })
-        })
+
+          if (!res.ok) {
+            frameErrors++
+            try {
+              const errBody = await res.json()
+              lastErrorMessage = errBody.error || `status ${res.status}`
+            } catch {
+              lastErrorMessage = `status ${res.status}`
+            }
+          } else {
+            const result: { defects: DetectedDefect[] } = await res.json()
+            result.defects?.forEach((d, j) => {
+              allItems.push({
+                ...d,
+                localId: `${i}-${j}`,
+                title: `Defect ${allItems.length + 1}`,
+                included: true,
+                frameIndex: i,
+              })
+            })
+          }
+        } catch (frameErr: any) {
+          frameErrors++
+          lastErrorMessage = frameErr?.message || 'connection lost'
+        }
+
+        setFramesDone(i + 1)
+        setItems([...allItems])
       }
 
-      setItems(allItems)
-
       if (frameErrors === extracted.length) {
-        setError(`All ${extracted.length} frames failed to analyze. Last error: ${lastErrorMessage}`)
+        setError(`All ${extracted.length} frames failed to analyze. Last error: ${lastErrorMessage}. This often happens if the app is backgrounded or the connection drops mid-way - try again keeping this tab in the foreground on wifi.`)
       } else if (allItems.length === 0) {
         setError(
           frameErrors > 0
@@ -195,7 +203,7 @@ export default function NewDefectVideoPage() {
         setError(`${frameErrors} of ${extracted.length} frames failed to analyze, but results below are from the rest.`)
       }
     } catch (err: any) {
-      setError(`Unexpected error reading the video: ${err?.message || 'unknown'}`)
+      setError(`Unexpected error reading the video: ${err?.message || 'unknown'}. If you switched apps while this was running, try again and keep this tab open in the foreground.`)
     } finally {
       setProcessing(false)
       setProgress('')
@@ -284,6 +292,7 @@ export default function NewDefectVideoPage() {
   }
 
   const itemsByFrame = frames.map((_, i) => items.filter((it) => it.frameIndex === i))
+  const progressPercent = frames.length > 0 ? Math.round((framesDone / frames.length) * 100) : 0
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
@@ -328,14 +337,33 @@ export default function NewDefectVideoPage() {
             />
           </div>
 
-          {videoFile && frames.length === 0 && (
+          {videoFile && frames.length === 0 && !processing && (
             <button
               onClick={handleAnalyze}
-              disabled={processing || !projectId}
+              disabled={!projectId}
               className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
             >
-              {processing ? progress || 'Processing...' : 'Analyze video'}
+              Analyze video
             </button>
+          )}
+
+          {processing && (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <p className="text-sm font-medium text-slate-700">{progress || 'Working...'}</p>
+              {frames.length > 0 && (
+                <>
+                  <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                    <div
+                      className="h-2 bg-slate-900 transition-all"
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {framesDone} of {frames.length} frames checked - keep this tab open and in the foreground
+                  </p>
+                </>
+              )}
+            </div>
           )}
 
           {frames.map((frame, i) => (
@@ -412,7 +440,7 @@ export default function NewDefectVideoPage() {
             </div>
           ))}
 
-          {items.length > 0 && (
+          {items.length > 0 && !processing && (
             <>
               <div>
                 <label className="block text-sm font-medium text-slate-700">Assigned</label>
@@ -448,7 +476,7 @@ export default function NewDefectVideoPage() {
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
-          {items.length > 0 && !saved && (
+          {items.length > 0 && !saved && !processing && (
             <button
               onClick={handleSave}
               disabled={saving || items.filter((i) => i.included).length === 0}
