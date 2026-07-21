@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { analyzeDefectImage, ExtraStandard } from '@/lib/anthropic'
+import { analyzeDefectImage, ExtraStandardText } from '@/lib/anthropic'
 
-const MAX_EXTRA_STANDARDS = 3
+export const maxDuration = 30
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,44 +11,21 @@ export async function POST(req: NextRequest) {
     const supabase = await createClient()
     const { data: project } = await supabase
       .from('projects')
-      .select('description, standards, spec_document_url')
+      .select('description, standards, spec_extracted_text')
       .eq('id', projectId)
       .single()
 
-    let specBase64: string | null = null
-    if (project?.spec_document_url) {
-      try {
-        const specRes = await fetch(project.spec_document_url)
-        const specBuffer = await specRes.arrayBuffer()
-        specBase64 = Buffer.from(specBuffer).toString('base64')
-      } catch {
-        specBase64 = null
-      }
-    }
-
-    const extraStandards: ExtraStandard[] = []
+    const extraStandards: ExtraStandardText[] = []
     if (project?.standards) {
       const { data: library } = await supabase
         .from('standards_library')
-        .select('code, document_url')
+        .select('code, extracted_text')
 
-      const matches = (library || []).filter((s) =>
-        project.standards.toLowerCase().includes(s.code.toLowerCase())
+      const matches = (library || []).filter(
+        (s) => s.extracted_text && project.standards.toLowerCase().includes(s.code.toLowerCase())
       )
 
-      for (const match of matches.slice(0, MAX_EXTRA_STANDARDS)) {
-        if (!match.document_url) continue
-        try {
-          const res = await fetch(match.document_url)
-          const buffer = await res.arrayBuffer()
-          extraStandards.push({
-            code: match.code,
-            base64: Buffer.from(buffer).toString('base64'),
-          })
-        } catch {
-          // skip if it fails to fetch
-        }
-      }
+      matches.forEach((m) => extraStandards.push({ code: m.code, text: m.extracted_text }))
     }
 
     const defects = await analyzeDefectImage(
@@ -56,7 +33,7 @@ export async function POST(req: NextRequest) {
       mimeType,
       project?.description || '',
       project?.standards || '',
-      specBase64,
+      project?.spec_extracted_text || null,
       extraStandards
     )
 
