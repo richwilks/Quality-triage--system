@@ -145,6 +145,8 @@ export default function NewDefectVideoPage() {
       setFrames(extracted)
 
       const allItems: ReviewItem[] = []
+      let frameErrors = 0
+      let lastErrorMessage = ''
 
       for (let i = 0; i < extracted.length; i++) {
         setProgress(`Analyzing frame ${i + 1} of ${extracted.length}...`)
@@ -156,7 +158,16 @@ export default function NewDefectVideoPage() {
           body: JSON.stringify({ imageBase64: base64, mimeType: 'image/jpeg', projectId }),
         })
 
-        if (!res.ok) continue
+        if (!res.ok) {
+          frameErrors++
+          try {
+            const errBody = await res.json()
+            lastErrorMessage = errBody.error || `status ${res.status}`
+          } catch {
+            lastErrorMessage = `status ${res.status}`
+          }
+          continue
+        }
         const result: { defects: DetectedDefect[] } = await res.json()
 
         result.defects?.forEach((d, j) => {
@@ -171,11 +182,20 @@ export default function NewDefectVideoPage() {
       }
 
       setItems(allItems)
-      if (allItems.length === 0) {
-        setError('No defects were spotted across the video frames checked.')
+
+      if (frameErrors === extracted.length) {
+        setError(`All ${extracted.length} frames failed to analyze. Last error: ${lastErrorMessage}`)
+      } else if (allItems.length === 0) {
+        setError(
+          frameErrors > 0
+            ? `No defects found, though ${frameErrors} of ${extracted.length} frames failed. Last error: ${lastErrorMessage}`
+            : 'No defects were spotted across the video frames checked.'
+        )
+      } else if (frameErrors > 0) {
+        setError(`${frameErrors} of ${extracted.length} frames failed to analyze, but results below are from the rest.`)
       }
-    } catch (err) {
-      setError('Something went wrong analyzing the video. Try again.')
+    } catch (err: any) {
+      setError(`Unexpected error reading the video: ${err?.message || 'unknown'}`)
     } finally {
       setProcessing(false)
       setProgress('')
@@ -203,7 +223,11 @@ export default function NewDefectVideoPage() {
       const { error: videoUploadError } = await supabase.storage
         .from('defect-videos')
         .upload(videoPath, videoFile)
-      if (videoUploadError) throw videoUploadError
+      if (videoUploadError) {
+        setError(`Video upload failed: ${videoUploadError.message}`)
+        setSaving(false)
+        return
+      }
 
       const { data: { publicUrl: videoUrl } } = supabase.storage
         .from('defect-videos')
@@ -216,7 +240,11 @@ export default function NewDefectVideoPage() {
         const { error: frameUploadError } = await supabase.storage
           .from('defect-photos')
           .upload(framePath, frame.blob)
-        if (frameUploadError) throw frameUploadError
+        if (frameUploadError) {
+          setError(`Frame upload failed: ${frameUploadError.message}`)
+          setSaving(false)
+          return
+        }
 
         const { data: { publicUrl: photoUrl } } = supabase.storage
           .from('defect-photos')
@@ -241,11 +269,15 @@ export default function NewDefectVideoPage() {
       }
 
       const { error: insertError } = await supabase.from('defects').insert(rows)
-      if (insertError) throw insertError
+      if (insertError) {
+        setError(`Save failed: ${insertError.message}`)
+        setSaving(false)
+        return
+      }
 
       setSaved(true)
-    } catch (err) {
-      setError('Could not save the defects. Try again.')
+    } catch (err: any) {
+      setError(`Unexpected error: ${err?.message || 'unknown'}`)
     } finally {
       setSaving(false)
     }
@@ -393,45 +425,4 @@ export default function NewDefectVideoPage() {
                   {partners.map((p) => (
                     <option key={p.id} value={p.id}>{p.company_name || p.full_name || 'Partner'}</option>
                   ))}
-                </select>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-slate-700">Date created</label>
-                  <p className="mt-1 rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-500">{todayLabel}</p>
-                </div>
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-slate-700">Target completion</label>
-                  <input
-                    type="date"
-                    value={targetDate}
-                    onChange={(e) => setTargetDate(e.target.value)}
-                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                  />
-                </div>
-              </div>
-            </>
-          )}
-
-          {error && <p className="text-sm text-red-600">{error}</p>}
-
-          {items.length > 0 && !saved && (
-            <button
-              onClick={handleSave}
-              disabled={saving || items.filter((i) => i.included).length === 0}
-              className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-            >
-              {saving ? 'Saving...' : 'Save selected defects'}
-            </button>
-          )}
-          {saved && (
-            <p className="text-sm font-medium text-green-600">
-              Saved. You can review them on the dashboard.
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
+                
