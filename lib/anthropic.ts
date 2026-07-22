@@ -28,7 +28,7 @@ export async function extractDocumentText(base64Doc: string, label: string): Pro
             },
             {
               type: 'text',
-              text: `This document is "${label}". Extract and summarise, in plain text, every testable requirement, tolerance, clause number, material spec, and defect criterion a site inspector would need to check work against. Be thorough but concise - this will be reused for every future inspection, so don't omit anything that could matter, but don't pad with commentary. Output plain text only, organised by clause/section where possible.`,
+              text: `This document is "${label}". Extract and summarise, in plain text, every testable requirement, tolerance, clause number, material spec, and defect criterion a site inspector would need to check work against. Be thorough but concise - this will be reused for every future inspection, so don't omit anything that could matter, but don't pad with commentary. Preserve the exact part number and section/clause numbering from the source document wherever present (e.g. "Part 1, Section 10.3") - this precision matters for future citation, so never paraphrase away a numbered reference. Output plain text only, organised by clause/section where possible.`,
             },
           ],
         },
@@ -77,13 +77,14 @@ Your task, in order:
 2. Find every distinct defect visible in the photo - there may be one, several, or none.
 3. For each defect, give a tight bounding box in percentages (0-100) of image width/height, x/y being the top-left corner. Be precise - the box should closely frame just that defect, not the whole photo or a large surrounding area.
 4. Only cite a specific standard/clause if it appears in the reference text above. If none applies, leave standard_reference empty rather than inventing or recalling a clause from memory. If you do mention a standard not present above, explicitly flag it as unverified in the description.
+5. When citing a standard, always give the fullest reference available in the source text - standard number, part number, and section/clause number together, e.g. "BS 8204-1, Section 10.3" rather than just "BS 8204" or "BS 8204 Part 1" alone. Only go as deep as the source material actually specifies - never invent a section number that isn't present in the reference text.
 
 Respond with ONLY a JSON array, no markdown, no other text:
 [
   {
     "description": "specific description of the defect",
     "confidence": 0.0 to 1.0,
-    "standard_reference": "clause/standard from the reference text only, or empty string",
+    "standard_reference": "full reference including standard, part, and section/clause where available - e.g. 'BS 8204-1, Section 10.3' - or empty string if none applies",
     "box": { "x": 0-100, "y": 0-100, "width": 0-100, "height": 0-100 }
   }
 ]
