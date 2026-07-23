@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import PageHeader from '@/components/PageHeader'
 
 type Drawing = { id: string; name: string | null; image_url: string | null; project_id: string }
 
