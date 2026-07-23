@@ -93,7 +93,7 @@ function DrawingsPageInner() {
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-md">
-        <h1 className="text-xl font-semibold text-slate-900">Drawings</h1>
+        <PageHeader title="Drawings" />
         <p className="mt-1 text-sm text-slate-500">
           Choose a drawing, then tap it to drop a pin and raise a defect at that location.
         </p>
