@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import StatusBadge from '@/components/StatusBadge'
 import Link from 'next/link'
+import PageHeader from '@/components/PageHeader'
 
 type Defect = {
   id: string
