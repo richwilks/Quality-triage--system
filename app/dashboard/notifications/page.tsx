@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
 
 type Notification = {
@@ -56,8 +56,8 @@ export default function NotificationsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
-      <div className="mx-auto max-w-
-      <PageHeader title="Notificagions" />
+      <div className="mx-auto max-w-md">
+        <PageHeader title="Notifications" />
 
         {notifications.length === 0 && (
           <p className="mt-6 text-sm text-slate-500">No notifications yet.</p>
