@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import PageHeader from '@/components/PageHeader'
 
 type Project = { id: string; name: string; spec_document_url: string | null; spec_extracted_text: string | null }
 
