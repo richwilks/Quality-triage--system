@@ -88,7 +88,7 @@ export default function ProjectDetailPage() {
       <div className="mx-auto max-w-md">
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-slate-900">{project.name}</h1>
+<PageHeader title="Project.Name" />
             {project.description && (
               <p className="mt-1 text-sm text-slate-500">{project.description}</p>
             )}
