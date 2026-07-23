@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
+import PageHeader from '@/components/PageHeader'
 
 type Project = { id: string; name: string }
 type Drawing = { id: string; name: string | null; image_url: string | null }
