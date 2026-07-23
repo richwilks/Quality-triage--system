@@ -56,8 +56,8 @@ export default function NotificationsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
-      <div className="mx-auto max-w-md">
-        <h1 className="text-xl font-semibold text-slate-900">Notifications</h1>
+      <div className="mx-auto max-w-
+      <PageHeader title="Notificagions" />
 
         {notifications.length === 0 && (
           <p className="mt-6 text-sm text-slate-500">No notifications yet.</p>
