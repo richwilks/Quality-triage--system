@@ -299,7 +299,7 @@ export default function NewDefectVideoPage() {
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-md">
-        <h1 className="text-xl font-semibold text-slate-900">New Defect (Video)</h1>
+         <PageHeader title="New Defec. Video" />
         <p className="mt-1 text-sm text-slate-500">
           Upload a walkthrough video - {FRAME_COUNT} frames will be sampled and checked for defects.
         </p>
