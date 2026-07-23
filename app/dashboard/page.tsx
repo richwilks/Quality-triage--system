@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import StatusBadge from '@/components/StatusBadge'
+import PageHeader from '@/components/PageHeader'
+
 
 type Project = { id: string; name: string }
 type StatusCounts = Record<string, number>
