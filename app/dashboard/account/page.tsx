@@ -66,8 +66,7 @@ export default function AccountPage() {
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-md">
-        <h1 className="text-xl font-semibold text-slate-900">My Account</h1>
-
+        <PageHeader title="Account" />
         <div className="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
             Account type
