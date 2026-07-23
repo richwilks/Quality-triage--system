@@ -52,8 +52,7 @@ export default function NewProjectPage() {
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-md">
-        <h1 className="text-xl font-semibold text-slate-900">New Project</h1>
-
+<PageHeader title="New Project" />
         <div className="mt-6 space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <div>
             <label className="block text-sm font-medium text-slate-700">Project name</label>
