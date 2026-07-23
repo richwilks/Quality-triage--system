@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
+import PageHeader from '@/components/PageHeader'
 
 type Notification = {
   id: string
