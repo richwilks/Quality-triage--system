@@ -81,7 +81,7 @@ export default function ProjectSpecPage() {
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-md">
-        <h1 className="text-xl font-semibold text-slate-900">Project Specification</h1>
+         <PageHeader title="Project Specification" />
         <p className="mt-1 text-sm text-slate-500">
           Upload the spec document for a project. It's processed once, then reused for every photo analysis.
         </p>
