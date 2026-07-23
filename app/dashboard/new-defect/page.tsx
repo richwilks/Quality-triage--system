@@ -335,7 +335,7 @@ function NewDefectPageInner() {
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-md">
-        <h1 className="text-xl font-semibold text-slate-900">New Defect</h1>
+        <PageHeader title="New Defect" />
         <p className="mt-1 text-sm text-slate-500">
           Analyze a photo - the AI will highlight each defect it finds for you to approve.
         </p>
