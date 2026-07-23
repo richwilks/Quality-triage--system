@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
-
+l
 type StandardDoc = {
   id: string
   code: string
@@ -83,7 +83,7 @@ export default function StandardsLibraryPage() {
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-md">
-        <h1 className="text-xl font-semibold text-slate-900">Standards Library</h1>
+        <PageHeader title="Standards Library" />
         <p className="mt-1 text-sm text-slate-500">
           Upload standards SPHL holds a licensed copy of. Each is processed once, then reused instantly for every relevant analysis.
         </p>
