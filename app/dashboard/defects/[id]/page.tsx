@@ -1,4 +1,4 @@
-'use client'
+by'use client'
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
@@ -121,8 +121,8 @@ export default function DefectDetailPage() {
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-md">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-slate-900">{defect.title || 'Defect'}</h1>
+        <div className="flex items-center justify-
+<PageHeader title="Defect" />
           <StatusBadge status={defect.status} />
         </div>
         {defect.location && <p className="mt-1 text-sm text-slate-500">{defect.location}</p>}
