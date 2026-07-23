@@ -154,7 +154,7 @@ export default function ReviewDefectsPage() {
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-md">
-        <h1 className="text-xl font-semibold text-slate-900">Review Defects</h1>
+    <PageHeader title="Review Defects" />
         <p className="mt-1 text-sm text-slate-500">
           Confirm or reject each item. Assigning a partner will notify them and move it straight to Assigned.
         </p>
