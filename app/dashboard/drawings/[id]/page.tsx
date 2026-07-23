@@ -70,7 +70,8 @@ export default function DrawingPinPage() {
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-md">
-        <h1 className="text-xl font-semibold text-slate-900">{drawing.name}</h1>
+         <PageHeader title="Drawing.Name" />
+
         <p className="mt-1 text-sm text-slate-500">Tap the drawing to drop a pin at the defect location.</p>
 
         <div
