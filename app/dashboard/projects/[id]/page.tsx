@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import StatusBadge from '@/components/StatusBadge'
+import PageHeader from '@/components/PageHeader'
 
 type Project = { id: string; name: string; description: string | null }
 type Defect = {
