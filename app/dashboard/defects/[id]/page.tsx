@@ -6,7 +6,6 @@ import { createClient } from '@/lib/supabase/client'
 import StatusBadge from '@/components/StatusBadge'
 import PageHeader from '@/components/PageHeader'
 
-
 type Defect = {
   id: string
   title: string | null
@@ -121,8 +120,8 @@ export default function DefectDetailPage() {
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-md">
-        <div className="flex items-center justify->
-           <PageHeader title="Defect" />
+        <div className="flex items-center justify-between">
+          <PageHeader title={defect.title || 'Defect'} />
           <StatusBadge status={defect.status} />
         </div>
         {defect.location && <p className="mt-1 text-sm text-slate-500">{defect.location}</p>}
