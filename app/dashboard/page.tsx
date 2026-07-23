@@ -63,7 +63,7 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-md">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-slate-900">Dashboard</h1>
+          <PageHeader title="Dashboard" />
           <Link href="/dashboard/account" className="text-sm font-medium text-slate-900 underline">
             My account
           </Link>
