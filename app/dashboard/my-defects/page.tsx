@@ -83,7 +83,7 @@ export default function MyDefectsPage() {
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-md">
-        <h1 className="text-xl font-semibold text-slate-900">My Company's Defects</h1>
+        <PageHeader title="My Companies Details" />h
         <p className="mt-1 text-sm text-slate-500">
           Everything assigned to anyone at your company.
         </p>
