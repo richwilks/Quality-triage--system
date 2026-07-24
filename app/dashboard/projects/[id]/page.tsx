@@ -1,4 +1,4 @@
-'use client'
+l'use client'
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
@@ -87,21 +87,27 @@ export default function ProjectDetailPage() {
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-md">
         <div className="flex items-start justify-between">
-          <div>
-<PageHeader title="Project.Name" />
-            {project.description && (
-              <p className="mt-1 text-sm text-slate-500">{project.description}</p>
-            )}
-          </div>
+          <PageHeader title={project.name} />
           {isOwner && (
-            <Link
-              href={`/dashboard/projects/${projectId}/team`}
-              className="whitespace-nowrap text-xs font-medium text-slate-900 underline"
-            >
-              Manage team
-            </Link>
+            <div className="flex flex-col items-end gap-1">
+              <Link
+                href={`/dashboard/projects/${projectId}/edit`}
+                className="whitespace-nowrap text-xs font-medium text-slate-900 underline"
+              >
+                Edit project
+              </Link>
+              <Link
+                href={`/dashboard/projects/${projectId}/team`}
+                className="whitespace-nowrap text-xs font-medium text-slate-900 underline"
+              >
+                Manage team
+              </Link>
+            </div>
           )}
         </div>
+        {project.description && (
+          <p className="mt-1 text-sm text-slate-500">{project.description}</p>
+        )}
 
         <div className="mt-4 flex flex-wrap gap-2">
           {STATUS_ORDER.filter((s) => counts[s] > 0).map((s) => (
@@ -143,16 +149,6 @@ export default function ProjectDetailPage() {
               </div>
               <StatusBadge status={d.status} />
             </Link>
-
-                   {isOwner && (
-            <Link
-              href={`/dashboard/projects/${projectId}/team`}
-              className="whitespace-nowrap text-xs font-medium text-slate-900 underline"
-            >
-              Manage team
-            </Link>
-          )}
-
           ))}
         </div>
       </div>
