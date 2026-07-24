@@ -143,6 +143,16 @@ export default function ProjectDetailPage() {
               </div>
               <StatusBadge status={d.status} />
             </Link>
+
+                   {isOwner && (
+            <Link
+              href={`/dashboard/projects/${projectId}/team`}
+              className="whitespace-nowrap text-xs font-medium text-slate-900 underline"
+            >
+              Manage team
+            </Link>
+          )}
+
           ))}
         </div>
       </div>
