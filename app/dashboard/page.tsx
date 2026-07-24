@@ -125,6 +125,12 @@ export default function DashboardPage() {
             Standards library
           </Link>
         </div>
+<Link
+  href="/dashboard/inspection/active"
+  className="inline-block rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
+>
+  Active inspection
+</Link>
 
         <h2 className="mt-8 text-sm font-semibold uppercase tracking-wide text-slate-500">
           My projects
