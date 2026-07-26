@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import PageHeader from '@/components/PageHeader'
 
 type Member = {
   id: string
@@ -12,15 +11,24 @@ type Member = {
   profiles: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null
 }
 
+type Invite = {
+  id: string
+  email: string
+  project_role: string
+  created_at: string
+}
+
 export default function ProjectTeamPage() {
   const supabase = createClient()
   const params = useParams()
   const projectId = params.id as string
 
   const [members, setMembers] = useState<Member[]>([])
+  const [invites, setInvites] = useState<Invite[]>([])
   const [email, setEmail] = useState('')
   const [role, setRole] = useState('member')
   const [error, setError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -34,6 +42,14 @@ export default function ProjectTeamPage() {
       .select('id, user_id, project_role, profiles(full_name, email)')
       .eq('project_id', projectId)
     setMembers((data || []) as unknown as Member[])
+
+    const { data: inviteData } = await supabase
+      .from('project_invites')
+      .select('id, email, project_role, created_at')
+      .eq('project_id', projectId)
+      .is('accepted_at', null)
+    setInvites(inviteData || [])
+
     setLoading(false)
   }
 
@@ -42,40 +58,56 @@ export default function ProjectTeamPage() {
     return Array.isArray(m.profiles) ? m.profiles[0] : m.profiles
   }
 
-  async function handleAdd() {
+  async function handleInvite() {
     if (!email) return
     setAdding(true)
     setError(null)
+    setMessage(null)
 
     const { data: foundProfile } = await supabase
       .from('profiles')
       .select('id')
-      .eq('email', email)
+      .ilike('email', email)
       .maybeSingle()
 
-    if (!foundProfile) {
-      setError('No account found with that email. They need to sign up first.')
-      setAdding(false)
-      return
-    }
-
-    const { error: insertError } = await supabase.from('project_members').insert({
-      project_id: projectId,
-      user_id: foundProfile.id,
-      project_role: role,
-    })
-
-    if (insertError) {
-      setError('Could not add that person - they may already be on this project.')
+    if (foundProfile) {
+      const { error: insertError } = await supabase.from('project_members').insert({
+        project_id: projectId,
+        user_id: foundProfile.id,
+        project_role: role,
+      })
+      if (insertError) {
+        setError('Could not add that person - they may already be on this project.')
+      } else {
+        setMessage(`${email} added directly - they already had an account.`)
+        setEmail('')
+        load()
+      }
     } else {
-      setEmail('')
-      load()
+      const { error: inviteError } = await supabase.from('project_invites').insert({
+        project_id: projectId,
+        email: email.toLowerCase(),
+        project_role: role,
+      })
+      if (inviteError) {
+        setError('Could not send that invite - it may already be pending.')
+      } else {
+        setMessage(`Invited ${email} - they'll get access once they sign up or log in with that email.`)
+        setEmail('')
+        load()
+      }
     }
+
     setAdding(false)
   }
 
   async function updateRole(memberId: string, newRole: string) {
     await supabase.from('project_members').update({ project_role: newRole }).eq('id', memberId)
+    load()
+  }
+
+  async function cancelInvite(inviteId: string) {
+    await supabase.from('project_invites').delete().eq('id', inviteId)
     load()
   }
 
@@ -90,9 +122,9 @@ export default function ProjectTeamPage() {
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-md">
-<PageHeader title="Project Team" />
+        <h1 className="text-xl font-semibold text-slate-900">Project Team</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Owners can manage the project and its team. Members can work on defects.
+          Invite people by email - they only get access once accepted, either instantly if they already have an account, or automatically the next time they sign up or log in.
         </p>
 
         <div className="mt-6 space-y-2">
@@ -120,10 +152,28 @@ export default function ProjectTeamPage() {
               </div>
             )
           })}
+
+          {invites.map((inv) => (
+            <div
+              key={inv.id}
+              className="flex items-center justify-between rounded-lg border border-dashed border-amber-300 bg-amber-50 p-3"
+            >
+              <div>
+                <p className="text-sm font-medium text-slate-900">{inv.email}</p>
+                <p className="text-xs text-amber-600">Invited - pending ({inv.project_role})</p>
+              </div>
+              <button
+                onClick={() => cancelInvite(inv.id)}
+                className="text-xs font-medium text-red-600 underline"
+              >
+                Cancel
+              </button>
+            </div>
+          ))}
         </div>
 
         <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-sm font-medium text-slate-700">Add a team member</p>
+          <p className="text-sm font-medium text-slate-700">Invite someone</p>
           <input
             type="email"
             value={email}
@@ -140,16 +190,14 @@ export default function ProjectTeamPage() {
             <option value="owner">Owner</option>
           </select>
           {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+          {message && <p className="mt-2 text-sm text-green-700">{message}</p>}
           <button
-            onClick={handleAdd}
+            onClick={handleInvite}
             disabled={adding || !email}
             className="mt-3 w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
-            {adding ? 'Adding...' : 'Add member'}
+            {adding ? 'Sending...' : 'Invite'}
           </button>
-          <p className="mt-2 text-xs text-slate-400">
-            They must already have an account (signed up as Internal) before you can add them.
-          </p>
         </div>
       </div>
     </div>
