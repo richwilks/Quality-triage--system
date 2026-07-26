@@ -135,9 +135,10 @@ export default function StandardsLibraryPage() {
           >
             {uploading ? 'Uploading...' : extracting ? 'Processing document...' : 'Add to library'}
           </button>
-          <p className="mt-2 text-xs text-slate-400">
-            Only upload standards SPHL is properly licensed to hold - these are copyrighted BSI documents.
+                    <p className="mt-2 text-xs text-slate-400">
+            Only upload standards your organisation is properly licensed to hold - these are copyrighted BSI documents.
           </p>
+
         </div>
       </div>
     </div>
