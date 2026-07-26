@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import PageHeader from '@/components/PageHeader'
 
 export default function NewProjectPage() {
   const supabase = createClient()
@@ -28,9 +27,22 @@ export default function NewProjectPage() {
     } = await supabase.auth.getUser()
     if (!user) return
 
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('company_name')
+      .eq('id', user.id)
+      .single()
+
     const { data: project, error: insertError } = await supabase
       .from('projects')
-      .insert({ name, description, standards, created_by: user.id })
+      .insert({
+        name,
+        description,
+        standards,
+        created_by: user.id,
+        company_name: profile?.company_name || null,
+        status: 'active',
+      })
       .select()
       .single()
 
@@ -52,7 +64,8 @@ export default function NewProjectPage() {
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-md">
-<PageHeader title="New Project" />
+        <h1 className="text-xl font-semibold text-slate-900">New Project</h1>
+
         <div className="mt-6 space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <div>
             <label className="block text-sm font-medium text-slate-700">Project name</label>
@@ -92,7 +105,7 @@ export default function NewProjectPage() {
           <button
             onClick={handleCreate}
             disabled={saving}
-            className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="w-full rounded-md bg-brand-primary px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {saving ? 'Creating...' : 'Create project'}
           </button>
