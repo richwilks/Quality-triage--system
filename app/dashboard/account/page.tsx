@@ -100,30 +100,25 @@ export default function AccountPage() {
             </p>
           )}
 
-          <button
+                 <button
             onClick={handleSave}
             disabled={saving}
-            className="mt-5 w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="mt-5 w-full rounded-md bg-brand-primary px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {saving ? 'Saving...' : 'Save changes'}
           </button>
           {saved && <p className="mt-2 text-sm text-green-600">Saved.</p>}
         </div>
+
+        <button
+          onClick={handleLogout}
+          className="mt-4 w-full rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-600"
+        >
+          Log out
+        </button>
       </div>
     </div>
   )
 }
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="mt-5 w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-          >
-            {saving ? 'Saving...' : 'Save changes'}
-          </button>
-          {saved && <p className="mt-2 text-sm text-green-600">Saved.</p>}
-        </div>
-      </div>
-    </div>
-  )
-}
+
 
