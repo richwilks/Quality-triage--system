@@ -30,7 +30,7 @@ export default function LoginPage() {
       setError(error.message)
       return
     }
-
+await syncCompanyAccess(supabase)
     router.push('/dashboard')
     router.refresh()
   }
