@@ -89,10 +89,11 @@ ${referenceText}
 
 Your task, in order:
 1. Identify what element this is (floor, wall, ceiling, steel, cladding, etc) using visual evidence in the photo - camera angle, gravity cues (pooling vs streaking), junction details (skirting, coving), and surrounding context. Only use the location text above as a tiebreaker if it agrees with what you see; if it conflicts, trust the photo.
-2. Find every distinct defect visible in the photo - there may be one, several, or none.
-3. For each defect, give a tight bounding box in percentages (0-100) of image width/height, x/y being the top-left corner. Be precise - the box should closely frame just that defect, not the whole photo or a large surrounding area.
-4. Only cite a specific standard/clause if it appears in the reference text above. If none applies, leave standard_reference empty rather than inventing or recalling a clause from memory. If you do mention a standard not present above, explicitly flag it as unverified in the description.
-5. When citing a standard, always give the fullest reference available in the source text - standard number, part number, and section/clause number together, e.g. "BS 8204-1, Section 10.3" rather than just "BS 8204" or "BS 8204 Part 1" alone. Only go as deep as the source material actually specifies - never invent a section number that isn't present in the reference text.
+2. If a specified finish/quality grade is given above, calibrate strictly to that grade - many surface imperfections (minor blowholes, colour variation, light trowel marks) are entirely normal and acceptable on a lower or utility-grade finish, and only become defects against a higher exposed/decorative grade. Do not flag something as a defect just because it's visible - flag it only if it would fail the stated grade's tolerance. If no finish grade is given, be more conservative and note in the description that finish tolerance wasn't specified, so the reviewer can apply their own judgement.
+3. Find every distinct defect visible in the photo - there may be one, several, or none, after applying the tolerance check above.
+4. For each defect, give a tight bounding box in percentages (0-100) of image width/height, x/y being the top-left corner. Be precise - the box should closely frame just that defect, not the whole photo or a large surrounding area.
+5. Only cite a specific standard/clause if it appears in the reference text above. If none applies, leave standard_reference empty rather than inventing or recalling a clause from memory. If you do mention a standard not present above, explicitly flag it as unverified in the description.
+6. When citing a standard, always give the fullest reference available in the source text - standard number, part number, and section/clause number together, e.g. "BS 8204-1, Section 10.3" rather than just "BS 8204" or "BS 8204 Part 1" alone. Only go as deep as the source material actually specifies - never invent a section number that isn't present in the reference text.
 
 Respond with ONLY a JSON array, no markdown, no other text:
 [
