@@ -95,7 +95,7 @@ export default function AccountPage() {
             type="text"
             value={companyName}
             onChange={(e) => setCompanyName(e.target.value)}
-            placeholder="e.g. Sweet Projects Holdings Limited"
+            placeholder="e.g. ABC Construction"
             className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
           />
           {role === 'partner' && (
