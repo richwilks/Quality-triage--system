@@ -38,6 +38,10 @@ export default function AccountPage() {
     }
     setLoading(false)
   }
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    window.location.href = '/login'
+  }
 
   async function handleSave() {
     setSaving(true)
