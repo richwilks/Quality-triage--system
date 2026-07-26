@@ -84,8 +84,7 @@ export default function StandardsLibraryPage() {
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-md">
         <PageHeader title="Standards Library" />
-        <p className="mt-1 text-sm text-slate-500">
-          Upload standards SPHL holds a licensed copy of. Each is processed once, then reused instantly for every relevant analysis.
+        <p className="mt-1 text-sm text-slate-    Upload standards your organisation holds a licensed copy of. Each is processed once, then reused instantly for every relevant analysis.
         </p>
 
         <div className="mt-6 space-y-2">
