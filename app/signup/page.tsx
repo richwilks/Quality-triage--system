@@ -5,12 +5,25 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { syncCompanyAccess } from '@/lib/companySync'
 
+type AccountType = 'employee' | 'contractor' | 'client_agent' | 'client'
+
+const ACCOUNT_TYPES: { value: AccountType; label: string }[] = [
+  { value: 'employee', label: 'Employee' },
+  { value: 'contractor', label: 'Contractor' },
+  { value: 'client_agent', label: "Client's Agent" },
+  { value: 'client', label: 'Client' },
+]
+
+function deriveRole(accountType: AccountType): 'internal' | 'partner' {
+  return accountType === 'contractor' || accountType === 'client' ? 'partner' : 'internal'
+}
+
 export default function SignupPage() {
   const supabase = createClient()
 
   const [fullName, setFullName] = useState('')
   const [companyName, setCompanyName] = useState('')
-  const [role, setRole] = useState<'internal' | 'partner'>('internal')
+  const [accountType, setAccountType] = useState<AccountType>('employee')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -28,8 +41,9 @@ export default function SignupPage() {
       options: {
         data: {
           full_name: fullName,
-          role,
+          role: deriveRole(accountType),
           company_name: companyName,
+          account_type: accountType,
         },
       },
     })
@@ -63,7 +77,7 @@ export default function SignupPage() {
               <Link href="/login" className="font-medium text-brand-primary">
                 sign in
               </Link>
-              . If your employer already has projects set up, you'll be added to them automatically once you sign in.
+              . If you were invited to a project, you'll get access automatically.
             </p>
           </div>
         </div>
@@ -81,45 +95,34 @@ export default function SignupPage() {
 
         <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
           <h2 className="text-xl font-semibold text-slate-900">Create account</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Register as a principal contractor or a sub contractor.
-          </p>
+          <p className="mt-1 text-sm text-slate-500">Tell us how you're involved in a project.</p>
 
           <form onSubmit={handleSignup} className="mt-6 space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700">
-                Account type
-              </label>
-              <div className="mt-1 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setRole('internal')}
-                  className={`flex-1 rounded-md border px-3 py-2 text-sm ${
-                    role === 'internal'
-                      ? 'border-brand-primary bg-brand-primary text-white'
-                      : 'border-slate-300 text-slate-700'
-                  }`}
-                >
-                  Principal contractor
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRole('partner')}
-                  className={`flex-1 rounded-md border px-3 py-2 text-sm ${
-                    role === 'partner'
-                      ? 'border-brand-primary bg-brand-primary text-white'
-                      : 'border-slate-300 text-slate-700'
-                  }`}
-                >
-                  Sub contractor
-                </button>
+              <label className="block text-sm font-medium text-slate-700">Account type</label>
+              <div className="mt-1 grid grid-cols-2 gap-2">
+                {ACCOUNT_TYPES.map((t) => (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => setAccountType(t.value)}
+                    className={`rounded-md border px-3 py-2 text-sm ${
+                      accountType === t.value
+                        ? 'border-brand-primary bg-brand-primary text-white'
+                        : 'border-slate-300 text-slate-700'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
               </div>
+              <p className="mt-1 text-xs text-slate-400">
+                If you were invited by a company, this will be set automatically once you accept.
+              </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700">
-                Full name
-              </label>
+              <label className="block text-sm font-medium text-slate-700">Full name</label>
               <input
                 type="text"
                 required
@@ -130,9 +133,7 @@ export default function SignupPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700">
-                Employer
-              </label>
+              <label className="block text-sm font-medium text-slate-700">Employer</label>
               <input
                 type="text"
                 required
@@ -141,15 +142,10 @@ export default function SignupPage() {
                 placeholder="e.g. Acme Construction Ltd"
                 className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-primary focus:outline-none"
               />
-              <p className="mt-1 text-xs text-slate-400">
-                If this matches a company already using InspectIQ, you'll get access to their relevant projects automatically.
-              </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700">
-                Email
-              </label>
+              <label className="block text-sm font-medium text-slate-700">Email</label>
               <input
                 type="email"
                 required
@@ -160,9 +156,7 @@ export default function SignupPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700">
-                Password
-              </label>
+              <label className="block text-sm font-medium text-slate-700">Password</label>
               <input
                 type="password"
                 required
