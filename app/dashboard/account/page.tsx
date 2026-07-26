@@ -13,6 +13,7 @@ export default function AccountPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(true)
+const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
 
   useEffect(() => {
     load()
