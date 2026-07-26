@@ -357,6 +357,22 @@ function NewDefectPageInner() {
           </div>
 
           <div>
+            <label className="block text-sm font-medium text-slate-700">Specified finish/quality grade</label>
+            <input
+              type="text"
+              value={finishGrade}
+              onChange={(e) => setFinishGrade(e.target.value)}
+              placeholder="e.g. SR1 exposed floor finish, or FM2 plant room slab"
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+            <p className="mt-1 text-xs text-slate-400">
+              Critical for concrete/finish work - tells the AI what level of imperfection is actually acceptable here.
+            </p>
+          </div>
+
+
+
+          <div>
             <div className="flex items-center justify-between">
               <label className="block text-sm font-medium text-slate-700">Location</label>
               {projectId && (
