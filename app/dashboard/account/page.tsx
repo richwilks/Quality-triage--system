@@ -113,3 +113,17 @@ export default function AccountPage() {
     </div>
   )
 }
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="mt-5 w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+          >
+            {saving ? 'Saving...' : 'Save changes'}
+          </button>
+          {saved && <p className="mt-2 text-sm text-green-600">Saved.</p>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
