@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { analyzeDefectImage, ExtraStandardText, FeedbackExample } from '@/lib/anthropic'
 
 export const maxDuration = 30
-const MAX_FEEDBACK_EXAMPLES = 8
+const MAX_FEEDBACK_EXAMPLES = 12
 
 export async function POST(req: NextRequest) {
   try {
@@ -38,13 +38,13 @@ export async function POST(req: NextRequest) {
         .order('changed_at', { ascending: false })
         .limit(30)
 
-      const relevant = (history || [])
+            const relevant = (history || [])
         .filter((h: any) => {
           const d = Array.isArray(h.defects) ? h.defects[0] : h.defects
-          const proj = d?.projects ? (Array.isArray(d.projects) ? d.projects[0] : d.projects) : null
-          return proj?.company_name?.toLowerCase() === project.company_name.toLowerCase()
+          return d?.project_id === projectId
         })
         .slice(0, MAX_FEEDBACK_EXAMPLES)
+
 
       feedbackExamples = relevant.map((h: any) => {
         const d = Array.isArray(h.defects) ? h.defects[0] : h.defects
