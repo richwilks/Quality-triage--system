@@ -27,7 +27,7 @@ const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
 
     const { data } = await supabase
       .from('profiles')
-      .select('full_name, company_name, role, email')
+      .select('full_name, company_name, role, email, is_platform_admin, company_admin')
       .eq('id', user.id)
       .single()
 
@@ -35,6 +35,7 @@ const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
       setFullName(data.full_name || '')
       setCompanyName(data.company_name || '')
       setRole(data.role || '')
+      setIsPlatformAdmin(data.is_platform_admin || false)
       setEmail(data.email || '')
     }
     setLoading(false)
