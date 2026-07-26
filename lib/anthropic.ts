@@ -41,6 +41,8 @@ export async function extractDocumentText(base64Doc: string, label: string): Pro
   return textBlock?.text || ''
 }
 
+export type FeedbackExample = { description: string; wasValid: boolean; reason?: string | null }
+
 export async function analyzeDefectImage(
   base64Image: string,
   mimeType: string,
@@ -48,8 +50,10 @@ export async function analyzeDefectImage(
   standards: string,
   location?: string | null,
   specText?: string | null,
-  extraStandards?: ExtraStandardText[]
+  extraStandards?: ExtraStandardText[],
+  feedbackExamples?: FeedbackExample[]
 ): Promise<DetectedDefect[]> {
+
   const content: any[] = [
     { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64Image } },
   ]
@@ -65,7 +69,18 @@ ${location ? `Location as recorded by the inspector: ${location}` : ''}`
   if (extraStandards && extraStandards.length > 0) {
     for (const std of extraStandards) {
       referenceText += `\n\nExtracted requirements from referenced standard ${std.code}:\n${std.text}`
+
+  if (feedbackExamples && feedbackExamples.length > 0) {
+    referenceText += `\n\nFeedback from this organisation's past inspections (use to calibrate judgement, not as rigid rules - still assess primarily on visual evidence):`
+    for (const ex of feedbackExamples) {
+      if (ex.wasValid) {
+        referenceText += `\n- Confirmed as a real defect: "${ex.description}"`
+      } else {
+        referenceText += `\n- Rejected as NOT a defect: "${ex.description}"${ex.reason ? ` (reason: ${ex.reason})` : ''}`
+      }
     }
+  }
+
   }
 
   const instructions = `You are a construction quality inspector reviewing a single site photo.
