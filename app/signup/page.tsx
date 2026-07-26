@@ -55,11 +55,16 @@ export default function SignupPage() {
       return
     }
 
-    if (data.session) {
-      await syncCompanyAccess(supabase)
+      if (data.session) {
+      try {
+        await syncCompanyAccess(supabase)
+      } catch (syncErr) {
+        console.error('Sync error (non-fatal):', syncErr)
+      }
     }
 
     setSubmitted(true)
+
   }
 
   if (submitted) {
