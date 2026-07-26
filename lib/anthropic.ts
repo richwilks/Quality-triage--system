@@ -6,6 +6,7 @@ export type DetectedDefect = {
 }
 
 export type ExtraStandardText = { code: string; text: string }
+export type FeedbackExample = { description: string; wasValid: boolean; reason?: string | null }
 
 export async function extractDocumentText(base64Doc: string, label: string): Promise<string> {
   const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -41,8 +42,6 @@ export async function extractDocumentText(base64Doc: string, label: string): Pro
   return textBlock?.text || ''
 }
 
-export type FeedbackExample = { description: string; wasValid: boolean; reason?: string | null }
-
 export async function analyzeDefectImage(
   base64Image: string,
   mimeType: string,
@@ -51,16 +50,17 @@ export async function analyzeDefectImage(
   location?: string | null,
   specText?: string | null,
   extraStandards?: ExtraStandardText[],
-  feedbackExamples?: FeedbackExample[]
+  feedbackExamples?: FeedbackExample[],
+  finishGrade?: string | null
 ): Promise<DetectedDefect[]> {
-
   const content: any[] = [
     { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64Image } },
   ]
 
   let referenceText = `Project: ${projectDescription}
 Applicable standards (summary): ${standards}
-${location ? `Location as recorded by the inspector: ${location}` : ''}`
+${location ? `Location as recorded by the inspector: ${location}` : ''}
+${finishGrade ? `Specified finish/quality grade for this location: ${finishGrade}` : 'No finish/quality grade specified for this location - be conservative and flag this gap.'}`
 
   if (specText) {
     referenceText += `\n\nExtracted project specification requirements:\n${specText}`
@@ -69,9 +69,11 @@ ${location ? `Location as recorded by the inspector: ${location}` : ''}`
   if (extraStandards && extraStandards.length > 0) {
     for (const std of extraStandards) {
       referenceText += `\n\nExtracted requirements from referenced standard ${std.code}:\n${std.text}`
+    }
+  }
 
   if (feedbackExamples && feedbackExamples.length > 0) {
-    referenceText += `\n\nFeedback from this organisation's past inspections (use to calibrate judgement, not as rigid rules - still assess primarily on visual evidence):`
+    referenceText += `\n\nFeedback from this project's past inspections (use to calibrate judgement, not as rigid rules - still assess primarily on visual evidence):`
     for (const ex of feedbackExamples) {
       if (ex.wasValid) {
         referenceText += `\n- Confirmed as a real defect: "${ex.description}"`
@@ -79,8 +81,6 @@ ${location ? `Location as recorded by the inspector: ${location}` : ''}`
         referenceText += `\n- Rejected as NOT a defect: "${ex.description}"${ex.reason ? ` (reason: ${ex.reason})` : ''}`
       }
     }
-  }
-
   }
 
   const instructions = `You are a construction quality inspector reviewing a single site photo.
@@ -135,6 +135,7 @@ If no defects, respond with: []`
     return []
   }
 }
+
 export async function detectRoomLabel(base64Image: string, mimeType: string): Promise<string> {
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -166,5 +167,3 @@ export async function detectRoomLabel(base64Image: string, mimeType: string): Pr
   const result = (textBlock?.text || '').trim()
   return result === 'NONE' ? '' : result
 }
-
-
