@@ -7,7 +7,7 @@ const MAX_FEEDBACK_EXAMPLES = 12
 
 export async function POST(req: NextRequest) {
   try {
-    const { imageBase64, mimeType, projectId, location } = await req.json()
+    const { imageBase64, mimeType, projectId, location, finishGrade } = await req.json()
 
     const supabase = await createClient()
     const { data: project } = await supabase
@@ -38,13 +38,12 @@ export async function POST(req: NextRequest) {
         .order('changed_at', { ascending: false })
         .limit(30)
 
-            const relevant = (history || [])
+      const relevant = (history || [])
         .filter((h: any) => {
           const d = Array.isArray(h.defects) ? h.defects[0] : h.defects
           return d?.project_id === projectId
         })
         .slice(0, MAX_FEEDBACK_EXAMPLES)
-
 
       feedbackExamples = relevant.map((h: any) => {
         const d = Array.isArray(h.defects) ? h.defects[0] : h.defects
@@ -64,7 +63,8 @@ export async function POST(req: NextRequest) {
       location || null,
       project?.spec_extracted_text || null,
       extraStandards,
-      feedbackExamples
+      feedbackExamples,
+      finishGrade || null
     )
 
     return NextResponse.json({ defects })
