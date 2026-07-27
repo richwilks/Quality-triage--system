@@ -52,7 +52,8 @@ export async function analyzeDefectImage(
   extraStandards?: ExtraStandardText[],
   feedbackExamples?: FeedbackExample[],
   finishGrade?: string | null
-): Promise<DetectedDefect[]> {
+): Promise<{ defects: DetectedDefect[]; usage: { input_tokens: number; output_tokens: number } | null }> {
+
   const content: any[] = [
     { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64Image } },
   ]
