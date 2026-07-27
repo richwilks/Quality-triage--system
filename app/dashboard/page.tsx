@@ -13,6 +13,7 @@ const STATUS_ORDER = ['draft', 'confirmed', 'assigned', 'closed', 'rejected']
 
 const QUICK_LINKS = [
   { href: '/dashboard/projects/new', label: 'New project', primary: true },
+  { href: '/dashboard/company-analytics', label: 'Company performance' },
   { href: '/dashboard/new-defect-video', label: 'From video' },
   { href: '/dashboard/drawings', label: 'Drawings' },
   { href: '/dashboard/my-defects', label: 'My assigned' },
