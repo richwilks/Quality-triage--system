@@ -89,12 +89,18 @@ await syncCompanyAccess(supabase)
             </button>
           </form>
 
-          <p className="mt-5 text-center text-sm text-slate-500">
+                   <p className="mt-3 text-center text-sm">
+            <Link href="/forgot-password" className="font-medium text-brand-primary">
+              Forgot password?
+            </Link>
+          </p>
+          <p className="mt-3 text-center text-sm text-slate-500">
             No account?{' '}
             <Link href="/signup" className="font-medium text-brand-primary">
               Sign up
             </Link>
           </p>
+
         </div>
       </div>
     </div>
