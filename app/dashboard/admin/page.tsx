@@ -194,7 +194,8 @@ export default function PlatformAdminPage() {
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-md">
         <PageHeader title="Platform Admin" />
-        <        <p className="mt-1 text-sm text-slate-500">Manage every user, project, and invite directly.</p>
+        
+ <p className="mt-1 text-sm text-slate-500">Manage every user, project, and invite directly.</p>
 
         <a
           href="/dashboard/admin/analytics"
