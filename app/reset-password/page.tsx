@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
@@ -8,18 +8,13 @@ export default function ResetPasswordPage() {
   const supabase = createClient()
   const router = useRouter()
 
+  const [email, setEmail] = useState('')
+  const [code, setCode] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
-  const [ready, setReady] = useState(false)
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setReady(!!data.session)
-    })
-  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -35,11 +30,24 @@ export default function ResetPasswordPage() {
     }
 
     setLoading(true)
-    const { error } = await supabase.auth.updateUser({ password })
+
+    const { error: verifyError } = await supabase.auth.verifyOtp({
+      email,
+      token: code,
+      type: 'recovery',
+    })
+
+    if (verifyError) {
+      setError(verifyError.message)
+      setLoading(false)
+      return
+    }
+
+    const { error: updateError } = await supabase.auth.updateUser({ password })
     setLoading(false)
 
-    if (error) {
-      setError(error.message)
+    if (updateError) {
+      setError(updateError.message)
       return
     }
 
@@ -58,15 +66,37 @@ export default function ResetPasswordPage() {
         <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
           {success ? (
             <p className="text-sm font-medium text-green-700">Password updated. Redirecting...</p>
-          ) : !ready ? (
-            <p className="text-sm text-slate-500">
-              This link may have expired. Try requesting a new reset link.
-            </p>
           ) : (
             <>
-              <h2 className="text-xl font-semibold text-slate-900">Set a new password</h2>
+              <h2 className="text-xl font-semibold text-slate-900">Reset your password</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Enter the email and code from the reset email, then choose a new password.
+              </p>
 
               <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700">Email</label>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-primary focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700">Reset code</label>
+                  <input
+                    type="text"
+                    required
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    placeholder="6-digit code from the email"
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-primary focus:outline-none"
+                  />
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-slate-700">New password</label>
                   <input
@@ -78,6 +108,7 @@ export default function ResetPasswordPage() {
                     className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-primary focus:outline-none"
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-slate-700">Confirm password</label>
                   <input
