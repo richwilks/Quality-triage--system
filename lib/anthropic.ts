@@ -123,18 +123,23 @@ If no defects, respond with: []`
     }),
   })
 
-  const data = await response.json()
+   const data = await response.json()
   const textBlock = data.content?.find((c: any) => c.type === 'text')
   const raw = textBlock?.text || '[]'
   const cleaned = raw.replace(/```json|```/g, '').trim()
 
+  const usage = data.usage
+    ? { input_tokens: data.usage.input_tokens || 0, output_tokens: data.usage.output_tokens || 0 }
+    : null
+
   try {
     const parsed = JSON.parse(cleaned)
-    return Array.isArray(parsed) ? parsed : []
+    return { defects: Array.isArray(parsed) ? parsed : [], usage }
   } catch {
-    return []
+    return { defects: [], usage }
   }
 }
+
 
 export async function detectRoomLabel(base64Image: string, mimeType: string): Promise<string> {
   const response = await fetch('https://api.anthropic.com/v1/messages', {
