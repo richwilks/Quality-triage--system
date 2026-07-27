@@ -5,6 +5,10 @@ import { analyzeDefectImage, ExtraStandardText, FeedbackExample } from '@/lib/an
 export const maxDuration = 30
 const MAX_FEEDBACK_EXAMPLES = 12
 
+// Sonnet 5 pricing per 1M tokens (adjust if pricing changes)
+const INPUT_COST_PER_M = 2.0
+const OUTPUT_COST_PER_M = 10.0
+
 export async function POST(req: NextRequest) {
   try {
     const { imageBase64, mimeType, projectId, location, finishGrade } = await req.json()
@@ -55,7 +59,7 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    const defects = await analyzeDefectImage(
+    const { defects, usage } = await analyzeDefectImage(
       imageBase64,
       mimeType,
       project?.description || '',
@@ -66,6 +70,21 @@ export async function POST(req: NextRequest) {
       feedbackExamples,
       finishGrade || null
     )
+
+    if (usage) {
+      const cost =
+        (usage.input_tokens / 1_000_000) * INPUT_COST_PER_M +
+        (usage.output_tokens / 1_000_000) * OUTPUT_COST_PER_M
+
+      await supabase.from('analysis_log').insert({
+        project_id: projectId,
+        company_name: project?.company_name || null,
+        kind: 'photo',
+        input_tokens: usage.input_tokens,
+        output_tokens: usage.output_tokens,
+        estimated_cost: cost,
+      })
+    }
 
     return NextResponse.json({ defects })
   } catch (err) {
