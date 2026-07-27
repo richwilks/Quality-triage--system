@@ -48,10 +48,15 @@ export default function ForgotPasswordPage() {
             </>
           ) : (
             <>
-              <h2 className="text-xl font-semibold text-slate-900">Reset password</h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Enter your email and we'll send you a reset link.
+                           <h2 className="text-lg font-semibold text-slate-900">Check your email</h2>
+              <p className="mt-2 text-sm text-slate-500">
+                If an account exists for {email}, a code has been sent. Enter it on the{' '}
+                <Link href="/reset-password" className="font-medium text-brand-primary">
+                  reset password page
+                </Link>
+                .
               </p>
+
 
               <form onSubmit={handleSubmit} className="mt-6 space-y-4">
                 <div>
