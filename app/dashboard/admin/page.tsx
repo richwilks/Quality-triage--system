@@ -4,15 +4,50 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
 
-type UserRow = { id: string; full_name: string | null; email: string | null; company_name: string | null; account_type: string | null; company_admin: boolean; is_platform_admin: boolean }
-type ProjectRow = { id: string; name: string; company_name: string | null; status: string }
+type UserRow = {
+  id: string
+  full_name: string | null
+  email: string | null
+  company_name: string | null
+  account_type: string | null
+  role: string | null
+  company_admin: boolean
+  is_platform_admin: boolean
+}
+
+type ProjectRow = {
+  id: string
+  name: string
+  description: string | null
+  standards: string | null
+  company_name: string | null
+  status: string
+}
+
+type InviteRow = {
+  id: string
+  email: string
+  project_role: string
+  account_type: string | null
+  created_at: string
+  projects: { name: string } | { name: string }[] | null
+}
+
+const ACCOUNT_TYPES = ['employee', 'contractor', 'client_agent', 'client']
+const TABS = ['Users', 'Projects', 'Invites'] as const
 
 export default function PlatformAdminPage() {
   const supabase = createClient()
   const [allowed, setAllowed] = useState(false)
+  const [tab, setTab] = useState<(typeof TABS)[number]>('Users')
+  const [loading, setLoading] = useState(true)
+
   const [users, setUsers] = useState<UserRow[]>([])
   const [projects, setProjects] = useState<ProjectRow[]>([])
-  const [loading, setLoading] = useState(true)
+  const [invites, setInvites] = useState<InviteRow[]>([])
+
+  const [editingUser, setEditingUser] = useState<string | null>(null)
+  const [editingProject, setEditingProject] = useState<string | null>(null)
 
   useEffect(() => {
     load()
@@ -39,35 +74,44 @@ export default function PlatformAdminPage() {
 
     const { data: userData } = await supabase
       .from('profiles')
-      .select('id, full_name, email, company_name, account_type, company_admin, is_platform_admin')
+      .select('id, full_name, email, company_name, account_type, role, company_admin, is_platform_admin')
       .order('company_name', { ascending: true })
     setUsers(userData || [])
 
     const { data: projectData } = await supabase
       .from('projects')
-      .select('id, name, company_name, status')
+      .select('id, name, description, standards, company_name, status')
       .order('company_name', { ascending: true })
     setProjects(projectData || [])
+
+    const { data: inviteData } = await supabase
+      .from('project_invites')
+      .select('id, email, project_role, account_type, created_at, projects(name)')
+      .is('accepted_at', null)
+      .order('created_at', { ascending: false })
+    setInvites((inviteData || []) as unknown as InviteRow[])
 
     setLoading(false)
   }
 
-  async function toggleCompanyAdmin(userId: string, current: boolean) {
-    await supabase.from('profiles').update({ company_admin: !current }).eq('id', userId)
-    load()
+  function getProjectName(inv: InviteRow) {
+    if (!inv.projects) return ''
+    return Array.isArray(inv.projects) ? inv.projects[0]?.name : inv.projects.name
   }
 
-  async function togglePlatformAdmin(userId: string, current: boolean) {
-    await supabase.from('profiles').update({ is_platform_admin: !current }).eq('id', userId)
-    load()
+  async function updateUser(id: string, patch: Partial<UserRow>) {
+    await supabase.from('profiles').update(patch).eq('id', id)
+    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...patch } : u)))
   }
 
-  async function toggleProjectStatus(projectId: string, current: string) {
-    await supabase
-      .from('projects')
-      .update({ status: current === 'closed' ? 'active' : 'closed' })
-      .eq('id', projectId)
-    load()
+  async function updateProject(id: string, patch: Partial<ProjectRow>) {
+    await supabase.from('projects').update(patch).eq('id', id)
+    setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)))
+  }
+
+  async function cancelInvite(id: string) {
+    await supabase.from('project_invites').delete().eq('id', id)
+    setInvites((prev) => prev.filter((i) => i.id !== id))
   }
 
   if (loading) {
@@ -90,63 +134,269 @@ export default function PlatformAdminPage() {
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-md">
         <PageHeader title="Platform Admin" />
-        <p className="mt-1 text-sm text-slate-500">Full access across every company and project.</p>
+        <p className="mt-1 text-sm text-slate-500">Manage every user, project, and invite directly.</p>
 
-        <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-slate-500">
-          All projects
-        </h2>
-        <div className="mt-2 space-y-2">
-          {projects.map((p) => (
-            <div key={p.id} className="rounded-lg border border-slate-200 bg-white p-3">
-              <div className="flex items-center justify-between">
+        <div className="mt-4 flex gap-2">
+          {TABS.map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`rounded-full px-4 py-1.5 text-sm font-medium ${
+                tab === t ? 'bg-brand-primary text-white' : 'border border-slate-300 text-slate-600'
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'Users' && (
+          <div className="mt-4 space-y-2">
+            {users.map((u) => (
+              <div key={u.id} className="rounded-lg border border-slate-200 bg-white p-3">
+                {editingUser === u.id ? (
+                  <div className="space-y-2">
+                    <input
+                      value={u.full_name || ''}
+                      onChange={(e) =>
+                        setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, full_name: e.target.value } : x)))
+                      }
+                      placeholder="Full name"
+                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
+                    />
+                    <input
+                      value={u.company_name || ''}
+                      onChange={(e) =>
+                        setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, company_name: e.target.value } : x)))
+                      }
+                      placeholder="Company"
+                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
+                    />
+                    <select
+                      value={u.account_type || ''}
+                      onChange={(e) =>
+                        setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, account_type: e.target.value } : x)))
+                      }
+                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
+                    >
+                      <option value="">No type set</option>
+                      {ACCOUNT_TYPES.map((t) => (
+                        <option key={t} value={t}>{t.replace('_', ' ')}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={u.role || 'internal'}
+                      onChange={(e) =>
+                        setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, role: e.target.value } : x)))
+                      }
+                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
+                    >
+                      <option value="internal">Internal (sees own projects fully)</option>
+                      <option value="partner">Partner (sees only assigned defects)</option>
+                    </select>
+                    <div className="flex gap-2">
+                      <label className="flex items-center gap-1 text-xs text-slate-600">
+                        <input
+                          type="checkbox"
+                          checked={u.company_admin}
+                          onChange={(e) =>
+                            setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, company_admin: e.target.checked } : x)))
+                          }
+                        />
+                        Company admin
+                      </label>
+                      <label className="flex items-center gap-1 text-xs text-slate-600">
+                        <input
+                          type="checkbox"
+                          checked={u.is_platform_admin}
+                          onChange={(e) =>
+                            setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, is_platform_admin: e.target.checked } : x)))
+                          }
+                        />
+                        Platform admin
+                      </label>
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={() => {
+                          updateUser(u.id, {
+                            full_name: u.full_name,
+                            company_name: u.company_name,
+                            account_type: u.account_type,
+                            role: u.role,
+                            company_admin: u.company_admin,
+                            is_platform_admin: u.is_platform_admin,
+                          })
+                          setEditingUser(null)
+                        }}
+                        className="flex-1 rounded-md bg-brand-primary px-3 py-1.5 text-xs font-medium text-white"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setEditingUser(null)}
+                        className="flex-1 rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">{u.full_name || 'Unnamed'}</p>
+                      <p className="text-xs text-slate-500">
+                        {u.email} · {u.company_name || 'no company'} · {u.account_type || 'no type'}
+                      </p>
+                      <div className="mt-1 flex gap-1">
+                        {u.company_admin && (
+                          <span className="rounded-full bg-brand-primary/10 px-2 py-0.5 text-[10px] font-medium text-brand-primary">
+                            Company admin
+                          </span>
+                        )}
+                        {u.is_platform_admin && (
+                          <span className="rounded-full bg-brand-ink/10 px-2 py-0.5 text-[10px] font-medium text-brand-ink">
+                            Platform admin
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setEditingUser(u.id)}
+                      className="text-xs font-medium text-brand-primary"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === 'Projects' && (
+          <div className="mt-4 space-y-2">
+            {projects.map((p) => (
+              <div key={p.id} className="rounded-lg border border-slate-200 bg-white p-3">
+                {editingProject === p.id ? (
+                  <div className="space-y-2">
+                    <input
+                      value={p.name}
+                      onChange={(e) =>
+                        setProjects((prev) => prev.map((x) => (x.id === p.id ? { ...x, name: e.target.value } : x)))
+                      }
+                      placeholder="Project name"
+                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
+                    />
+                    <textarea
+                      value={p.description || ''}
+                      onChange={(e) =>
+                        setProjects((prev) => prev.map((x) => (x.id === p.id ? { ...x, description: e.target.value } : x)))
+                      }
+                      placeholder="Description"
+                      rows={2}
+                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
+                    />
+                    <textarea
+                      value={p.standards || ''}
+                      onChange={(e) =>
+                        setProjects((prev) => prev.map((x) => (x.id === p.id ? { ...x, standards: e.target.value } : x)))
+                      }
+                      placeholder="Applicable standards"
+                      rows={2}
+                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
+                    />
+                    <input
+                      value={p.company_name || ''}
+                      onChange={(e) =>
+                        setProjects((prev) => prev.map((x) => (x.id === p.id ? { ...x, company_name: e.target.value } : x)))
+                      }
+                      placeholder="Company"
+                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
+                    />
+                    <select
+                      value={p.status}
+                      onChange={(e) =>
+                        setProjects((prev) => prev.map((x) => (x.id === p.id ? { ...x, status: e.target.value } : x)))
+                      }
+                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
+                    >
+                      <option value="active">Active</option>
+                      <option value="closed">Closed</option>
+                    </select>
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={() => {
+                          updateProject(p.id, {
+                            name: p.name,
+                            description: p.description,
+                            standards: p.standards,
+                            company_name: p.company_name,
+                            status: p.status,
+                          })
+                          setEditingProject(null)
+                        }}
+                        className="flex-1 rounded-md bg-brand-primary px-3 py-1.5 text-xs font-medium text-white"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setEditingProject(null)}
+                        className="flex-1 rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">{p.name}</p>
+                      <p className="text-xs text-slate-500">{p.company_name || 'no company'}</p>
+                      <span
+                        className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                          p.status === 'closed' ? 'bg-slate-200 text-slate-600' : 'bg-green-100 text-green-700'
+                        }`}
+                      >
+                        {p.status}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setEditingProject(p.id)}
+                      className="text-xs font-medium text-brand-primary"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === 'Invites' && (
+          <div className="mt-4 space-y-2">
+            {invites.length === 0 && (
+              <p className="text-sm text-slate-500">No pending invites anywhere.</p>
+            )}
+            {invites.map((inv) => (
+              <div key={inv.id} className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 p-3">
                 <div>
-                  <p className="text-sm font-medium text-slate-900">{p.name}</p>
-                  <p className="text-xs text-slate-500">{p.company_name || 'No company set'}</p>
+                  <p className="text-sm font-medium text-slate-900">{inv.email}</p>
+                  <p className="text-xs text-slate-500">
+                    {getProjectName(inv)} · {inv.project_role} · {inv.account_type || 'no type'}
+                  </p>
                 </div>
                 <button
-                  onClick={() => toggleProjectStatus(p.id, p.status)}
-                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                    p.status === 'closed' ? 'bg-slate-200 text-slate-600' : 'bg-green-100 text-green-700'
-                  }`}
+                  onClick={() => cancelInvite(inv.id)}
+                  className="text-xs font-medium text-red-600"
                 >
-                  {p.status === 'closed' ? 'Closed - reopen' : 'Active - close'}
+                  Cancel
                 </button>
               </div>
-            </div>
-          ))}
-        </div>
-
-        <h2 className="mt-8 text-sm font-semibold uppercase tracking-wide text-slate-500">
-          All users
-        </h2>
-        <div className="mt-2 space-y-2">
-          {users.map((u) => (
-            <div key={u.id} className="rounded-lg border border-slate-200 bg-white p-3">
-              <p className="text-sm font-medium text-slate-900">{u.full_name || 'Unnamed'}</p>
-              <p className="text-xs text-slate-500">
-                {u.email} - {u.company_name || 'No company'} - {u.account_type || 'no type'}
-              </p>
-              <div className="mt-2 flex gap-2">
-                <button
-                  onClick={() => toggleCompanyAdmin(u.id, u.company_admin)}
-                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                    u.company_admin ? 'bg-brand-primary text-white' : 'border border-slate-300 text-slate-600'
-                  }`}
-                >
-                  Company admin
-                </button>
-                <button
-                  onClick={() => togglePlatformAdmin(u.id, u.is_platform_admin)}
-                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                    u.is_platform_admin ? 'bg-brand-ink text-white' : 'border border-slate-300 text-slate-600'
-                  }`}
-                >
-                  Platform admin
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
