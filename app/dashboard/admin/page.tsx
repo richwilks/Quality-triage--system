@@ -13,6 +13,7 @@ type UserRow = {
   role: string | null
   company_admin: boolean
   is_platform_admin: boolean
+  is_blocked: boolean
 }
 
 type ProjectRow = {
@@ -41,13 +42,16 @@ export default function PlatformAdminPage() {
   const [allowed, setAllowed] = useState(false)
   const [tab, setTab] = useState<(typeof TABS)[number]>('Users')
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
 
   const [users, setUsers] = useState<UserRow[]>([])
   const [projects, setProjects] = useState<ProjectRow[]>([])
   const [invites, setInvites] = useState<InviteRow[]>([])
+  const [userProjectIds, setUserProjectIds] = useState<Record<string, string[]>>({})
 
   const [editingUser, setEditingUser] = useState<string | null>(null)
   const [editingProject, setEditingProject] = useState<string | null>(null)
+  const [resetMessage, setResetMessage] = useState<Record<string, string>>({})
 
   useEffect(() => {
     load()
@@ -74,7 +78,7 @@ export default function PlatformAdminPage() {
 
     const { data: userData } = await supabase
       .from('profiles')
-      .select('id, full_name, email, company_name, account_type, role, company_admin, is_platform_admin')
+      .select('id, full_name, email, company_name, account_type, role, company_admin, is_platform_admin, is_blocked')
       .order('company_name', { ascending: true })
     setUsers(userData || [])
 
@@ -91,6 +95,16 @@ export default function PlatformAdminPage() {
       .order('created_at', { ascending: false })
     setInvites((inviteData || []) as unknown as InviteRow[])
 
+    const { data: memberData } = await supabase
+      .from('project_members')
+      .select('project_id, user_id')
+    const grouped: Record<string, string[]> = {}
+    ;(memberData || []).forEach((m: any) => {
+      if (!grouped[m.user_id]) grouped[m.user_id] = []
+      grouped[m.user_id].push(m.project_id)
+    })
+    setUserProjectIds(grouped)
+
     setLoading(false)
   }
 
@@ -98,6 +112,22 @@ export default function PlatformAdminPage() {
     if (!inv.projects) return ''
     return Array.isArray(inv.projects) ? inv.projects[0]?.name : inv.projects.name
   }
+
+  const filteredUsers = users.filter((u) => {
+    const q = search.toLowerCase()
+    if (!q) return true
+    return (
+      (u.full_name || '').toLowerCase().includes(q) ||
+      (u.email || '').toLowerCase().includes(q) ||
+      (u.company_name || '').toLowerCase().includes(q)
+    )
+  })
+
+  const filteredProjects = projects.filter((p) => {
+    const q = search.toLowerCase()
+    if (!q) return true
+    return p.name.toLowerCase().includes(q) || (p.company_name || '').toLowerCase().includes(q)
+  })
 
   async function updateUser(id: string, patch: Partial<UserRow>) {
     await supabase.from('profiles').update(patch).eq('id', id)
@@ -112,6 +142,36 @@ export default function PlatformAdminPage() {
   async function cancelInvite(id: string) {
     await supabase.from('project_invites').delete().eq('id', id)
     setInvites((prev) => prev.filter((i) => i.id !== id))
+  }
+
+  async function toggleUserProject(userId: string, projectId: string) {
+    const current = userProjectIds[userId] || []
+    const has = current.includes(projectId)
+
+    if (has) {
+      await supabase.from('project_members').delete().eq('user_id', userId).eq('project_id', projectId)
+      setUserProjectIds((prev) => ({ ...prev, [userId]: current.filter((id) => id !== projectId) }))
+    } else {
+      await supabase.from('project_members').insert({ user_id: userId, project_id: projectId, project_role: 'member' })
+      setUserProjectIds((prev) => ({ ...prev, [userId]: [...current, projectId] }))
+    }
+  }
+
+  async function sendPasswordReset(email: string, userId: string) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: 'https://inspectiq.co/reset-password',
+    })
+    setResetMessage((prev) => ({
+      ...prev,
+      [userId]: error ? 'Failed to send' : 'Reset email sent',
+    }))
+    setTimeout(() => {
+      setResetMessage((prev) => ({ ...prev, [userId]: '' }))
+    }, 3000)
+  }
+
+  async function toggleBlocked(id: string, current: boolean) {
+    await updateUser(id, { is_blocked: !current })
   }
 
   if (loading) {
@@ -150,10 +210,25 @@ export default function PlatformAdminPage() {
           ))}
         </div>
 
+        {(tab === 'Users' || tab === 'Projects') && (
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={tab === 'Users' ? 'Search name, email, or company' : 'Search project or company'}
+            className="mt-3 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          />
+        )}
+
         {tab === 'Users' && (
           <div className="mt-4 space-y-2">
-            {users.map((u) => (
-              <div key={u.id} className="rounded-lg border border-slate-200 bg-white p-3">
+            {filteredUsers.map((u) => (
+              <div
+                key={u.id}
+                className={`rounded-lg border p-3 ${
+                  u.is_blocked ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-white'
+                }`}
+              >
                 {editingUser === u.id ? (
                   <div className="space-y-2">
                     <input
@@ -216,6 +291,21 @@ export default function PlatformAdminPage() {
                         Platform admin
                       </label>
                     </div>
+
+                    <p className="pt-1 text-xs font-medium text-slate-600">Assigned projects</p>
+                    <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-slate-200 p-2">
+                      {projects.map((p) => (
+                        <label key={p.id} className="flex items-center gap-2 text-xs text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={(userProjectIds[u.id] || []).includes(p.id)}
+                            onChange={() => toggleUserProject(u.id, p.id)}
+                          />
+                          {p.name}
+                        </label>
+                      ))}
+                    </div>
+
                     <div className="flex gap-2 pt-1">
                       <button
                         onClick={() => {
@@ -242,31 +332,59 @@ export default function PlatformAdminPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">{u.full_name || 'Unnamed'}</p>
-                      <p className="text-xs text-slate-500">
-                        {u.email} · {u.company_name || 'no company'} · {u.account_type || 'no type'}
-                      </p>
-                      <div className="mt-1 flex gap-1">
-                        {u.company_admin && (
-                          <span className="rounded-full bg-brand-primary/10 px-2 py-0.5 text-[10px] font-medium text-brand-primary">
-                            Company admin
-                          </span>
-                        )}
-                        {u.is_platform_admin && (
-                          <span className="rounded-full bg-brand-ink/10 px-2 py-0.5 text-[10px] font-medium text-brand-ink">
-                            Platform admin
-                          </span>
-                        )}
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-slate-900">{u.full_name || 'Unnamed'}</p>
+                        <p className="text-xs text-slate-500">
+                          {u.email} · {u.company_name || 'no company'} · {u.account_type || 'no type'}
+                        </p>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {u.company_admin && (
+                            <span className="rounded-full bg-brand-primary/10 px-2 py-0.5 text-[10px] font-medium text-brand-primary">
+                              Company admin
+                            </span>
+                          )}
+                          {u.is_platform_admin && (
+                            <span className="rounded-full bg-brand-ink/10 px-2 py-0.5 text-[10px] font-medium text-brand-ink">
+                              Platform admin
+                            </span>
+                          )}
+                          {u.is_blocked && (
+                            <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700">
+                              Blocked
+                            </span>
+                          )}
+                        </div>
                       </div>
+                      <button
+                        onClick={() => setEditingUser(u.id)}
+                        className="text-xs font-medium text-brand-primary"
+                      >
+                        Edit
+                      </button>
                     </div>
-                    <button
-                      onClick={() => setEditingUser(u.id)}
-                      className="text-xs font-medium text-brand-primary"
-                    >
-                      Edit
-                    </button>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button
+                        onClick={() => u.email && sendPasswordReset(u.email, u.id)}
+                        className="rounded-full border border-slate-300 px-2.5 py-1 text-[11px] font-medium text-slate-600"
+                      >
+                        Send password reset
+                      </button>
+                      <button
+                        onClick={() => toggleBlocked(u.id, u.is_blocked)}
+                        className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                          u.is_blocked
+                            ? 'bg-green-100 text-green-700'
+                            : 'border border-red-300 text-red-600'
+                        }`}
+                      >
+                        {u.is_blocked ? 'Unblock login' : 'Block login'}
+                      </button>
+                      {resetMessage[u.id] && (
+                        <span className="text-[11px] text-slate-500">{resetMessage[u.id]}</span>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -276,7 +394,7 @@ export default function PlatformAdminPage() {
 
         {tab === 'Projects' && (
           <div className="mt-4 space-y-2">
-            {projects.map((p) => (
+            {filteredProjects.map((p) => (
               <div key={p.id} className="rounded-lg border border-slate-200 bg-white p-3">
                 {editingProject === p.id ? (
                   <div className="space-y-2">
