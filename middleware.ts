@@ -29,13 +29,14 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-    const isAuthPage =
+      const isAuthPage =
     request.nextUrl.pathname.startsWith('/login') ||
     request.nextUrl.pathname.startsWith('/signup') ||
-    request.nextUrl.pathname.startsWith('/forgot-password') ||
-    request.nextUrl.pathname.startsWith('/reset-password')
+    request.nextUrl.pathname.startsWith('/forgot-password')
 
-  if (!user && !isAuthPage) {
+  const isResetPage = request.nextUrl.pathname.startsWith('/reset-password')
+
+  if (!user && !isAuthPage && !isResetPage) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
@@ -46,6 +47,7 @@ export async function middleware(request: NextRequest) {
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)
   }
+
 
   return response
 }
