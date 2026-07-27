@@ -78,7 +78,8 @@ const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
             Account type
           </p>
           <p className="mt-1 text-sm font-semibold text-slate-900">
-            {role === 'internal' ? 'Internal (SPHL)' : role === 'partner' ? 'Supply chain partner' : role}
+                        {role === 'internal' ? 'Internal' : role === 'partner' ? 'Supply chain partner' : role}
+
           </p>
 
           <label className="mt-4 block text-sm font-medium text-slate-700">Email</label>
