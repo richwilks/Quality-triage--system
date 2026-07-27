@@ -25,9 +25,26 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const {
+    const {
     data: { user },
   } = await supabase.auth.getUser()
+
+  if (user) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_blocked')
+      .eq('id', user.id)
+      .single()
+
+    if (profile?.is_blocked) {
+      await supabase.auth.signOut()
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      url.searchParams.set('blocked', '1')
+      return NextResponse.redirect(url)
+    }
+  }
+
 
       const isAuthPage =
     request.nextUrl.pathname.startsWith('/login') ||
