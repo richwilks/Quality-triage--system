@@ -133,13 +133,25 @@ If no defects, respond with: []`
     ? { input_tokens: data.usage.input_tokens || 0, output_tokens: data.usage.output_tokens || 0 }
     : null
 
+   function clampBox(box: any) {
+    const x = Math.max(0, Math.min(100, box?.x ?? 0))
+    const y = Math.max(0, Math.min(100, box?.y ?? 0))
+    const width = Math.max(1, Math.min(100 - x, box?.width ?? 10))
+    const height = Math.max(1, Math.min(100 - y, box?.height ?? 10))
+    return { x, y, width, height }
+  }
+
   try {
     const parsed = JSON.parse(cleaned)
-    return { defects: Array.isArray(parsed) ? parsed : [], usage }
+    const defects = Array.isArray(parsed)
+      ? parsed.map((d: any) => ({ ...d, box: clampBox(d.box) }))
+      : []
+    return { defects, usage }
   } catch {
     return { defects: [], usage }
   }
 }
+
 
 
 export async function detectRoomLabel(base64Image: string, mimeType: string): Promise<string> {
