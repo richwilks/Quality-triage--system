@@ -42,8 +42,6 @@ function NewDefectPageInner() {
   const [projectId, setProjectId] = useState(initialProjectId)
   const [partners, setPartners] = useState<Partner[]>([])
   const [assignedPartnerId, setAssignedPartnerId] = useState('')
-  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null)
-
 
   const [location, setLocation] = useState(initialLocation)
   const [finishGrade, setFinishGrade] = useState('')
@@ -61,6 +59,7 @@ function NewDefectPageInner() {
   const [items, setItems] = useState<ReviewItem[]>([])
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null)
 
   const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -137,7 +136,7 @@ function NewDefectPageInner() {
     }
   }
 
-   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files?.[0]
     if (!selected) return
     setFile(selected)
@@ -147,7 +146,6 @@ function NewDefectPageInner() {
     setDuplicateWarning(null)
     setPreview(URL.createObjectURL(selected))
   }
-
 
   function fileToBase64(f: File): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -205,6 +203,7 @@ function NewDefectPageInner() {
     if (!file || !projectId) return
     setAnalyzing(true)
     setError(null)
+    setDuplicateWarning(null)
     startProgressSimulation()
 
     try {
@@ -258,7 +257,7 @@ function NewDefectPageInner() {
         return
       }
 
-           const mapped: ReviewItem[] = result.defects.map((d: DetectedDefect, i: number) => ({
+      const mapped: ReviewItem[] = result.defects.map((d: DetectedDefect, i: number) => ({
         ...d,
         localId: `${Date.now()}-${i}`,
         title: `Defect ${i + 1}`,
@@ -281,7 +280,6 @@ function NewDefectPageInner() {
       } catch {
         // duplicate check is a soft feature - fail silently if it errors
       }
-
     } catch (err: any) {
       setError(`Unexpected error (outer): ${err?.message || 'unknown'}`)
       stopProgressSimulation(false)
@@ -349,7 +347,7 @@ function NewDefectPageInner() {
         measured_gap_mm: it.measurement.measuredGapMm ? parseFloat(it.measurement.measuredGapMm) : null,
         tested_detail_reference: it.measurement.testedDetailReference || null,
         manufacturer_system: it.measurement.manufacturerSystem || null,
-        assigned_partner_id: || null,
+        assigned_partner_id: null,
         target_close_date: targetDate || null,
         status: 'draft',
         created_by: user.id,
@@ -363,6 +361,17 @@ function NewDefectPageInner() {
       }
 
       setSaved(true)
+      setTimeout(() => {
+        setFile(null)
+        setPreview(null)
+        setItems([])
+        setLocation('')
+        setFinishGrade('')
+        setTargetDate('')
+        setDuplicateWarning(null)
+        setSaved(false)
+        setError(null)
+      }, 1200)
     } catch (err: any) {
       setError(`Unexpected error: ${err?.message || 'unknown'}`)
     } finally {
@@ -494,7 +503,7 @@ function NewDefectPageInner() {
             </div>
           )}
 
-                    {items.length > 0 && (
+          {items.length > 0 && (
             <div className="space-y-3">
               {duplicateWarning && (
                 <div className="rounded-md border border-amber-300 bg-amber-50 p-3">
@@ -509,7 +518,6 @@ function NewDefectPageInner() {
               <p className="text-sm font-medium text-slate-700">
                 {items.length} defect{items.length > 1 ? 's' : ''} found - review below
               </p>
-
               {items.map((it, i) => (
                 <div
                   key={it.localId}
@@ -554,7 +562,6 @@ function NewDefectPageInner() {
             </div>
           )}
 
-
           <div className="flex gap-4">
             <div className="flex-1">
               <label className="block text-sm font-medium text-slate-700">
@@ -589,7 +596,7 @@ function NewDefectPageInner() {
             </button>
           ) : (
             <p className="text-sm font-medium text-green-600">
-              Saved. You can review them on the dashboard.
+              Saved. Ready for the next one.
             </p>
           )}
         </div>
