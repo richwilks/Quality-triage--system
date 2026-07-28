@@ -41,6 +41,7 @@ export default function ReviewDefectsPage() {
 
   const containerRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const dragState = useRef<{ id: string; startX: number; startY: number; boxX: number; boxY: number } | null>(null)
+  const resizeState = useRef<{ id: string; startX: number; startY: number; boxW: number; boxH: number } | null>(null)
 
   useEffect(() => {
     loadDefects()
@@ -121,6 +122,40 @@ export default function ReviewDefectsPage() {
 
   function handlePointerUp() {
     dragState.current = null
+    resizeState.current = null
+  }
+
+  function handleResizeStart(e: React.PointerEvent, defectId: string) {
+    e.preventDefault()
+    e.stopPropagation()
+    const box = boxes[defectId] || DEFAULT_BOX
+    resizeState.current = {
+      id: defectId,
+      startX: e.clientX,
+      startY: e.clientY,
+      boxW: box.width,
+      boxH: box.height,
+    }
+    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+  }
+
+  function handleResizeMove(e: React.PointerEvent, defectId: string) {
+    e.stopPropagation()
+    const resize = resizeState.current
+    if (!resize || resize.id !== defectId) return
+    const container = containerRefs.current[defectId]
+    if (!container) return
+
+    const rect = container.getBoundingClientRect()
+    const deltaWPercent = ((e.clientX - resize.startX) / rect.width) * 100
+    const deltaHPercent = ((e.clientY - resize.startY) / rect.height) * 100
+
+    setBoxes((prev) => {
+      const current = prev[defectId] || DEFAULT_BOX
+      const newW = Math.max(3, Math.min(100 - current.x, resize.boxW + deltaWPercent))
+      const newH = Math.max(3, Math.min(100 - current.y, resize.boxH + deltaHPercent))
+      return { ...prev, [defectId]: { ...current, width: newW, height: newH } }
+    })
   }
 
   async function burnBoxIntoPhoto(photoUrl: string, box: BoundingBox): Promise<Blob | null> {
@@ -258,7 +293,7 @@ export default function ReviewDefectsPage() {
       <div className="mx-auto max-w-md">
         <PageHeader title="Review Defects" />
         <p className="mt-1 text-sm text-slate-500">
-          Confirm or reject each item. Drag the red box if it's not sitting over the defect correctly - it'll be baked into the photo once confirmed.
+          Confirm or reject each item. Drag the box to reposition, or drag the corner handle to resize - it'll be baked into the photo once confirmed.
         </p>
 
         {defects.length === 0 && (
@@ -295,7 +330,7 @@ export default function ReviewDefectsPage() {
                       className="w-full rounded-md"
                       draggable={false}
                     />
-                                    <div
+                    <div
                       onPointerDown={(e) => handlePointerDown(e, defect.id)}
                       onPointerMove={(e) => handlePointerMove(e, defect.id)}
                       onPointerUp={handlePointerUp}
@@ -331,7 +366,6 @@ export default function ReviewDefectsPage() {
                         }}
                       />
                     </div>
-
                   </div>
                 )}
 
@@ -380,4 +414,70 @@ export default function ReviewDefectsPage() {
                   <label className="block text-sm font-medium text-slate-700">
                     Target completion
                   </label>
-                  
+                  <input
+                    type="date"
+                    value={targetDate[defect.id] || ''}
+                    onChange={(e) =>
+                      setTargetDate((prev) => ({ ...prev, [defect.id]: e.target.value }))
+                    }
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  />
+                </div>
+
+                {rejectingId === defect.id ? (
+                  <div className="mt-3">
+                    <label className="block text-sm font-medium text-slate-700">
+                      Why is this not a defect?
+                    </label>
+                    <textarea
+                      value={rejectReason}
+                      onChange={(e) => setRejectReason(e.target.value)}
+                      rows={2}
+                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                      placeholder="e.g. this is within tolerance, or normal finish for this material"
+                    />
+                    <div className="mt-2 flex gap-2">
+                      <button
+                        onClick={() => handleReject(defect)}
+                        disabled={busyId === defect.id}
+                        className="flex-1 rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                      >
+                        {busyId === defect.id ? 'Saving...' : 'Confirm rejection'}
+                      </button>
+                      <button
+                        onClick={() => setRejectingId(null)}
+                        className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={() => handleConfirm(defect)}
+                      disabled={busyId === defect.id}
+                      className="flex-1 rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                    >
+                      {busyId === defect.id
+                        ? 'Saving...'
+                        : assignedPartner[defect.id]
+                        ? 'Confirm & assign'
+                        : 'Confirm defect'}
+                    </button>
+                    <button
+                      onClick={() => setRejectingId(defect.id)}
+                      className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700"
+                    >
+                      Not a defect
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
