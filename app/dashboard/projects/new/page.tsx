@@ -46,11 +46,12 @@ export default function NewProjectPage() {
       .select()
       .single()
 
-    if (insertError || !project) {
-      setError('Could not create the project. Try again.')
+        if (insertError || !project) {
+      setError(`Could not create the project: ${insertError?.message || 'no project returned'}`)
       setSaving(false)
       return
     }
+
 
     await supabase.from('project_members').insert({
       project_id: project.id,
