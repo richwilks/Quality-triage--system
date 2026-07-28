@@ -137,15 +137,17 @@ function NewDefectPageInner() {
     }
   }
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files?.[0]
     if (!selected) return
     setFile(selected)
     setItems([])
     setSaved(false)
     setError(null)
+    setDuplicateWarning(null)
     setPreview(URL.createObjectURL(selected))
   }
+
 
   function fileToBase64(f: File): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -492,11 +494,22 @@ function NewDefectPageInner() {
             </div>
           )}
 
-          {items.length > 0 && (
+                    {items.length > 0 && (
             <div className="space-y-3">
+              {duplicateWarning && (
+                <div className="rounded-md border border-amber-300 bg-amber-50 p-3">
+                  <p className="text-xs font-semibold text-amber-800">
+                    Possible duplicate - {duplicateWarning}
+                  </p>
+                  <p className="mt-1 text-xs text-amber-700">
+                    Check whether this is already logged before saving again.
+                  </p>
+                </div>
+              )}
               <p className="text-sm font-medium text-slate-700">
                 {items.length} defect{items.length > 1 ? 's' : ''} found - review below
               </p>
+
               {items.map((it, i) => (
                 <div
                   key={it.localId}
