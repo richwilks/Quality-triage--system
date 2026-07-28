@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import StatusBadge from '@/components/StatusBadge'
 import PageHeader from '@/components/PageHeader'
+import MeasurementFields, { MeasurementData } from '@/components/MeasurementFields'
 
 type Defect = {
   id: string
@@ -17,6 +18,10 @@ type Defect = {
   target_close_date: string | null
   closure_notes: string | null
   closure_photo_url: string | null
+  requires_measurement: boolean | null
+  measured_gap_mm: number | null
+  tested_detail_reference: string | null
+  manufacturer_system: string | null
 }
 
 const STATUS_OPTIONS = ['draft', 'confirmed', 'assigned', 'closed', 'rejected']
@@ -30,6 +35,11 @@ export default function DefectDetailPage() {
   const [status, setStatus] = useState('')
   const [closureNotes, setClosureNotes] = useState('')
   const [closureFile, setClosureFile] = useState<File | null>(null)
+  const [measurement, setMeasurement] = useState<MeasurementData>({
+    measuredGapMm: '',
+    testedDetailReference: '',
+    manufacturerSystem: '',
+  })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -42,7 +52,7 @@ export default function DefectDetailPage() {
     const { data } = await supabase
       .from('defects')
       .select(
-        'id, title, location, photo_url, description, standard_reference, status, target_close_date, closure_notes, closure_photo_url'
+        'id, title, location, photo_url, description, standard_reference, status, target_close_date, closure_notes, closure_photo_url, requires_measurement, measured_gap_mm, tested_detail_reference, manufacturer_system'
       )
       .eq('id', defectId)
       .single()
@@ -51,6 +61,11 @@ export default function DefectDetailPage() {
       setDefect(data)
       setStatus(data.status)
       setClosureNotes(data.closure_notes || '')
+      setMeasurement({
+        measuredGapMm: data.measured_gap_mm !== null ? String(data.measured_gap_mm) : '',
+        testedDetailReference: data.tested_detail_reference || '',
+        manufacturerSystem: data.manufacturer_system || '',
+      })
     }
     setLoading(false)
   }
@@ -84,6 +99,9 @@ export default function DefectDetailPage() {
         closure_notes: closureNotes || null,
         closure_photo_url: closurePhotoUrl,
         closed_at: status === 'closed' ? new Date().toISOString() : null,
+        measured_gap_mm: measurement.measuredGapMm ? parseFloat(measurement.measuredGapMm) : null,
+        tested_detail_reference: measurement.testedDetailReference || null,
+        manufacturer_system: measurement.manufacturerSystem || null,
       })
       .eq('id', defect.id)
 
@@ -141,6 +159,10 @@ export default function DefectDetailPage() {
           )}
           {defect.target_close_date && (
             <p className="mt-1 text-xs text-slate-500">Due {defect.target_close_date}</p>
+          )}
+
+          {defect.requires_measurement && (
+            <MeasurementFields data={measurement} onChange={(patch) => setMeasurement((prev) => ({ ...prev, ...patch }))} />
           )}
 
           <label className="mt-4 block text-sm font-medium text-slate-700">Status</label>
