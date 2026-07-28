@@ -524,21 +524,6 @@ function NewDefectPageInner() {
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Assigned</label>
-            <select
-              value={assignedPartnerId}
-              onChange={(e) => setAssignedPartnerId(e.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-            >
-              <option value="">Unassigned</option>
-              {partners.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.company_name || p.full_name || 'Partner'}
-                </option>
-              ))}
-            </select>
-          </div>
 
           <div className="flex gap-4">
             <div className="flex-1">
