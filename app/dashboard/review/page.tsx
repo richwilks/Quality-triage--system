@@ -295,7 +295,7 @@ export default function ReviewDefectsPage() {
                       className="w-full rounded-md"
                       draggable={false}
                     />
-                    <div
+                                    <div
                       onPointerDown={(e) => handlePointerDown(e, defect.id)}
                       onPointerMove={(e) => handlePointerMove(e, defect.id)}
                       onPointerUp={handlePointerUp}
@@ -313,7 +313,25 @@ export default function ReviewDefectsPage() {
                       <span className="absolute -top-6 left-0 rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
                         Drag to adjust
                       </span>
+                      <div
+                        onPointerDown={(e) => handleResizeStart(e, defect.id)}
+                        onPointerMove={(e) => handleResizeMove(e, defect.id)}
+                        onPointerUp={handlePointerUp}
+                        style={{
+                          position: 'absolute',
+                          right: -8,
+                          bottom: -8,
+                          width: 20,
+                          height: 20,
+                          backgroundColor: '#ef4444',
+                          borderRadius: '50%',
+                          border: '2px solid white',
+                          cursor: 'nwse-resize',
+                          touchAction: 'none',
+                        }}
+                      />
                     </div>
+
                   </div>
                 )}
 
