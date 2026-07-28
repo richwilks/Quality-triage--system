@@ -254,7 +254,7 @@ function NewDefectPageInner() {
         return
       }
 
-      const mapped: ReviewItem[] = result.defects.map((d: DetectedDefect, i: number) => ({
+           const mapped: ReviewItem[] = result.defects.map((d: DetectedDefect, i: number) => ({
         ...d,
         localId: `${Date.now()}-${i}`,
         title: `Defect ${i + 1}`,
@@ -263,6 +263,21 @@ function NewDefectPageInner() {
       }))
       setItems(mapped)
       stopProgressSimulation(true)
+
+      try {
+        const dupRes = await fetch('/api/check-duplicate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageBase64: base64, mimeType: 'image/jpeg', projectId }),
+        })
+        const dupResult = await dupRes.json()
+        if (dupResult.isDuplicate) {
+          setDuplicateWarning(dupResult.reason || 'This may already be logged as an open defect on this project.')
+        }
+      } catch {
+        // duplicate check is a soft feature - fail silently if it errors
+      }
+
     } catch (err: any) {
       setError(`Unexpected error (outer): ${err?.message || 'unknown'}`)
       stopProgressSimulation(false)
