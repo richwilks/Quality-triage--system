@@ -121,14 +121,21 @@ export default function ProjectDetailPage() {
           )}
         </div>
 
-        <div className="mt-6 flex gap-3">
+                <div className="mt-6 flex gap-3">
           <Link
             href={`/dashboard/new-defect?projectId=${projectId}`}
             className="inline-block rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white"
           >
             + New defect
           </Link>
+          <Link
+            href={`/dashboard/projects/${projectId}/report`}
+            className="inline-block rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
+          >
+            View report
+          </Link>
         </div>
+
 
         <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-slate-500">
           All defects
