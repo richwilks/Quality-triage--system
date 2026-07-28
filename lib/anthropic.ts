@@ -186,3 +186,61 @@ export async function detectRoomLabel(base64Image: string, mimeType: string): Pr
   const result = (textBlock?.text || '').trim()
   return result === 'NONE' ? '' : result
 }
+
+export type ExistingDefectSummary = { id: string; description: string; location: string | null }
+
+export async function checkForDuplicate(
+  base64Image: string,
+  mimeType: string,
+  existingDefects: ExistingDefectSummary[]
+): Promise<{ isDuplicate: boolean; matchedId: string | null; reason: string }> {
+  if (existingDefects.length === 0) {
+    return { isDuplicate: false, matchedId: null, reason: '' }
+  }
+
+  const listText = existingDefects
+    .map((d, i) => `${i + 1}. [id: ${d.id}] ${d.location ? `(${d.location}) ` : ''}${d.description}`)
+    .join('\n')
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': process.env.ANTHROPIC_API_KEY as string,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-5',
+      max_tokens: 300,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64Image } },
+            {
+              type: 'text',
+              text: `Here is a list of defects already open on this project:\n${listText}\n\nLooking at the photo, does it appear to show the SAME physical defect as one already in this list (same location, same specific issue - not just a similar type of defect elsewhere)? Be conservative - only flag a match if you're reasonably confident it's the same physical spot and issue, not just a similar-looking defect. Respond with ONLY this JSON, no other text: {"isDuplicate": true or false, "matchedId": "the id from the list, or null", "reason": "brief explanation"}`,
+            },
+          ],
+        },
+      ],
+    }),
+  })
+
+  const data = await response.json()
+  const textBlock = data.content?.find((c: any) => c.type === 'text')
+  const raw = textBlock?.text || '{}'
+  const cleaned = raw.replace(/```json|```/g, '').trim()
+
+  try {
+    const parsed = JSON.parse(cleaned)
+    return {
+      isDuplicate: !!parsed.isDuplicate,
+      matchedId: parsed.matchedId || null,
+      reason: parsed.reason || '',
+    }
+  } catch {
+    return { isDuplicate: false, matchedId: null, reason: '' }
+  }
+}
+
