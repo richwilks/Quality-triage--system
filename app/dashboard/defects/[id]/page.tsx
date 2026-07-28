@@ -12,6 +12,7 @@ type Defect = {
   title: string | null
   location: string | null
   photo_url: string | null
+  annotated_photo_url: string | null
   description: string | null
   standard_reference: string | null
   status: string
@@ -52,7 +53,7 @@ export default function DefectDetailPage() {
     const { data } = await supabase
       .from('defects')
       .select(
-        'id, title, location, photo_url, description, standard_reference, status, target_close_date, closure_notes, closure_photo_url, requires_measurement, measured_gap_mm, tested_detail_reference, manufacturer_system'
+        'id, title, location, photo_url, annotated_photo_url, description, standard_reference, status, target_close_date, closure_notes, closure_photo_url, requires_measurement, measured_gap_mm, tested_detail_reference, manufacturer_system'
       )
       .eq('id', defectId)
       .single()
@@ -135,6 +136,8 @@ export default function DefectDetailPage() {
     )
   }
 
+  const displayPhoto = defect.annotated_photo_url || defect.photo_url
+
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-md">
@@ -145,9 +148,9 @@ export default function DefectDetailPage() {
         {defect.location && <p className="mt-1 text-sm text-slate-500">{defect.location}</p>}
 
         <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          {defect.photo_url && (
+          {displayPhoto && (
             <img
-              src={defect.photo_url}
+              src={displayPhoto}
               alt="Defect"
               className="max-h-64 w-full rounded-md object-cover"
             />
