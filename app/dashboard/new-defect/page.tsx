@@ -330,7 +330,7 @@ function NewDefectPageInner() {
         measured_gap_mm: it.measurement.measuredGapMm ? parseFloat(it.measurement.measuredGapMm) : null,
         tested_detail_reference: it.measurement.testedDetailReference || null,
         manufacturer_system: it.measurement.manufacturerSystem || null,
-        assigned_partner_id: assignedPartnerId || null,
+        assigned_partner_id: || null,
         target_close_date: targetDate || null,
         status: 'draft',
         created_by: user.id,
