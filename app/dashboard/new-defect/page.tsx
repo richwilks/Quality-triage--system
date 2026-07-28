@@ -42,6 +42,8 @@ function NewDefectPageInner() {
   const [projectId, setProjectId] = useState(initialProjectId)
   const [partners, setPartners] = useState<Partner[]>([])
   const [assignedPartnerId, setAssignedPartnerId] = useState('')
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null)
+
 
   const [location, setLocation] = useState(initialLocation)
   const [finishGrade, setFinishGrade] = useState('')
