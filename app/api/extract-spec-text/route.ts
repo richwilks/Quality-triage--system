@@ -6,26 +6,26 @@ export const maxDuration = 60
 
 export async function POST(req: NextRequest) {
   try {
-    const { projectId } = await req.json()
+    const { specId } = await req.json()
 
     const supabase = await createClient()
-    const { data: project } = await supabase
-      .from('projects')
-      .select('spec_document_url, name')
-      .eq('id', projectId)
+    const { data: spec } = await supabase
+      .from('project_specs')
+      .select('document_url, name')
+      .eq('id', specId)
       .single()
 
-    if (!project?.spec_document_url) {
+    if (!spec?.document_url) {
       return NextResponse.json({ error: 'No spec document found' }, { status: 400 })
     }
 
-    const res = await fetch(project.spec_document_url)
+    const res = await fetch(spec.document_url)
     const buffer = await res.arrayBuffer()
     const base64 = Buffer.from(buffer).toString('base64')
 
-    const extractedText = await extractDocumentText(base64, `${project.name} specification`)
+    const extractedText = await extractDocumentText(base64, spec.name || 'project specification')
 
-    await supabase.from('projects').update({ spec_extracted_text: extractedText }).eq('id', projectId)
+    await supabase.from('project_specs').update({ extracted_text: extractedText }).eq('id', specId)
 
     return NextResponse.json({ success: true })
   } catch (err) {
