@@ -62,7 +62,7 @@ export async function analyzeDefectImage(
   let referenceText = `Project: ${projectDescription}
 Applicable standards (summary): ${standards}
 ${location ? `Location as recorded by the inspector: ${location}` : ''}
-${finishGrade ? `Specified finish/quality grade for this location: ${finishGrade}` : 'No finish/quality grade specified for this location - be conservative and flag this gap.'}`
+${finishGrade ? `Specified finish/quality grade for this location: ${finishGrade}` : ''}`
 
   if (specText) {
     referenceText += `\n\nExtracted project specification requirements:\n${specText}`
