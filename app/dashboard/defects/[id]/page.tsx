@@ -23,6 +23,10 @@ type Defect = {
   measured_gap_mm: number | null
   tested_detail_reference: string | null
   manufacturer_system: string | null
+  classification: string | null
+  ncr_number: string | null
+  root_cause: string | null
+  corrective_action: string | null
 }
 
 const STATUS_OPTIONS = ['draft', 'confirmed', 'assigned', 'closed', 'rejected']
@@ -41,6 +45,8 @@ export default function DefectDetailPage() {
     testedDetailReference: '',
     manufacturerSystem: '',
   })
+  const [rootCause, setRootCause] = useState('')
+  const [correctiveAction, setCorrectiveAction] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -53,7 +59,7 @@ export default function DefectDetailPage() {
     const { data } = await supabase
       .from('defects')
       .select(
-        'id, title, location, photo_url, annotated_photo_url, description, standard_reference, status, target_close_date, closure_notes, closure_photo_url, requires_measurement, measured_gap_mm, tested_detail_reference, manufacturer_system'
+        'id, title, location, photo_url, annotated_photo_url, description, standard_reference, status, target_close_date, closure_notes, closure_photo_url, requires_measurement, measured_gap_mm, tested_detail_reference, manufacturer_system, classification, ncr_number, root_cause, corrective_action'
       )
       .eq('id', defectId)
       .single()
@@ -67,6 +73,8 @@ export default function DefectDetailPage() {
         testedDetailReference: data.tested_detail_reference || '',
         manufacturerSystem: data.manufacturer_system || '',
       })
+      setRootCause(data.root_cause || '')
+      setCorrectiveAction(data.corrective_action || '')
     }
     setLoading(false)
   }
@@ -103,6 +111,8 @@ export default function DefectDetailPage() {
         measured_gap_mm: measurement.measuredGapMm ? parseFloat(measurement.measuredGapMm) : null,
         tested_detail_reference: measurement.testedDetailReference || null,
         manufacturer_system: measurement.manufacturerSystem || null,
+        root_cause: defect.classification === 'ncr' ? rootCause || null : defect.root_cause,
+        corrective_action: defect.classification === 'ncr' ? correctiveAction || null : defect.corrective_action,
       })
       .eq('id', defect.id)
 
@@ -137,6 +147,7 @@ export default function DefectDetailPage() {
   }
 
   const displayPhoto = defect.annotated_photo_url || defect.photo_url
+  const isNcr = defect.classification === 'ncr'
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
@@ -146,6 +157,19 @@ export default function DefectDetailPage() {
           <StatusBadge status={defect.status} />
         </div>
         {defect.location && <p className="mt-1 text-sm text-slate-500">{defect.location}</p>}
+
+        <div className="mt-2 flex items-center gap-2">
+          <span
+            className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+              isNcr ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'
+            }`}
+          >
+            {isNcr ? 'Non-Conformance (NCR)' : 'Snag'}
+          </span>
+          {defect.ncr_number && (
+            <span className="text-xs font-medium text-red-600">{defect.ncr_number}</span>
+          )}
+        </div>
 
         <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           {displayPhoto && (
@@ -166,6 +190,30 @@ export default function DefectDetailPage() {
 
           {defect.requires_measurement && (
             <MeasurementFields data={measurement} onChange={(patch) => setMeasurement((prev) => ({ ...prev, ...patch }))} />
+          )}
+
+          {isNcr && (
+            <div className="mt-3 rounded-md border border-red-300 bg-red-50 p-3">
+              <p className="text-xs font-semibold text-red-800">
+                Non-conformance - root cause and corrective action required for closure
+              </p>
+              <label className="mt-2 block text-xs font-medium text-slate-700">Root cause</label>
+              <textarea
+                value={rootCause}
+                onChange={(e) => setRootCause(e.target.value)}
+                rows={2}
+                placeholder="Why did this non-conformance occur?"
+                className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+              />
+              <label className="mt-2 block text-xs font-medium text-slate-700">Corrective action</label>
+              <textarea
+                value={correctiveAction}
+                onChange={(e) => setCorrectiveAction(e.target.value)}
+                rows={2}
+                placeholder="What needs to happen to resolve this and prevent recurrence?"
+                className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+              />
+            </div>
           )}
 
           <label className="mt-4 block text-sm font-medium text-slate-700">Status</label>
