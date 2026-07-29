@@ -14,6 +14,8 @@ type DetectedDefect = {
   confidence: number
   standard_reference: string
   requires_measurement: boolean
+  classification: 'snag' | 'ncr'
+  classification_reason: string
   box: { x: number; y: number; width: number; height: number }
 }
 
@@ -41,7 +43,6 @@ function NewDefectPageInner() {
   const [projects, setProjects] = useState<Project[]>([])
   const [projectId, setProjectId] = useState(initialProjectId)
   const [partners, setPartners] = useState<Partner[]>([])
-  const [assignedPartnerId, setAssignedPartnerId] = useState('')
 
   const [location, setLocation] = useState(initialLocation)
   const [finishGrade, setFinishGrade] = useState('')
@@ -344,6 +345,7 @@ function NewDefectPageInner() {
         description: it.description,
         bounding_box: it.box,
         requires_measurement: it.requires_measurement,
+        classification: it.classification,
         measured_gap_mm: it.measurement.measuredGapMm ? parseFloat(it.measurement.measuredGapMm) : null,
         tested_detail_reference: it.measurement.testedDetailReference || null,
         manufacturer_system: it.measurement.manufacturerSystem || null,
@@ -550,6 +552,37 @@ function NewDefectPageInner() {
                     Confidence: {Math.round(it.confidence * 100)}%
                     {it.standard_reference && ` · Standard: ${it.standard_reference}`}
                   </p>
+
+                  <div className="mt-2 flex items-center gap-2">
+                    <label className="text-xs font-medium text-slate-600">Classification:</label>
+                    <div className="flex overflow-hidden rounded-md border border-slate-300">
+                      <button
+                        type="button"
+                        onClick={() => updateItem(it.localId, { classification: 'snag' })}
+                        className={`px-3 py-1 text-xs font-medium ${
+                          it.classification === 'snag'
+                            ? 'bg-slate-900 text-white'
+                            : 'bg-white text-slate-600'
+                        }`}
+                      >
+                        Snag
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateItem(it.localId, { classification: 'ncr' })}
+                        className={`px-3 py-1 text-xs font-medium ${
+                          it.classification === 'ncr'
+                            ? 'bg-red-600 text-white'
+                            : 'bg-white text-slate-600'
+                        }`}
+                      >
+                        NCR
+                      </button>
+                    </div>
+                  </div>
+                  {it.classification_reason && (
+                    <p className="mt-1 text-xs italic text-slate-400">{it.classification_reason}</p>
+                  )}
 
                   {it.requires_measurement && (
                     <MeasurementFields
