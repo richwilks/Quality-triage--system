@@ -20,6 +20,10 @@ type Defect = {
   assigned_partner_id: string | null
   target_close_date: string | null
   bounding_box: BoundingBox | null
+  classification: string | null
+  ncr_number: string | null
+  root_cause: string | null
+  corrective_action: string | null
   projects: { name: string } | { name: string }[] | null
 }
 
@@ -34,6 +38,9 @@ export default function ReviewDefectsPage() {
   const [assignedPartner, setAssignedPartner] = useState<Record<string, string>>({})
   const [targetDate, setTargetDate] = useState<Record<string, string>>({})
   const [boxes, setBoxes] = useState<Record<string, BoundingBox>>({})
+  const [classification, setClassification] = useState<Record<string, string>>({})
+  const [rootCause, setRootCause] = useState<Record<string, string>>({})
+  const [correctiveAction, setCorrectiveAction] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [rejectingId, setRejectingId] = useState<string | null>(null)
@@ -52,7 +59,7 @@ export default function ReviewDefectsPage() {
     const { data } = await supabase
       .from('defects')
       .select(
-        'id, project_id, title, photo_url, ai_description, ai_confidence, standard_reference, description, assigned_partner_id, target_close_date, bounding_box, projects(name)'
+        'id, project_id, title, photo_url, ai_description, ai_confidence, standard_reference, description, assigned_partner_id, target_close_date, bounding_box, classification, ncr_number, root_cause, corrective_action, projects(name)'
       )
       .eq('status', 'draft')
       .order('created_at', { ascending: false })
@@ -64,16 +71,25 @@ export default function ReviewDefectsPage() {
     const initialPartner: Record<string, string> = {}
     const initialDate: Record<string, string> = {}
     const initialBoxes: Record<string, BoundingBox> = {}
+    const initialClass: Record<string, string> = {}
+    const initialRootCause: Record<string, string> = {}
+    const initialCorrective: Record<string, string> = {}
     list.forEach((d) => {
       initialText[d.id] = d.description || d.ai_description || ''
       initialPartner[d.id] = d.assigned_partner_id || ''
       initialDate[d.id] = d.target_close_date || ''
       initialBoxes[d.id] = d.bounding_box || DEFAULT_BOX
+      initialClass[d.id] = d.classification || 'snag'
+      initialRootCause[d.id] = d.root_cause || ''
+      initialCorrective[d.id] = d.corrective_action || ''
     })
     setEditedText(initialText)
     setAssignedPartner(initialPartner)
     setTargetDate(initialDate)
     setBoxes(initialBoxes)
+    setClassification(initialClass)
+    setRootCause(initialRootCause)
+    setCorrectiveAction(initialCorrective)
 
     const { data: partnerData } = await supabase
       .from('profiles')
@@ -202,6 +218,7 @@ export default function ReviewDefectsPage() {
     const partnerId = assignedPartner[defect.id] || null
     const newStatus = partnerId ? 'assigned' : 'confirmed'
     const box = boxes[defect.id] || DEFAULT_BOX
+    const finalClassification = classification[defect.id] || 'snag'
 
     let annotatedUrl: string | null = null
     if (defect.photo_url) {
@@ -220,6 +237,12 @@ export default function ReviewDefectsPage() {
       }
     }
 
+    let ncrNumber = defect.ncr_number
+    if (finalClassification === 'ncr' && !ncrNumber) {
+      const { data: generated } = await supabase.rpc('generate_ncr_number', { pid: defect.project_id })
+      ncrNumber = generated || null
+    }
+
     await supabase
       .from('defects')
       .update({
@@ -230,6 +253,10 @@ export default function ReviewDefectsPage() {
         confirmed_at: new Date().toISOString(),
         bounding_box: box,
         annotated_photo_url: annotatedUrl,
+        classification: finalClassification,
+        ncr_number: ncrNumber,
+        root_cause: finalClassification === 'ncr' ? rootCause[defect.id] || null : null,
+        corrective_action: finalClassification === 'ncr' ? correctiveAction[defect.id] || null : null,
       })
       .eq('id', defect.id)
 
@@ -245,7 +272,7 @@ export default function ReviewDefectsPage() {
         user_id: partnerId,
         defect_id: defect.id,
         is_read: false,
-        message: `You've been assigned a defect: ${defect.title || editedText[defect.id]}${
+        message: `You've been assigned a ${finalClassification === 'ncr' ? 'non-conformance (NCR)' : 'defect'}: ${defect.title || editedText[defect.id]}${
           targetDate[defect.id] ? ` (due ${targetDate[defect.id]})` : ''
         }`,
       })
@@ -305,6 +332,7 @@ export default function ReviewDefectsPage() {
         <div className="mt-6 space-y-4">
           {defects.map((defect) => {
             const box = boxes[defect.id] || DEFAULT_BOX
+            const isNcr = classification[defect.id] === 'ncr'
             return (
               <div
                 key={defect.id}
@@ -380,6 +408,33 @@ export default function ReviewDefectsPage() {
                   </p>
                 )}
 
+                <div className="mt-3 flex items-center gap-2">
+                  <label className="text-xs font-medium text-slate-600">Classification:</label>
+                  <div className="flex overflow-hidden rounded-md border border-slate-300">
+                    <button
+                      type="button"
+                      onClick={() => setClassification((prev) => ({ ...prev, [defect.id]: 'snag' }))}
+                      className={`px-3 py-1 text-xs font-medium ${
+                        !isNcr ? 'bg-slate-900 text-white' : 'bg-white text-slate-600'
+                      }`}
+                    >
+                      Snag
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setClassification((prev) => ({ ...prev, [defect.id]: 'ncr' }))}
+                      className={`px-3 py-1 text-xs font-medium ${
+                        isNcr ? 'bg-red-600 text-white' : 'bg-white text-slate-600'
+                      }`}
+                    >
+                      NCR
+                    </button>
+                  </div>
+                  {defect.ncr_number && (
+                    <span className="text-xs font-medium text-red-600">{defect.ncr_number}</span>
+                  )}
+                </div>
+
                 <label className="mt-3 block text-sm font-medium text-slate-700">
                   Description
                 </label>
@@ -391,6 +446,30 @@ export default function ReviewDefectsPage() {
                   rows={3}
                   className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
                 />
+
+                {isNcr && (
+                  <div className="mt-3 rounded-md border border-red-300 bg-red-50 p-3">
+                    <p className="text-xs font-semibold text-red-800">
+                      Non-conformance - root cause and corrective action required for closure
+                    </p>
+                    <label className="mt-2 block text-xs font-medium text-slate-700">Root cause</label>
+                    <textarea
+                      value={rootCause[defect.id] || ''}
+                      onChange={(e) => setRootCause((prev) => ({ ...prev, [defect.id]: e.target.value }))}
+                      rows={2}
+                      placeholder="Why did this non-conformance occur?"
+                      className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+                    />
+                    <label className="mt-2 block text-xs font-medium text-slate-700">Corrective action</label>
+                    <textarea
+                      value={correctiveAction[defect.id] || ''}
+                      onChange={(e) => setCorrectiveAction((prev) => ({ ...prev, [defect.id]: e.target.value }))}
+                      rows={2}
+                      placeholder="What needs to happen to resolve this and prevent recurrence?"
+                      className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+                    />
+                  </div>
+                )}
 
                 <div className="mt-3">
                   <label className="block text-sm font-medium text-slate-700">Assigned</label>
