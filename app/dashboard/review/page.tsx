@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
+import ClauseViewer from '@/components/ClauseViewer'
+
 
 type Partner = { id: string; full_name: string | null; company_name: string | null }
 
@@ -397,11 +399,15 @@ export default function ReviewDefectsPage() {
                   </div>
                 )}
 
-                {defect.standard_reference && (
-                  <p className="mt-2 text-xs text-slate-500">
-                    Standard: {defect.standard_reference}
-                  </p>
+                              {defect.standard_reference && (
+                  <>
+                    <p className="mt-2 text-xs text-slate-500">
+                      Standard: {defect.standard_reference}
+                    </p>
+                    <ClauseViewer projectId={defect.project_id} standardReference={defect.standard_reference} />
+                  </>
                 )}
+
                 {defect.ai_confidence !== null && (
                   <p className="text-xs text-slate-500">
                     AI confidence: {Math.round((defect.ai_confidence || 0) * 100)}%
