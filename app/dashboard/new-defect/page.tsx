@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import MeasurementFields, { MeasurementData } from '@/components/MeasurementFields'
+import ClauseViewer from '@/components/ClauseViewer'
 
 type Project = { id: string; name: string }
 type Partner = { id: string; full_name: string | null; company_name: string | null }
@@ -548,10 +549,14 @@ function NewDefectPageInner() {
                     rows={2}
                     className="mt-2 w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
                   />
-                  <p className="mt-1 text-xs text-slate-500">
+                                  <p className="mt-1 text-xs text-slate-500">
                     Confidence: {Math.round(it.confidence * 100)}%
                     {it.standard_reference && ` · Standard: ${it.standard_reference}`}
                   </p>
+                  {it.standard_reference && (
+                    <ClauseViewer projectId={projectId} standardReference={it.standard_reference} />
+                  )}
+
 
                   <div className="mt-2 flex items-center gap-2">
                     <label className="text-xs font-medium text-slate-600">Classification:</label>
