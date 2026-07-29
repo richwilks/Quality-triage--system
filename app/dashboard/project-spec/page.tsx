@@ -14,6 +14,7 @@ export default function ProjectSpecPage() {
   const [uploading, setUploading] = useState(false)
   const [extracting, setExtracting] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     load()
@@ -41,32 +42,56 @@ export default function ProjectSpecPage() {
   async function handleUpload() {
     if (!file || !projectId) return
     setUploading(true)
+    setError(null)
 
     const path = `${projectId}/${Date.now()}-${file.name}`
     const { error: uploadError } = await supabase.storage.from('project-specs').upload(path, file)
 
-    if (!uploadError) {
-      const { data: { publicUrl } } = supabase.storage.from('project-specs').getPublicUrl(path)
-
-      await supabase
-        .from('projects')
-        .update({ spec_document_url: publicUrl, spec_extracted_text: null })
-        .eq('id', projectId)
-
-      setFile(null)
+    if (uploadError) {
+      setError(`Upload failed: ${uploadError.message}`)
       setUploading(false)
-      setExtracting(true)
+      return
+    }
 
-      await fetch('/api/extract-spec-text', {
+    const { data: { publicUrl } } = supabase.storage.from('project-specs').getPublicUrl(path)
+
+    const { error: updateError } = await supabase
+      .from('projects')
+      .update({ spec_document_url: publicUrl, spec_extracted_text: null })
+      .eq('id', projectId)
+
+    if (updateError) {
+      setError(`Could not save spec to project: ${updateError.message}`)
+      setUploading(false)
+      return
+    }
+
+    setFile(null)
+    setUploading(false)
+    setExtracting(true)
+
+    try {
+      const res = await fetch('/api/extract-spec-text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectId }),
       })
 
+      if (!res.ok) {
+        let detail = `status ${res.status}`
+        try {
+          const body = await res.json()
+          detail = body.error || detail
+        } catch {
+          // ignore body parse failure
+        }
+        setError(`Document uploaded, but text extraction failed: ${detail}. You can try uploading again.`)
+      }
+    } catch (err: any) {
+      setError(`Document uploaded, but text extraction failed: ${err?.message || 'network error'}. You can try uploading again.`)
+    } finally {
       setExtracting(false)
       load()
-    } else {
-      setUploading(false)
     }
   }
 
@@ -123,6 +148,9 @@ export default function ProjectSpecPage() {
             onChange={(e) => setFile(e.target.files?.[0] || null)}
             className="mt-1 w-full text-sm"
           />
+
+          {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+
           <button
             onClick={handleUpload}
             disabled={uploading || extracting || !file || !projectId}
