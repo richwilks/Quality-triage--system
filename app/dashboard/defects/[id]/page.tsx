@@ -6,9 +6,11 @@ import { createClient } from '@/lib/supabase/client'
 import StatusBadge from '@/components/StatusBadge'
 import PageHeader from '@/components/PageHeader'
 import MeasurementFields, { MeasurementData } from '@/components/MeasurementFields'
+import ClauseViewer from '@/components/ClauseViewer'
 
 type Defect = {
   id: string
+  project_id: string
   title: string | null
   location: string | null
   photo_url: string | null
@@ -59,7 +61,7 @@ export default function DefectDetailPage() {
     const { data } = await supabase
       .from('defects')
       .select(
-        'id, title, location, photo_url, annotated_photo_url, description, standard_reference, status, target_close_date, closure_notes, closure_photo_url, requires_measurement, measured_gap_mm, tested_detail_reference, manufacturer_system, classification, ncr_number, root_cause, corrective_action'
+        'id, project_id, title, location, photo_url, annotated_photo_url, description, standard_reference, status, target_close_date, closure_notes, closure_photo_url, requires_measurement, measured_gap_mm, tested_detail_reference, manufacturer_system, classification, ncr_number, root_cause, corrective_action'
       )
       .eq('id', defectId)
       .single()
@@ -182,7 +184,10 @@ export default function DefectDetailPage() {
 
           <p className="mt-3 text-sm text-slate-700">{defect.description}</p>
           {defect.standard_reference && (
-            <p className="mt-1 text-xs text-slate-500">Standard: {defect.standard_reference}</p>
+            <>
+              <p className="mt-1 text-xs text-slate-500">Standard: {defect.standard_reference}</p>
+              <ClauseViewer projectId={defect.project_id} standardReference={defect.standard_reference} />
+            </>
           )}
           {defect.target_close_date && (
             <p className="mt-1 text-xs text-slate-500">Due {defect.target_close_date}</p>
