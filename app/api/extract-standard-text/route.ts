@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { extractDocumentText } from '@/lib/anthropic'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 
 export const maxDuration = 120
 
