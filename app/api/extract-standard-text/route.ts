@@ -25,7 +25,13 @@ export async function POST(req: NextRequest) {
 
     const extractedText = await extractDocumentText(base64, standard.code)
 
-    await supabase.from('standards_library').update({ extracted_text: extractedText }).eq('id', standardId)
+    const { data: updateData, error: updateError } = await supabase
+      .from('standards_library')
+      .update({ extracted_text: extractedText })
+      .eq('id', standardId)
+      .select()
+
+    console.log('Update result:', JSON.stringify({ updateData, updateError }))
 
     return NextResponse.json({ success: true })
   } catch (err) {
