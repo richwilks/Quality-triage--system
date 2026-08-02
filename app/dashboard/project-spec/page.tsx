@@ -125,6 +125,32 @@ export default function ProjectSpecPage() {
     )
   }
 
+async function handleRetry(specId: string) {
+  setError(null)
+  setExtracting(true)
+  try {
+    const res = await fetch('/api/extract-spec-text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ specId }),
+    })
+    if (!res.ok) {
+      let detail = `status ${res.status}`
+      try {
+        const body = await res.json()
+        detail = body.error || detail
+      } catch {}
+      setError(`Retry failed: ${detail}.`)
+    }
+  } catch (err: any) {
+    setError(`Retry failed: ${err?.message || 'network error'}.`)
+  } finally {
+    setExtracting(false)
+    loadSpecs()
+  }
+}
+
+
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-md">
