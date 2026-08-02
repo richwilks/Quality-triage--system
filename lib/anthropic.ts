@@ -39,6 +39,7 @@ export async function extractDocumentText(base64Doc: string, label: string): Pro
   })
 
   const data = await response.json()
+  console.log('Anthropic response:', JSON.stringify(data).slice(0, 500))
   const textBlock = data.content?.find((c: any) => c.type === 'text')
   return textBlock?.text || ''
 }
