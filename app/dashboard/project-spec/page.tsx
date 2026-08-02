@@ -112,6 +112,31 @@ export default function ProjectSpecPage() {
     }
   }
 
+  async function handleRetry(specId: string) {
+    setError(null)
+    setExtracting(true)
+    try {
+      const res = await fetch('/api/extract-spec-text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ specId }),
+      })
+      if (!res.ok) {
+        let detail = `status ${res.status}`
+        try {
+          const body = await res.json()
+          detail = body.error || detail
+        } catch {}
+        setError(`Retry failed: ${detail}.`)
+      }
+    } catch (err: any) {
+      setError(`Retry failed: ${err?.message || 'network error'}.`)
+    } finally {
+      setExtracting(false)
+      loadSpecs()
+    }
+  }
+
   async function handleDelete(specId: string) {
     await supabase.from('project_specs').delete().eq('id', specId)
     loadSpecs()
@@ -124,32 +149,6 @@ export default function ProjectSpecPage() {
       </div>
     )
   }
-
-async function handleRetry(specId: string) {
-  setError(null)
-  setExtracting(true)
-  try {
-    const res = await fetch('/api/extract-spec-text', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ specId }),
-    })
-    if (!res.ok) {
-      let detail = `status ${res.status}`
-      try {
-        const body = await res.json()
-        detail = body.error || detail
-      } catch {}
-      setError(`Retry failed: ${detail}.`)
-    }
-  } catch (err: any) {
-    setError(`Retry failed: ${err?.message || 'network error'}.`)
-  } finally {
-    setExtracting(false)
-    loadSpecs()
-  }
-}
-
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
@@ -198,7 +197,16 @@ async function handleRetry(specId: string) {
                 {s.extracted_text ? (
                   <span className="text-green-700">Ready for analysis</span>
                 ) : (
-                  <span className="text-amber-600">Processing...</span>
+                  <span className="text-amber-600">
+                    Processing...{' '}
+                    <button
+                      onClick={() => handleRetry(s.id)}
+                      disabled={extracting}
+                      className="ml-1 underline text-brand-primary disabled:opacity-50"
+                    >
+                      Retry
+                    </button>
+                  </span>
                 )}
               </p>
             </div>
