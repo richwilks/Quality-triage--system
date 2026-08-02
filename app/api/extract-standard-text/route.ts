@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { extractDocumentText } from '@/lib/anthropic'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { extractDocumentText } from '@/lib/anthropic'
 
 export const maxDuration = 120
 
@@ -26,7 +26,12 @@ export async function POST(req: NextRequest) {
 
     const extractedText = await extractDocumentText(base64, standard.code)
 
-    const { data: updateData, error: updateError } = await supabase
+    const supabaseAdmin = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+      process.env.SUPABASE_SERVICE_ROLE_KEY as string
+    )
+
+    const { data: updateData, error: updateError } = await supabaseAdmin
       .from('standards_library')
       .update({ extracted_text: extractedText })
       .eq('id', standardId)
