@@ -2,12 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { analyzeDefectImage, ExtraStandardText, FeedbackExample } from '@/lib/anthropic'
 
-export const maxDuration = 30
+export const maxDuration = 60
 const MAX_FEEDBACK_EXAMPLES = 12
 
 // Sonnet 5 pricing per 1M tokens (adjust if pricing changes)
 const INPUT_COST_PER_M = 2.0
 const OUTPUT_COST_PER_M = 10.0
+
+function normalizeCode(code: string) {
+  return code.toLowerCase().replace(/[\s.\-_/]/g, '')
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,15 +24,37 @@ export async function POST(req: NextRequest) {
       .eq('id', projectId)
       .single()
 
+    // Pull all project specs (concrete, sub station, drainage, etc) and combine them
+    const { data: projectSpecs } = await supabase
+      .from('project_specs')
+      .select('name, extracted_text')
+      .eq('project_id', projectId)
+      .not('extracted_text', 'is', null)
+
+    let combinedSpecText = project?.spec_extracted_text || ''
+    if (projectSpecs && projectSpecs.length > 0) {
+      const specSections = projectSpecs
+        .filter((s) => s.extracted_text)
+        .map((s) => `--- ${s.name || 'Specification'} ---\n${s.extracted_text}`)
+        .join('\n\n')
+      combinedSpecText = combinedSpecText
+        ? `${combinedSpecText}\n\n${specSections}`
+        : specSections
+    }
+
     const extraStandards: ExtraStandardText[] = []
     if (project?.standards) {
       const { data: library } = await supabase
         .from('standards_library')
         .select('code, extracted_text')
 
-      const matches = (library || []).filter(
-        (s) => s.extracted_text && project.standards.toLowerCase().includes(s.code.toLowerCase())
-      )
+      const projectStandardsNormalized = normalizeCode(project.standards)
+
+      const matches = (library || []).filter((s) => {
+        if (!s.extracted_text || !s.code) return false
+        const codeNormalized = normalizeCode(s.code)
+        return projectStandardsNormalized.includes(codeNormalized)
+      })
 
       matches.forEach((m) => extraStandards.push({ code: m.code, text: m.extracted_text }))
     }
@@ -65,7 +91,7 @@ export async function POST(req: NextRequest) {
       project?.description || '',
       project?.standards || '',
       location || null,
-      project?.spec_extracted_text || null,
+      combinedSpecText || null,
       extraStandards,
       feedbackExamples,
       finishGrade || null
