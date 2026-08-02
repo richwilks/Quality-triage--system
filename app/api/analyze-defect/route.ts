@@ -42,6 +42,8 @@ export async function POST(req: NextRequest) {
         : specSections
     }
 
+    console.log('Combined spec length:', combinedSpecText?.length || 0)
+
     const extraStandards: ExtraStandardText[] = []
     if (project?.standards) {
       const { data: library } = await supabase
@@ -58,6 +60,9 @@ export async function POST(req: NextRequest) {
 
       matches.forEach((m) => extraStandards.push({ code: m.code, text: m.extracted_text }))
     }
+
+    console.log('Extra standards loaded:', extraStandards.map((s) => s.code))
+    console.log('Project standards field:', project?.standards || '(empty)')
 
     let feedbackExamples: FeedbackExample[] = []
     if (project?.company_name) {
