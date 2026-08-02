@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { extractDocumentText } from '@/lib/anthropic'
 
 export const maxDuration = 120
@@ -25,7 +26,18 @@ export async function POST(req: NextRequest) {
 
     const extractedText = await extractDocumentText(base64, spec.name || 'project specification')
 
-    await supabase.from('project_specs').update({ extracted_text: extractedText }).eq('id', specId)
+    const supabaseAdmin = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+      process.env.SUPABASE_SERVICE_ROLE_KEY as string
+    )
+
+    const { data: updateData, error: updateError } = await supabaseAdmin
+      .from('project_specs')
+      .update({ extracted_text: extractedText })
+      .eq('id', specId)
+      .select()
+
+    console.log('Update result:', JSON.stringify({ updateData, updateError }))
 
     return NextResponse.json({ success: true })
   } catch (err) {
