@@ -33,6 +33,7 @@ export default function StandardsLibraryPage() {
   const [uploading, setUploading] = useState(false)
   const [extracting, setExtracting] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     load()
@@ -50,6 +51,7 @@ export default function StandardsLibraryPage() {
   async function handleUpload() {
     if (!file || !code) return
     setUploading(true)
+    setError(null)
 
     const path = `${Date.now()}-${file.name}`
     const { error: uploadError } = await supabase.storage.from('standards-library').upload(path, file)
@@ -58,7 +60,7 @@ export default function StandardsLibraryPage() {
       const { data: { publicUrl } } = supabase.storage.from('standards-library').getPublicUrl(path)
       const { data: { user } } = await supabase.auth.getUser()
 
-      const { data: inserted } = await supabase
+      const { data: inserted, error: insertError } = await supabase
         .from('standards_library')
         .insert({ code, title: title || null, document_url: publicUrl, category, created_by: user?.id })
         .select()
@@ -69,18 +71,61 @@ export default function StandardsLibraryPage() {
       setFile(null)
       setUploading(false)
 
-      if (inserted) {
-        setExtracting(true)
-        await fetch('/api/extract-standard-text', {
+      if (insertError || !inserted) {
+        setError(`Could not save standard: ${insertError?.message || 'unknown error'}`)
+        load()
+        return
+      }
+
+      setExtracting(true)
+      try {
+        const res = await fetch('/api/extract-standard-text', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ standardId: inserted.id }),
         })
+        if (!res.ok) {
+          let detail = `status ${res.status}`
+          try {
+            const body = await res.json()
+            detail = body.error || detail
+          } catch {}
+          setError(`Uploaded, but text extraction failed: ${detail}.`)
+        }
+      } catch (err: any) {
+        setError(`Uploaded, but text extraction failed: ${err?.message || 'network error'}.`)
+      } finally {
         setExtracting(false)
       }
       load()
     } else {
+      setError(`Upload failed: ${uploadError.message}`)
       setUploading(false)
+    }
+  }
+
+  async function handleRetry(standardId: string) {
+    setError(null)
+    setExtracting(true)
+    try {
+      const res = await fetch('/api/extract-standard-text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ standardId }),
+      })
+      if (!res.ok) {
+        let detail = `status ${res.status}`
+        try {
+          const body = await res.json()
+          detail = body.error || detail
+        } catch {}
+        setError(`Retry failed: ${detail}.`)
+      }
+    } catch (err: any) {
+      setError(`Retry failed: ${err?.message || 'network error'}.`)
+    } finally {
+      setExtracting(false)
+      load()
     }
   }
 
@@ -123,7 +168,16 @@ export default function StandardsLibraryPage() {
                       {s.extracted_text ? (
                         <span className="text-green-700">Ready for analysis</span>
                       ) : (
-                        <span className="text-amber-600">Processing...</span>
+                        <span className="text-amber-600">
+                          Processing...{' '}
+                          <button
+                            onClick={() => handleRetry(s.id)}
+                            disabled={extracting}
+                            className="ml-1 underline text-brand-primary disabled:opacity-50"
+                          >
+                            Retry
+                          </button>
+                        </span>
                       )}
                     </p>
                   </div>
@@ -164,6 +218,9 @@ export default function StandardsLibraryPage() {
             onChange={(e) => setFile(e.target.files?.[0] || null)}
             className="mt-2 w-full text-sm"
           />
+
+          {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+
           <button
             onClick={handleUpload}
             disabled={uploading || extracting || !file || !code}
