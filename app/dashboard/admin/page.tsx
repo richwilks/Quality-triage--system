@@ -197,12 +197,20 @@ export default function PlatformAdminPage() {
         
  <p className="mt-1 text-sm text-slate-500">Manage every user, project, and invite directly.</p>
 
-        <a
-          href="/dashboard/admin/analytics"
-          className="mt-3 inline-block text-sm font-medium text-brand-primary"
-        >
-          View platform analytics →
-        </a>
+        <div className="mt-3 flex flex-col gap-1">
+          <a
+            href="/dashboard/admin/analytics"
+            className="inline-block text-sm font-medium text-brand-primary"
+          >
+            View platform analytics →
+          </a>
+          <a
+            href="/dashboard/admin/defect-knowledge"
+            className="inline-block text-sm font-medium text-brand-primary"
+          >
+            Defect knowledge base →
+          </a>
+        </div>
 
         <div className="mt-4 flex gap-2">
 
