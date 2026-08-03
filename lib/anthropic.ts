@@ -8,6 +8,12 @@ export type DetectedDefect = {
 
 export type ExtraStandardText = { code: string; text: string }
 export type FeedbackExample = { description: string; wasValid: boolean; reason?: string | null }
+export type KnowledgeEntry = {
+  title: string
+  elementType: string | null
+  defectDescription: string
+  correctReference: string | null
+}
 
 export async function extractDocumentText(base64Doc: string, label: string): Promise<string> {
   const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -57,7 +63,8 @@ export async function analyzeDefectImage(
   specText?: string | null,
   extraStandards?: ExtraStandardText[],
   feedbackExamples?: FeedbackExample[],
-  finishGrade?: string | null
+  finishGrade?: string | null,
+  knowledgeEntries?: KnowledgeEntry[]
 ): Promise<{ defects: DetectedDefect[]; usage: { input_tokens: number; output_tokens: number } | null }> {
 
   const content: any[] = [
@@ -76,6 +83,13 @@ ${finishGrade ? `Specified finish/quality grade for this location: ${finishGrade
   if (extraStandards && extraStandards.length > 0) {
     for (const std of extraStandards) {
       referenceText += `\n\nExtracted requirements from referenced standard ${std.code}:\n${std.text}`
+    }
+  }
+
+  if (knowledgeEntries && knowledgeEntries.length > 0) {
+    referenceText += `\n\nOrganisational defect knowledge base (known defect patterns from past inspections across all projects - treat these as authoritative, specific checks to apply where relevant to what's visible in this photo):`
+    for (const k of knowledgeEntries) {
+      referenceText += `\n\n- ${k.title}${k.elementType ? ` [${k.elementType}]` : ''}\n  What wrong looks like: ${k.defectDescription}${k.correctReference ? `\n  What correct looks like: ${k.correctReference}` : ''}`
     }
   }
 
@@ -101,4 +115,154 @@ Your task, in order:
 4. For each defect, give a tight bounding box in percentages (0-100) of image width/height, x/y being the top-left corner. Before finalising each box: mentally trace the actual boundary of the defect itself (crack line, stain edge, void perimeter), then set the box to hug just that boundary with a small margin - not the surrounding clean surface. A box covering more than roughly a third of the image width or height is almost always too loose unless the defect genuinely is that large (e.g. a long crack) - reconsider it. Never default to a box centred on the whole photo.
 5. Only cite a specific standard/clause if it appears in the reference text above. If none applies, leave standard_reference empty rather than inventing or recalling a clause from memory. If you do mention a standard not present above, explicitly flag it as unverified in the description.
 6. When citing a standard, always give the fullest reference available in the source text - standard number, part number, and section/clause number together, e.g. "BS 8204-1, Section 10.3" rather than just "BS 8204" or "BS 8204 Part 1" alone. Only go as deep as the source material actually specifies - never invent a section number that isn't present in the reference text.
-7. CRITICAL: requires_measurement must be true ONLY when the defect is specifically about a fire-stopping seal, penetration seal, or service opening that needs to comply with a fire-rated tested detail - nothing else qualifies, ever. Structural steel gaps, grating panel spacing, floor/wall finish gaps, cracks, and general misalignment are NEVER measurement-required, even if a gap or dimension is visually mentioned in the description - set requires_measurement to false for all of these. Only for genuine fire-stopping/penetration seals: you CANNOT measure gap dimensions or annular spacing from a 2D photo - there is no reliable way to know real-world scale without a reference object in frame, and firestopping compliance against a manufacturer's tested detail is dimension-critical. NEVER state or imply a specific measurement (e.g. never say "this gap is 15mm"). Instead, if you see something that looks visually irregular for a fire seal specifically - an unusually large or uneven gap, missing intumescent material, exposed penetrant with no visible s
+7. CRITICAL: requires_measurement must be true ONLY when the defect is specifically about a fire-stopping seal, penetration seal, or service opening that needs to comply with a fire-rated tested detail - nothing else qualifies, ever. Structural steel gaps, grating panel spacing, floor/wall finish gaps, cracks, and general misalignment are NEVER measurement-required, even if a gap or dimension is visually mentioned in the description - set requires_measurement to false for all of these. Only for genuine fire-stopping/penetration seals: you CANNOT measure gap dimensions or annular spacing from a 2D photo - there is no reliable way to know real-world scale without a reference object in frame, and firestopping compliance against a manufacturer's tested detail is dimension-critical. NEVER state or imply a specific measurement (e.g. never say "this gap is 15mm"). Instead, if you see something that looks visually irregular for a fire seal specifically - an unusually large or uneven gap, missing intumescent material, exposed penetrant with no visible sealant, absence of a visible product/certification label - flag it as requires_measurement true, and describe only what you can see, explicitly stating a manual measurement against the relevant tested detail is needed. Before setting requires_measurement to true, ask yourself: is this specifically a fire-stopping or service penetration seal? If not, it must be false.
+8. Reference spec text describes expected materials for this project but does not guarantee every element in every photo is that material - confirm the material you see in the photo before applying spec requirements for a different material to it. If the photo shows metal, steel, aluminium, or grating, do not treat it as concrete even if a concrete spec is loaded.
+9. Movement joints and expansion joint cover plates: if the reference text above includes a figure description of correct installation for a movement joint product (e.g. an Inpro-style anchor plate with a floating top cover plate), compare the photo carefully against that described correct configuration - check whether components are positioned, covered, or concealed exactly as the figure describes, not just whether a joint is generally present. A movement joint that is physically installed but incorrectly positioned (e.g. installed at maximum expansion with no remaining movement allowance, indicated by fixing/anchor screw holes being visible rather than concealed by the top cover plate as the correct-installation figure describes) is a real, high-priority defect - correct presence of a joint is not sufficient, correct positioning per the reference figure is required. If no matching product figure is available in the reference text, still visually check for obvious movement joint installation issues (missing cover plate, cover plate not seated, visible fixings where none should show) using general good-practice judgement, and note in the description that this is based on general visual judgement rather than a specific manufacturer detail.
+10. If the organisational defect knowledge base above lists any entries, actively check the photo against each one that's relevant to the element identified in step 1 - these are known, previously-confirmed defect patterns from real inspections and should be checked as specifically and rigorously as the numbered rules above, not treated as general background context.
+
+Respond with ONLY a JSON array, no markdown, no other text:
+
+[
+  {
+    "description": "specific description of the defect",
+    "confidence": 0.0 to 1.0,
+    "standard_reference": "full reference including standard, part, and section/clause where available - e.g. 'BS 8204-1, Section 10.3' - or empty string if none applies",
+    "requires_measurement": true or false,
+    "box": { "x": 0-100, "y": 0-100, "width": 0-100, "height": 0-100 }
+  }
+]
+
+If no defects, respond with: []`
+
+  content.push({ type: 'text', text: instructions })
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': process.env.ANTHROPIC_API_KEY as string,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-5',
+      max_tokens: 1500,
+      messages: [{ role: 'user', content }],
+    }),
+  })
+
+  const data = await response.json()
+  const textBlock = data.content?.find((c: any) => c.type === 'text')
+  const raw = textBlock?.text || '[]'
+  const cleaned = raw.replace(/```json|```/g, '').trim()
+
+  const usage = data.usage
+    ? { input_tokens: data.usage.input_tokens || 0, output_tokens: data.usage.output_tokens || 0 }
+    : null
+
+  function clampBox(box: any) {
+    const x = Math.max(0, Math.min(100, box?.x ?? 0))
+    const y = Math.max(0, Math.min(100, box?.y ?? 0))
+    const width = Math.max(1, Math.min(100 - x, box?.width ?? 10))
+    const height = Math.max(1, Math.min(100 - y, box?.height ?? 10))
+    return { x, y, width, height }
+  }
+
+  try {
+    const parsed = JSON.parse(cleaned)
+    const defects = Array.isArray(parsed)
+      ? parsed.map((d: any) => ({ ...d, requires_measurement: !!d.requires_measurement, box: clampBox(d.box) }))
+      : []
+    return { defects, usage }
+  } catch {
+    return { defects: [], usage }
+  }
+}
+
+export async function detectRoomLabel(base64Image: string, mimeType: string): Promise<string> {
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': process.env.ANTHROPIC_API_KEY as string,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-5',
+      max_tokens: 100,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64Image } },
+            {
+              type: 'text',
+              text: `This is a small cropped section of a construction drawing. If there is a room name, room number, or space label printed as text in this crop, respond with ONLY that exact text, nothing else. If there is no readable label in this crop, respond with exactly: NONE`,
+            },
+          ],
+        },
+      ],
+    }),
+  })
+
+  const data = await response.json()
+  const textBlock = data.content?.find((c: any) => c.type === 'text')
+  const result = (textBlock?.text || '').trim()
+  return result === 'NONE' ? '' : result
+}
+
+export type ExistingDefectSummary = { id: string; description: string; location: string | null }
+
+export async function checkForDuplicate(
+  base64Image: string,
+  mimeType: string,
+  existingDefects: ExistingDefectSummary[]
+): Promise<{ isDuplicate: boolean; matchedId: string | null; reason: string }> {
+  if (existingDefects.length === 0) {
+    return { isDuplicate: false, matchedId: null, reason: '' }
+  }
+
+  const listText = existingDefects
+    .map((d, i) => `${i + 1}. [id: ${d.id}] ${d.location ? `(${d.location}) ` : ''}${d.description}`)
+    .join('\n')
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': process.env.ANTHROPIC_API_KEY as string,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-5',
+      max_tokens: 300,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64Image } },
+            {
+              type: 'text',
+              text: `Here is a list of defects already open on this project:\n${listText}\n\nLooking at the photo, does it appear to show the SAME physical defect as one already in this list (same location, same specific issue - not just a similar type of defect elsewhere)? Be conservative - only flag a match if you're reasonably confident it's the same physical spot and issue, not just a similar-looking defect. Respond with ONLY this JSON, no other text: {"isDuplicate": true or false, "matchedId": "the id from the list, or null", "reason": "brief explanation"}`,
+            },
+          ],
+        },
+      ],
+    }),
+  })
+
+  const data = await response.json()
+  const textBlock = data.content?.find((c: any) => c.type === 'text')
+  const raw = textBlock?.text || '{}'
+  const cleaned = raw.replace(/```json|```/g, '').trim()
+
+  try {
+    const parsed = JSON.parse(cleaned)
+    return {
+      isDuplicate: !!parsed.isDuplicate,
+      matchedId: parsed.matchedId || null,
+      reason: parsed.reason || '',
+    }
+  } catch {
+    return { isDuplicate: false, matchedId: null, reason: '' }
+  }
+}
