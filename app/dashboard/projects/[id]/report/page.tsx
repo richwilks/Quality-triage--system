@@ -18,6 +18,12 @@ type Defect = {
   closure_notes: string | null
   created_at: string
 }
+type Branding = {
+  feature_branded_reports: boolean
+  feature_hide_inspectiq_brand: boolean
+  logo_url: string | null
+  accent_color: string | null
+}
 
 const STATUS_LABEL: Record<string, string> = {
   draft: 'Draft',
@@ -34,6 +40,7 @@ export default function ProjectReportPage() {
 
   const [project, setProject] = useState<Project | null>(null)
   const [defects, setDefects] = useState<Defect[]>([])
+  const [branding, setBranding] = useState<Branding | null>(null)
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('all')
 
@@ -56,6 +63,15 @@ export default function ProjectReportPage() {
       .order('created_at', { ascending: true })
     setDefects(defectData || [])
 
+    if (projectData?.company_name) {
+      const { data: brandingData } = await supabase
+        .from('company_settings')
+        .select('feature_branded_reports, feature_hide_inspectiq_brand, logo_url, accent_color')
+        .eq('company_name', projectData.company_name)
+        .maybeSingle()
+      setBranding(brandingData)
+    }
+
     setLoading(false)
   }
 
@@ -66,6 +82,11 @@ export default function ProjectReportPage() {
   })
 
   const generatedOn = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+
+  const useBrandedReport = branding?.feature_branded_reports || false
+  const hideInspectIQ = branding?.feature_hide_inspectiq_brand || false
+  const accentColor = useBrandedReport && branding?.accent_color ? branding.accent_color : null
+  const logoUrl = useBrandedReport && branding?.logo_url ? branding.logo_url : null
 
   if (loading) {
     return (
@@ -104,20 +125,30 @@ export default function ProjectReportPage() {
           </div>
           <button
             onClick={() => window.print()}
-            className="rounded-md bg-brand-primary px-4 py-2 text-sm font-medium text-white"
+            className="rounded-md px-4 py-2 text-sm font-medium text-white"
+            style={{ backgroundColor: accentColor || undefined }}
           >
             Print / Save as PDF
           </button>
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm print:rounded-none print:border-0 print:shadow-none">
-          <div className="flex items-start justify-between border-b border-slate-200 pb-4">
+          <div
+            className="flex items-start justify-between border-b pb-4"
+            style={{ borderColor: accentColor || undefined }}
+          >
             <div>
-              <h1 className="text-2xl font-semibold text-brand-ink">{project.name}</h1>
+              <h1 className="text-2xl font-semibold" style={{ color: accentColor || undefined }}>
+                {project.name}
+              </h1>
               {project.company_name && <p className="mt-1 text-sm text-slate-500">{project.company_name}</p>}
               {project.description && <p className="mt-2 text-sm text-slate-600">{project.description}</p>}
             </div>
-            <img src="/icon-192.png" alt="InspectIQ" className="h-12 w-12 rounded-lg" />
+            {logoUrl ? (
+              <img src={logoUrl} alt={project.company_name || 'Company logo'} className="h-12 w-auto object-contain" />
+            ) : !hideInspectIQ ? (
+              <img src="/icon-192.png" alt="InspectIQ" className="h-12 w-12 rounded-lg" />
+            ) : null}
           </div>
 
           <p className="mt-3 text-xs text-slate-400">Report generated {generatedOn}</p>
@@ -128,7 +159,10 @@ export default function ProjectReportPage() {
                 {STATUS_LABEL[status] || status}: {count}
               </div>
             ))}
-            <div className="rounded-md bg-brand-ink px-3 py-1.5 text-xs font-medium text-white print:bg-white print:border print:border-slate-900 print:text-slate-900">
+            <div
+              className="rounded-md px-3 py-1.5 text-xs font-medium text-white print:bg-white print:border print:border-slate-900 print:text-slate-900"
+              style={{ backgroundColor: accentColor || undefined }}
+            >
               Total: {defects.length}
             </div>
           </div>
@@ -175,6 +209,12 @@ export default function ProjectReportPage() {
               <p className="text-sm text-slate-500">No defects match this filter.</p>
             )}
           </div>
+
+          {!hideInspectIQ && (
+            <p className="mt-8 text-center text-[10px] text-slate-300 print:text-slate-400">
+              Generated with InspectIQ
+            </p>
+          )}
         </div>
       </div>
 
