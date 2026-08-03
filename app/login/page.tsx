@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { syncCompanyAccess } from '@/lib/companySync'
@@ -9,6 +9,7 @@ import { syncCompanyAccess } from '@/lib/companySync'
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
 
   const [email, setEmail] = useState('')
@@ -33,7 +34,8 @@ export default function LoginPage() {
       return
     }
 await syncCompanyAccess(supabase)
-    router.push('/dashboard')
+    const redirectTo = searchParams.get('redirect')
+    router.push(redirectTo || '/dashboard')
     router.refresh()
   }
 
