@@ -13,6 +13,8 @@ type StandardDoc = {
   category: string | null
 }
 
+type UploadProgress = { fileName: string; status: 'uploading' | 'processing' | 'done' | 'error'; error?: string }
+
 const CATEGORIES = [
   'Concrete & Masonry',
   'Structural Steel',
@@ -29,11 +31,11 @@ export default function StandardsLibraryPage() {
   const [code, setCode] = useState('')
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState(CATEGORIES[CATEGORIES.length - 1])
-  const [file, setFile] = useState<File | null>(null)
+  const [files, setFiles] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
-  const [extracting, setExtracting] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [progress, setProgress] = useState<UploadProgress[]>([])
 
   useEffect(() => {
     load()
@@ -48,65 +50,8 @@ export default function StandardsLibraryPage() {
     setLoading(false)
   }
 
-  async function handleUpload() {
-    if (!file || !code) return
-    setUploading(true)
-    setError(null)
-
-    const path = `${Date.now()}-${file.name}`
-    const { error: uploadError } = await supabase.storage.from('standards-library').upload(path, file)
-
-    if (!uploadError) {
-      const { data: { publicUrl } } = supabase.storage.from('standards-library').getPublicUrl(path)
-      const { data: { user } } = await supabase.auth.getUser()
-
-      const { data: inserted, error: insertError } = await supabase
-        .from('standards_library')
-        .insert({ code, title: title || null, document_url: publicUrl, category, created_by: user?.id })
-        .select()
-        .single()
-
-      setCode('')
-      setTitle('')
-      setFile(null)
-      setUploading(false)
-
-      if (insertError || !inserted) {
-        setError(`Could not save standard: ${insertError?.message || 'unknown error'}`)
-        load()
-        return
-      }
-
-      setExtracting(true)
-      try {
-        const res = await fetch('/api/extract-standard-text', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ standardId: inserted.id }),
-        })
-        if (!res.ok) {
-          let detail = `status ${res.status}`
-          try {
-            const body = await res.json()
-            detail = body.error || detail
-          } catch {}
-          setError(`Uploaded, but text extraction failed: ${detail}.`)
-        }
-      } catch (err: any) {
-        setError(`Uploaded, but text extraction failed: ${err?.message || 'network error'}.`)
-      } finally {
-        setExtracting(false)
-      }
-      load()
-    } else {
-      setError(`Upload failed: ${uploadError.message}`)
-      setUploading(false)
-    }
-  }
-
   async function handleRetry(standardId: string) {
     setError(null)
-    setExtracting(true)
     try {
       const res = await fetch('/api/extract-standard-text', {
         method: 'POST',
@@ -124,9 +69,114 @@ export default function StandardsLibraryPage() {
     } catch (err: any) {
       setError(`Retry failed: ${err?.message || 'network error'}.`)
     } finally {
-      setExtracting(false)
       load()
     }
+  }
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(e.target.files || [])
+    setFiles(selected)
+  }
+
+  function removeSelectedFile(index: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  async function handleUpload() {
+    if (files.length === 0) return
+    setUploading(true)
+    setError(null)
+    setProgress(files.map((f) => ({ fileName: f.name, status: 'uploading' })))
+
+    const singleFileMode = files.length === 1
+    if (singleFileMode && !code) {
+      setError('Please enter a code for this standard.')
+      setUploading(false)
+      setProgress([])
+      return
+    }
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      // In multi-file mode, derive a code from the filename (without extension) since one code field can't apply to many files
+      const codeForThisFile = singleFileMode ? code : file.name.replace(/\.[^/.]+$/, '')
+      const titleForThisFile = singleFileMode ? title : null
+
+      try {
+        const path = `${Date.now()}-${file.name}`
+        const { error: uploadError } = await supabase.storage.from('standards-library').upload(path, file)
+
+        if (uploadError) {
+          setProgress((prev) =>
+            prev.map((p, idx) => (idx === i ? { ...p, status: 'error', error: uploadError.message } : p))
+          )
+          continue
+        }
+
+        const { data: { publicUrl } } = supabase.storage.from('standards-library').getPublicUrl(path)
+
+        const { data: inserted, error: insertError } = await supabase
+          .from('standards_library')
+          .insert({
+            code: codeForThisFile,
+            title: titleForThisFile,
+            document_url: publicUrl,
+            category,
+            created_by: user?.id,
+          })
+          .select()
+          .single()
+
+        if (insertError || !inserted) {
+          setProgress((prev) =>
+            prev.map((p, idx) =>
+              idx === i ? { ...p, status: 'error', error: insertError?.message || 'unknown error' } : p
+            )
+          )
+          continue
+        }
+
+        setProgress((prev) => prev.map((p, idx) => (idx === i ? { ...p, status: 'processing' } : p)))
+
+        try {
+          const res = await fetch('/api/extract-standard-text', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ standardId: inserted.id }),
+          })
+          if (!res.ok) {
+            let detail = `status ${res.status}`
+            try {
+              const body = await res.json()
+              detail = body.error || detail
+            } catch {}
+            setProgress((prev) =>
+              prev.map((p, idx) => (idx === i ? { ...p, status: 'error', error: detail } : p))
+            )
+          } else {
+            setProgress((prev) => prev.map((p, idx) => (idx === i ? { ...p, status: 'done' } : p)))
+          }
+        } catch (err: any) {
+          setProgress((prev) =>
+            prev.map((p, idx) =>
+              idx === i ? { ...p, status: 'error', error: err?.message || 'network error' } : p
+            )
+          )
+        }
+      } catch (err: any) {
+        setProgress((prev) =>
+          prev.map((p, idx) => (idx === i ? { ...p, status: 'error', error: err?.message || 'unexpected error' } : p))
+        )
+      }
+    }
+
+    setCode('')
+    setTitle('')
+    setFiles([])
+    setUploading(false)
+    load()
   }
 
   if (loading) {
@@ -172,8 +222,7 @@ export default function StandardsLibraryPage() {
                           Processing...{' '}
                           <button
                             onClick={() => handleRetry(s.id)}
-                            disabled={extracting}
-                            className="ml-1 underline text-brand-primary disabled:opacity-50"
+                            className="ml-1 underline text-brand-primary"
                           >
                             Retry
                           </button>
@@ -188,7 +237,7 @@ export default function StandardsLibraryPage() {
         </div>
 
         <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-sm font-medium text-slate-700">Add a standard</p>
+          <p className="text-sm font-medium text-slate-700">Add standard(s)</p>
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
@@ -202,31 +251,62 @@ export default function StandardsLibraryPage() {
             type="text"
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            placeholder="e.g. BS 8204-2"
+            placeholder="Code, e.g. BS 8204-2 (only used for a single file)"
             className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
           />
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Title (optional)"
+            placeholder="Title (optional, single file only)"
             className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
           />
           <input
             type="file"
             accept="application/pdf"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            multiple
+            onChange={handleFileSelect}
             className="mt-2 w-full text-sm"
           />
+
+          {files.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {files.map((f, i) => (
+                <div key={i} className="flex items-center justify-between rounded-md bg-slate-50 px-2 py-1 text-xs text-slate-600">
+                  <span className="truncate">{f.name}</span>
+                  <button onClick={() => removeSelectedFile(i)} className="ml-2 text-red-600">✕</button>
+                </div>
+              ))}
+              {files.length > 1 && (
+                <p className="text-[11px] text-slate-400">
+                  Multiple files selected - each will use its filename as the code. You can rename them individually afterwards if needed.
+                </p>
+              )}
+            </div>
+          )}
+
+          {progress.length > 0 && (
+            <div className="mt-3 space-y-1">
+              {progress.map((p, i) => (
+                <div key={i} className="text-xs">
+                  <span className="font-medium text-slate-700">{p.fileName}</span>{' '}
+                  {p.status === 'uploading' && <span className="text-slate-500">Uploading...</span>}
+                  {p.status === 'processing' && <span className="text-amber-600">Processing...</span>}
+                  {p.status === 'done' && <span className="text-green-700">Ready</span>}
+                  {p.status === 'error' && <span className="text-red-600">Failed: {p.error}</span>}
+                </div>
+              ))}
+            </div>
+          )}
 
           {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 
           <button
             onClick={handleUpload}
-            disabled={uploading || extracting || !file || !code}
+            disabled={uploading || files.length === 0 || (files.length === 1 && !code)}
             className="mt-3 w-full rounded-md bg-brand-primary px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
-            {uploading ? 'Uploading...' : extracting ? 'Processing document...' : 'Add to library'}
+            {uploading ? `Processing ${files.length} file(s)...` : `Add ${files.length || ''} standard${files.length === 1 ? '' : 's'}`}
           </button>
           <p className="mt-2 text-xs text-slate-400">
             Only upload standards your organisation is properly licensed to hold - these are copyrighted documents.
