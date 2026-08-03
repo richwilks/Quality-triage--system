@@ -56,12 +56,15 @@ export async function middleware(request: NextRequest) {
   if (!user && !isAuthPage && !isResetPage) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
+    url.searchParams.set('redirect', request.nextUrl.pathname)
     return NextResponse.redirect(url)
   }
 
   if (user && isAuthPage) {
     const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
+    const redirectTo = request.nextUrl.searchParams.get('redirect')
+    url.pathname = redirectTo || '/dashboard'
+    url.search = ''
     return NextResponse.redirect(url)
   }
 
