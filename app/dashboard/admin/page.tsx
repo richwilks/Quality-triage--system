@@ -34,8 +34,15 @@ type InviteRow = {
   projects: { name: string } | { name: string }[] | null
 }
 
+type CompanyBranding = {
+  company_name: string
+  white_label_enabled: boolean
+  logo_url: string | null
+  accent_color: string | null
+}
+
 const ACCOUNT_TYPES = ['employee', 'contractor', 'client_agent', 'client']
-const TABS = ['Users', 'Projects', 'Invites'] as const
+const TABS = ['Users', 'Projects', 'Invites', 'Branding'] as const
 
 export default function PlatformAdminPage() {
   const supabase = createClient()
@@ -48,6 +55,8 @@ export default function PlatformAdminPage() {
   const [projects, setProjects] = useState<ProjectRow[]>([])
   const [invites, setInvites] = useState<InviteRow[]>([])
   const [userProjectIds, setUserProjectIds] = useState<Record<string, string[]>>({})
+  const [companyBrandings, setCompanyBrandings] = useState<Record<string, CompanyBranding>>({})
+  const [brandingBusy, setBrandingBusy] = useState<string | null>(null)
 
   const [editingUser, setEditingUser] = useState<string | null>(null)
   const [editingProject, setEditingProject] = useState<string | null>(null)
@@ -105,6 +114,15 @@ export default function PlatformAdminPage() {
     })
     setUserProjectIds(grouped)
 
+    const { data: brandingData } = await supabase
+      .from('company_settings')
+      .select('company_name, white_label_enabled, logo_url, accent_color')
+    const brandingMap: Record<string, CompanyBranding> = {}
+    ;(brandingData || []).forEach((b: any) => {
+      brandingMap[b.company_name] = b
+    })
+    setCompanyBrandings(brandingMap)
+
     setLoading(false)
   }
 
@@ -128,6 +146,10 @@ export default function PlatformAdminPage() {
     if (!q) return true
     return p.name.toLowerCase().includes(q) || (p.company_name || '').toLowerCase().includes(q)
   })
+
+  const distinctCompanies = Array.from(
+    new Set(users.map((u) => u.company_name).filter((c): c is string => !!c))
+  ).sort()
 
   async function updateUser(id: string, patch: Partial<UserRow>) {
     await supabase.from('profiles').update(patch).eq('id', id)
@@ -174,6 +196,26 @@ export default function PlatformAdminPage() {
     await updateUser(id, { is_blocked: !current })
   }
 
+  async function toggleWhiteLabel(companyName: string, currentlyEnabled: boolean) {
+    setBrandingBusy(companyName)
+    const { error } = await supabase.rpc('set_company_white_label', {
+      target_company: companyName,
+      enabled: !currentlyEnabled,
+    })
+    if (!error) {
+      setCompanyBrandings((prev) => ({
+        ...prev,
+        [companyName]: {
+          company_name: companyName,
+          white_label_enabled: !currentlyEnabled,
+          logo_url: prev[companyName]?.logo_url || null,
+          accent_color: prev[companyName]?.accent_color || null,
+        },
+      }))
+    }
+    setBrandingBusy(null)
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 p-8">
@@ -212,7 +254,7 @@ export default function PlatformAdminPage() {
           </a>
         </div>
 
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 flex flex-wrap gap-2">
 
           {TABS.map((t) => (
             <button
@@ -530,6 +572,50 @@ export default function PlatformAdminPage() {
                 </button>
               </div>
             ))}
+          </div>
+        )}
+
+        {tab === 'Branding' && (
+          <div className="mt-4 space-y-2">
+            <p className="text-xs text-slate-500">
+              Enable white-label branding for a company. Once enabled, their company admin can set a logo and accent colour from their own admin page.
+            </p>
+            {distinctCompanies.length === 0 && (
+              <p className="text-sm text-slate-500">No companies found yet.</p>
+            )}
+            {distinctCompanies.map((companyName) => {
+              const branding = companyBrandings[companyName]
+              const enabled = branding?.white_label_enabled || false
+              return (
+                <div key={companyName} className="rounded-lg border border-slate-200 bg-white p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">{companyName}</p>
+                      {enabled && branding?.accent_color && (
+                        <div className="mt-1 flex items-center gap-2">
+                          <span
+                            className="h-3 w-3 rounded-full border border-slate-300"
+                            style={{ backgroundColor: branding.accent_color }}
+                          />
+                          <span className="text-xs text-slate-500">{branding.accent_color}</span>
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => toggleWhiteLabel(companyName, enabled)}
+                      disabled={brandingBusy === companyName}
+                      className={`rounded-full px-3 py-1 text-xs font-medium disabled:opacity-50 ${
+                        enabled
+                          ? 'bg-green-100 text-green-700'
+                          : 'border border-slate-300 text-slate-600'
+                      }`}
+                    >
+                      {brandingBusy === companyName ? '...' : enabled ? 'Enabled' : 'Disabled'}
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
