@@ -6,6 +6,7 @@ import PageHeader from '@/components/PageHeader'
 
 type Project = { id: string; name: string }
 type ProjectSpec = { id: string; name: string | null; document_url: string | null; extracted_text: string | null }
+type UploadProgress = { fileName: string; status: 'uploading' | 'processing' | 'done' | 'error'; error?: string }
 
 export default function ProjectSpecPage() {
   const supabase = createClient()
@@ -13,11 +14,12 @@ export default function ProjectSpecPage() {
   const [projectId, setProjectId] = useState('')
   const [specs, setSpecs] = useState<ProjectSpec[]>([])
   const [specName, setSpecName] = useState('')
-  const [file, setFile] = useState<File | null>(null)
+  const [files, setFiles] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
   const [extracting, setExtracting] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [progress, setProgress] = useState<UploadProgress[]>([])
 
   useEffect(() => {
     loadProjects()
@@ -54,62 +56,85 @@ export default function ProjectSpecPage() {
   }
 
   async function handleUpload() {
-    if (!file || !projectId) return
+    if (files.length === 0 || !projectId) return
     setUploading(true)
     setError(null)
+    setProgress(files.map((f) => ({ fileName: f.name, status: 'uploading' })))
 
-    const path = `${projectId}/${Date.now()}-${file.name}`
-    const { error: uploadError } = await supabase.storage.from('project-specs').upload(path, file)
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      const nameForThisFile = files.length === 1 && specName ? specName : file.name
 
-    if (uploadError) {
-      setError(`Upload failed: ${uploadError.message}`)
-      setUploading(false)
-      return
+      try {
+        const path = `${projectId}/${Date.now()}-${file.name}`
+        const { error: uploadError } = await supabase.storage.from('project-specs').upload(path, file)
+
+        if (uploadError) {
+          setProgress((prev) =>
+            prev.map((p, idx) => (idx === i ? { ...p, status: 'error', error: uploadError.message } : p))
+          )
+          continue
+        }
+
+        const { data: { publicUrl } } = supabase.storage.from('project-specs').getPublicUrl(path)
+
+        const { data: inserted, error: insertError } = await supabase
+          .from('project_specs')
+          .insert({
+            project_id: projectId,
+            name: nameForThisFile,
+            document_url: publicUrl,
+          })
+          .select()
+          .single()
+
+        if (insertError || !inserted) {
+          setProgress((prev) =>
+            prev.map((p, idx) =>
+              idx === i ? { ...p, status: 'error', error: insertError?.message || 'unknown error' } : p
+            )
+          )
+          continue
+        }
+
+        setProgress((prev) => prev.map((p, idx) => (idx === i ? { ...p, status: 'processing' } : p)))
+
+        try {
+          const res = await fetch('/api/extract-spec-text', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ specId: inserted.id }),
+          })
+          if (!res.ok) {
+            let detail = `status ${res.status}`
+            try {
+              const body = await res.json()
+              detail = body.error || detail
+            } catch {}
+            setProgress((prev) =>
+              prev.map((p, idx) => (idx === i ? { ...p, status: 'error', error: detail } : p))
+            )
+          } else {
+            setProgress((prev) => prev.map((p, idx) => (idx === i ? { ...p, status: 'done' } : p)))
+          }
+        } catch (err: any) {
+          setProgress((prev) =>
+            prev.map((p, idx) =>
+              idx === i ? { ...p, status: 'error', error: err?.message || 'network error' } : p
+            )
+          )
+        }
+      } catch (err: any) {
+        setProgress((prev) =>
+          prev.map((p, idx) => (idx === i ? { ...p, status: 'error', error: err?.message || 'unexpected error' } : p))
+        )
+      }
     }
 
-    const { data: { publicUrl } } = supabase.storage.from('project-specs').getPublicUrl(path)
-
-    const { data: inserted, error: insertError } = await supabase
-      .from('project_specs')
-      .insert({
-        project_id: projectId,
-        name: specName || file.name,
-        document_url: publicUrl,
-      })
-      .select()
-      .single()
-
-    if (insertError || !inserted) {
-      setError(`Could not save spec: ${insertError?.message || 'unknown error'}`)
-      setUploading(false)
-      return
-    }
-
-    setFile(null)
+    setFiles([])
     setSpecName('')
     setUploading(false)
-    setExtracting(true)
-
-    try {
-      const res = await fetch('/api/extract-spec-text', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ specId: inserted.id }),
-      })
-      if (!res.ok) {
-        let detail = `status ${res.status}`
-        try {
-          const body = await res.json()
-          detail = body.error || detail
-        } catch {}
-        setError(`Uploaded, but text extraction failed: ${detail}.`)
-      }
-    } catch (err: any) {
-      setError(`Uploaded, but text extraction failed: ${err?.message || 'network error'}.`)
-    } finally {
-      setExtracting(false)
-      loadSpecs()
-    }
+    loadSpecs()
   }
 
   async function handleRetry(specId: string) {
@@ -142,6 +167,15 @@ export default function ProjectSpecPage() {
     loadSpecs()
   }
 
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(e.target.files || [])
+    setFiles(selected)
+  }
+
+  function removeSelectedFile(index: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== index))
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 p-8">
@@ -149,6 +183,8 @@ export default function ProjectSpecPage() {
       </div>
     )
   }
+
+  const anyInProgress = uploading
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
@@ -214,29 +250,55 @@ export default function ProjectSpecPage() {
         </div>
 
         <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-sm font-medium text-slate-700">Add a specification</p>
+          <p className="text-sm font-medium text-slate-700">Add specification(s)</p>
           <input
             type="text"
             value={specName}
             onChange={(e) => setSpecName(e.target.value)}
-            placeholder="e.g. Architectural Spec, M&E Spec"
+            placeholder="Name (only used if selecting a single file)"
             className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
           />
           <input
             type="file"
             accept="application/pdf"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            multiple
+            onChange={handleFileSelect}
             className="mt-2 w-full text-sm"
           />
+
+          {files.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {files.map((f, i) => (
+                <div key={i} className="flex items-center justify-between rounded-md bg-slate-50 px-2 py-1 text-xs text-slate-600">
+                  <span className="truncate">{f.name}</span>
+                  <button onClick={() => removeSelectedFile(i)} className="ml-2 text-red-600">✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {progress.length > 0 && (
+            <div className="mt-3 space-y-1">
+              {progress.map((p, i) => (
+                <div key={i} className="text-xs">
+                  <span className="font-medium text-slate-700">{p.fileName}</span>{' '}
+                  {p.status === 'uploading' && <span className="text-slate-500">Uploading...</span>}
+                  {p.status === 'processing' && <span className="text-amber-600">Processing...</span>}
+                  {p.status === 'done' && <span className="text-green-700">Ready</span>}
+                  {p.status === 'error' && <span className="text-red-600">Failed: {p.error}</span>}
+                </div>
+              ))}
+            </div>
+          )}
 
           {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 
           <button
             onClick={handleUpload}
-            disabled={uploading || extracting || !file || !projectId}
+            disabled={anyInProgress || files.length === 0 || !projectId}
             className="mt-3 w-full rounded-md bg-brand-primary px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
-            {uploading ? 'Uploading...' : extracting ? 'Processing document...' : 'Add specification'}
+            {uploading ? `Processing ${files.length} file(s)...` : `Add ${files.length || ''} specification${files.length === 1 ? '' : 's'}`}
           </button>
         </div>
       </div>
