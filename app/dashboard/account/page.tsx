@@ -14,6 +14,7 @@ export default function AccountPage() {
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(true)
 const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
+const [isCompanyAdmin, setIsCompanyAdmin] = useState(false)
 
   useEffect(() => {
     load()
@@ -36,6 +37,7 @@ const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
       setCompanyName(data.company_name || '')
       setRole(data.role || '')
       setIsPlatformAdmin(data.is_platform_admin || false)
+      setIsCompanyAdmin(data.company_admin || false)
       setEmail(data.email || '')
     }
     setLoading(false)
@@ -116,6 +118,14 @@ const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
           </button>
           {saved && <p className="mt-2 text-sm text-green-600">Saved.</p>}
         </div>
+        {isCompanyAdmin && (
+          <a
+            href="/dashboard/admin/company"
+            className="mt-4 block w-full rounded-md border border-brand-primary px-3 py-2 text-center text-sm font-medium text-brand-primary"
+          >
+            Company Admin
+          </a>
+        )}
         {isPlatformAdmin && (
           <a
             href="/dashboard/admin"
@@ -135,5 +145,3 @@ const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
     </div>
   )
 }
-
-
