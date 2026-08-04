@@ -24,6 +24,7 @@ export default function DrawingPinPage() {
   const [roomName, setRoomName] = useState('')
   const [detecting, setDetecting] = useState(false)
   const [savingRoom, setSavingRoom] = useState(false)
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null)
 
   useEffect(() => {
     load()
@@ -66,6 +67,12 @@ export default function DrawingPinPage() {
     setPin({ x, y })
     setNearestRoom(findNearestRoom(x, y))
     setRoomName('')
+    setSelectedRoomId(null)
+  }
+
+  function handleRoomMarkerClick(e: React.MouseEvent, roomId: string) {
+    e.stopPropagation()
+    setSelectedRoomId((current) => (current === roomId ? null : roomId))
   }
 
   async function cropAndDetectLabel() {
@@ -205,6 +212,7 @@ export default function DrawingPinPage() {
               setMarkingMode((m) => !m)
               setPin(null)
               setRoomName('')
+              setSelectedRoomId(null)
             }}
             className="text-xs font-medium text-slate-900 underline"
           >
@@ -214,7 +222,7 @@ export default function DrawingPinPage() {
         <p className="mt-1 text-sm text-slate-500">
           {markingMode
             ? 'Tap the drawing where a room is, then name it or try AI detect.'
-            : 'Tap the drawing to drop a pin at your location.'}
+            : 'Tap the drawing to drop a pin at your location. Tap a highlighted area to see its name.'}
         </p>
 
         <div
@@ -231,17 +239,40 @@ export default function DrawingPinPage() {
             />
           )}
 
-          {rooms.map((r) => (
-            <div
-              key={r.id}
-              style={{ position: 'absolute', left: `${r.pin_x}%`, top: `${r.pin_y}%`, transform: 'translate(-50%, -100%)' }}
-            >
-              <div className="rounded bg-slate-900/80 px-1.5 py-0.5 text-[10px] font-medium text-white whitespace-nowrap">
-                {r.name}
+          {rooms.map((r) => {
+            const isSelected = selectedRoomId === r.id
+            return (
+              <div
+                key={r.id}
+                onClick={(e) => handleRoomMarkerClick(e, r.id)}
+                style={{
+                  position: 'absolute',
+                  left: `${r.pin_x}%`,
+                  top: `${r.pin_y}%`,
+                  transform: 'translate(-50%, -50%)',
+                }}
+              >
+                <div
+                  className="rounded-full transition-all"
+                  style={{
+                    width: isSelected ? 28 : 20,
+                    height: isSelected ? 28 : 20,
+                    backgroundColor: 'rgba(20, 184, 166, 0.25)',
+                    border: isSelected
+                      ? '2px solid rgba(13, 148, 136, 0.9)'
+                      : '1.5px solid rgba(13, 148, 136, 0.5)',
+                  }}
+                />
+                {isSelected && (
+                  <div
+                    className="absolute left-1/2 top-full mt-1 -translate-x-1/2 whitespace-nowrap rounded bg-slate-900/90 px-2 py-1 text-[11px] font-medium text-white"
+                  >
+                    {r.name}
+                  </div>
+                )}
               </div>
-              <div className="mx-auto h-2 w-2 rounded-full bg-slate-900" />
-            </div>
-          ))}
+            )
+          })}
 
           {pin && (
             <div
