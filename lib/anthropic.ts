@@ -266,3 +266,64 @@ export async function checkForDuplicate(
     return { isDuplicate: false, matchedId: null, reason: '' }
   }
 }
+
+export type BoundaryPoint = { x: number; y: number }
+
+export async function detectRoomBoundary(
+  base64Image: string,
+  mimeType: string,
+  clickX: number,
+  clickY: number
+): Promise<{ boundary: BoundaryPoint[] | null; label: string }> {
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': process.env.ANTHROPIC_API_KEY as string,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-5',
+      max_tokens: 1000,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64Image } },
+            {
+              type: 'text',
+              text: `This is an architectural floor plan. A point has been marked at approximately (${clickX.toFixed(1)}%, ${clickY.toFixed(1)}%) of the image width/height, where x=0 is the left edge and y=0 is the top edge.
+
+Identify the single enclosed room or space that contains this marked point, bounded by walls (solid lines forming a closed perimeter). Trace the boundary of that specific room by following its actual wall lines and corners as precisely as possible - not a generic box, but the true polygon shape of that room including any notches, angles, or irregular edges the walls actually form.
+
+Also read any printed room name or number label visible inside or near that room.
+
+Respond with ONLY this JSON, no other text:
+{
+  "boundary": [{"x": 0-100, "y": 0-100}, ...] (ordered points tracing the room perimeter, at least 4 points, following the actual walls),
+  "label": "room name/number if readable, otherwise empty string"
+}
+
+If you cannot confidently identify a single enclosed room at that point (e.g. the point is outside any room, in open space, or walls are unclear), respond with: {"boundary": null, "label": ""}`,
+            },
+          ],
+        },
+      ],
+    }),
+  })
+
+  const data = await response.json()
+  const textBlock = data.content?.find((c: any) => c.type === 'text')
+  const raw = textBlock?.text || '{}'
+  const cleaned = raw.replace(/```json|```/g, '').trim()
+
+  try {
+    const parsed = JSON.parse(cleaned)
+    return {
+      boundary: Array.isArray(parsed.boundary) ? parsed.boundary : null,
+      label: parsed.label || '',
+    }
+  } catch {
+    return { boundary: null, label: '' }
+  }
+}
