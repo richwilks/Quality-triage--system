@@ -114,7 +114,44 @@ export default function DrawingPinPage() {
 
       if (result.boundary && result.boundary.length >= 3) {
         setDrawPoints(result.boundary)
-        setRoomName(result.label || '')
+
+        // Run a focused, cropped label read centred on the traced room for better text accuracy
+        const center = centroid(result.boundary)
+        let label = result.label || ''
+
+        try {
+          const cropCanvas = document.createElement('canvas')
+          const cropSize = 0.18
+          const naturalW = img.naturalWidth
+          const naturalH = img.naturalHeight
+          const cropW = naturalW * cropSize
+          const cropH = naturalH * cropSize
+          const cx = (center.x / 100) * naturalW - cropW / 2
+          const cy = (center.y / 100) * naturalH - cropH / 2
+
+          cropCanvas.width = cropW
+          cropCanvas.height = cropH
+          const cropCtx = cropCanvas.getContext('2d')
+          if (cropCtx) {
+            cropCtx.drawImage(img, cx, cy, cropW, cropH, 0, 0, cropW, cropH)
+            const cropDataUrl = cropCanvas.toDataURL('image/jpeg', 0.9)
+            const cropBase64 = cropDataUrl.split(',')[1]
+
+            const labelRes = await fetch('/api/detect-room-label', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ imageBase64: cropBase64, mimeType: 'image/jpeg' }),
+            })
+            const labelResult = await labelRes.json()
+            if (labelResult.label) {
+              label = labelResult.label
+            }
+          }
+        } catch {
+          // fall back silently to whatever label the boundary call returned, if any
+        }
+
+        setRoomName(label)
       } else {
         setBoundaryError('Could not trace that room automatically - try tapping more centrally, or draw it manually below.')
       }
