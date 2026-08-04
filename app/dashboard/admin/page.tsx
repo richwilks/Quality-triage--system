@@ -46,6 +46,13 @@ type CompanyBranding = {
   feature_custom_email_sender: boolean
 }
 
+type FeatureKey =
+  | 'feature_branded_reports'
+  | 'feature_hide_inspectiq_brand'
+  | 'feature_custom_terminology'
+  | 'feature_private_knowledge_base'
+  | 'feature_custom_email_sender'
+
 const ACCOUNT_TYPES = ['employee', 'contractor', 'client_agent', 'client']
 const TABS = ['Users', 'Projects', 'Invites', 'Branding'] as const
 
@@ -201,7 +208,7 @@ export default function PlatformAdminPage() {
     await updateUser(id, { is_blocked: !current })
   }
 
-  async function toggleFeature(companyName: string, featureKey: keyof CompanyBranding, currentlyEnabled: boolean) {
+  async function toggleFeature(companyName: string, featureKey: FeatureKey, currentlyEnabled: boolean) {
     setBrandingBusy(companyName)
     const { error } = await supabase.rpc('set_company_feature', {
       target_company: companyName,
@@ -599,7 +606,7 @@ export default function PlatformAdminPage() {
             )}
             {distinctCompanies.map((companyName) => {
               const b = companyBrandings[companyName]
-              const features: { key: keyof CompanyBranding; label: string }[] = [
+              const features: { key: FeatureKey; label: string }[] = [
                 { key: 'feature_branded_reports', label: 'Branded reports (logo + colour on exports)' },
                 { key: 'feature_hide_inspectiq_brand', label: 'Hide InspectIQ branding entirely' },
                 { key: 'feature_custom_terminology', label: 'Custom terminology' },
@@ -620,7 +627,7 @@ export default function PlatformAdminPage() {
                   )}
                   <div className="mt-2 space-y-1.5">
                     {features.map((f) => {
-                      const enabled = b?.[f.key] || false
+                      const enabled = Boolean(b?.[f.key])
                       return (
                         <div key={f.key} className="flex items-center justify-between">
                           <span className="text-xs text-slate-600">{f.label}</span>
