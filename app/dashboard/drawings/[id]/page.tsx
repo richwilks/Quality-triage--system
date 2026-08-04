@@ -40,11 +40,14 @@ export default function DrawingPinPage() {
   const [loading, setLoading] = useState(true)
 
   const [markingMode, setMarkingMode] = useState(false)
+  const [manualMode, setManualMode] = useState(false)
   const [drawPoints, setDrawPoints] = useState<Point[]>([])
   const [roomName, setRoomName] = useState('')
   const [detecting, setDetecting] = useState(false)
+  const [detectingBoundary, setDetectingBoundary] = useState(false)
   const [savingRoom, setSavingRoom] = useState(false)
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null)
+  const [boundaryError, setBoundaryError] = useState<string | null>(null)
 
   useEffect(() => {
     load()
@@ -85,13 +88,57 @@ export default function DrawingPinPage() {
     return closestDist < 4 ? closest : null
   }
 
+  async function runBoundaryDetection(x: number, y: number) {
+    if (!imgRef.current || !drawing?.image_url) return
+    setDetectingBoundary(true)
+    setBoundaryError(null)
+
+    try {
+      const img = imgRef.current
+      const canvas = document.createElement('canvas')
+      canvas.width = img.naturalWidth
+      canvas.height = img.naturalHeight
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('no context')
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.9)
+      const base64 = dataUrl.split(',')[1]
+
+      const res = await fetch('/api/detect-room-boundary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: base64, mimeType: 'image/jpeg', clickX: x, clickY: y }),
+      })
+      const result = await res.json()
+
+      if (result.boundary && result.boundary.length >= 3) {
+        setDrawPoints(result.boundary)
+        setRoomName(result.label || '')
+      } else {
+        setBoundaryError('Could not trace that room automatically - try tapping more centrally, or draw it manually below.')
+      }
+    } catch {
+      setBoundaryError('Detection failed - try tapping more centrally, or draw it manually below.')
+    } finally {
+      setDetectingBoundary(false)
+    }
+  }
+
   function handleImageClick(e: React.MouseEvent<HTMLDivElement>) {
     const rect = e.currentTarget.getBoundingClientRect()
     const x = ((e.clientX - rect.left) / rect.width) * 100
     const y = ((e.clientY - rect.top) / rect.height) * 100
 
-    if (markingMode) {
+    if (markingMode && manualMode) {
       setDrawPoints((prev) => [...prev, { x, y }])
+      return
+    }
+
+    if (markingMode && !manualMode) {
+      setDrawPoints([])
+      setRoomName('')
+      runBoundaryDetection(x, y)
       return
     }
 
@@ -114,50 +161,7 @@ export default function DrawingPinPage() {
   function clearDrawing() {
     setDrawPoints([])
     setRoomName('')
-  }
-
-  async function cropAndDetectLabel() {
-    if (drawPoints.length < 3 || !imgRef.current) return
-    setDetecting(true)
-    try {
-      const img = imgRef.current
-      const center = centroid(drawPoints)
-      const canvas = document.createElement('canvas')
-      const cropSize = 0.18
-      const naturalW = img.naturalWidth
-      const naturalH = img.naturalHeight
-
-      const cropW = naturalW * cropSize
-      const cropH = naturalH * cropSize
-      const cx = (center.x / 100) * naturalW - cropW / 2
-      const cy = (center.y / 100) * naturalH - cropH / 2
-
-      canvas.width = cropW
-      canvas.height = cropH
-      const ctx = canvas.getContext('2d')
-      if (!ctx) throw new Error('no context')
-      ctx.drawImage(img, cx, cy, cropW, cropH, 0, 0, cropW, cropH)
-
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.9)
-      const base64 = dataUrl.split(',')[1]
-
-      const res = await fetch('/api/detect-room-label', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageBase64: base64, mimeType: 'image/jpeg' }),
-      })
-      const result = await res.json()
-      if (result.label) {
-        setRoomName(result.label)
-      } else {
-        setRoomName('')
-        alert('No readable label found in that area - enter the room name manually.')
-      }
-    } catch {
-      alert('Could not read a label there - enter the room name manually.')
-    } finally {
-      setDetecting(false)
-    }
+    setBoundaryError(null)
   }
 
   async function handleSaveRoom() {
@@ -182,6 +186,7 @@ export default function DrawingPinPage() {
     setRoomName('')
     setDrawPoints([])
     setMarkingMode(false)
+    setManualMode(false)
     setSavingRoom(false)
     load()
   }
@@ -257,10 +262,12 @@ export default function DrawingPinPage() {
           <button
             onClick={() => {
               setMarkingMode((m) => !m)
+              setManualMode(false)
               setPin(null)
               setDrawPoints([])
               setRoomName('')
               setSelectedRoomId(null)
+              setBoundaryError(null)
             }}
             className="text-xs font-medium text-slate-900 underline"
           >
@@ -268,9 +275,9 @@ export default function DrawingPinPage() {
           </button>
         </div>
         <p className="mt-1 text-sm text-slate-500">
-          {markingMode
-            ? `Tap each corner of the room in order (${drawPoints.length} point${drawPoints.length === 1 ? '' : 's'} so far). Need at least 3.`
-            : 'Tap the drawing to drop a pin at your location. Tap a highlighted room to see its name.'}
+          {markingMode && !manualMode && 'Tap once inside a room - AI will trace its walls automatically.'}
+          {markingMode && manualMode && `Tap each corner of the room in order (${drawPoints.length} point${drawPoints.length === 1 ? '' : 's'} so far). Need at least 3.`}
+          {!markingMode && 'Tap the drawing to drop a pin at your location. Tap a highlighted room to see its name.'}
         </p>
 
         <div
@@ -320,6 +327,7 @@ export default function DrawingPinPage() {
           </svg>
 
           {markingMode &&
+            manualMode &&
             drawPoints.map((p, i) => (
               <div
                 key={i}
@@ -362,22 +370,50 @@ export default function DrawingPinPage() {
 
         {markingMode && (
           <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4">
-            <div className="flex gap-2">
+            {detectingBoundary && (
+              <p className="text-sm text-slate-500">Tracing room walls...</p>
+            )}
+
+            {boundaryError && !detectingBoundary && (
+              <p className="text-sm text-amber-600">{boundaryError}</p>
+            )}
+
+            {!manualMode && !detectingBoundary && drawPoints.length === 0 && !boundaryError && (
               <button
-                onClick={undoLastPoint}
-                disabled={drawPoints.length === 0}
-                className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50"
+                onClick={() => setManualMode(true)}
+                className="text-xs font-medium text-slate-500 underline"
               >
-                Undo last point
+                Prefer to draw it manually instead?
               </button>
+            )}
+
+            {manualMode && (
+              <div className="flex gap-2">
+                <button
+                  onClick={undoLastPoint}
+                  disabled={drawPoints.length === 0}
+                  className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50"
+                >
+                  Undo last point
+                </button>
+                <button
+                  onClick={clearDrawing}
+                  disabled={drawPoints.length === 0}
+                  className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+
+            {!manualMode && boundaryError && (
               <button
-                onClick={clearDrawing}
-                disabled={drawPoints.length === 0}
-                className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50"
+                onClick={() => setManualMode(true)}
+                className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700"
               >
-                Clear
+                Draw manually instead
               </button>
-            </div>
+            )}
 
             {drawPoints.length >= 3 && (
               <>
@@ -389,24 +425,17 @@ export default function DrawingPinPage() {
                   placeholder="e.g. Bathroom 214"
                   className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
                 />
-                <div className="mt-2 flex gap-2">
-                  <button
-                    onClick={cropAndDetectLabel}
-                    disabled={detecting}
-                    className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50"
-                  >
-                    {detecting ? 'Reading...' : 'AI: read label here'}
-                  </button>
-                  <button
-                    onClick={handleSaveRoom}
-                    disabled={savingRoom || !roomName.trim()}
-                    className="flex-1 rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-                  >
-                    {savingRoom ? 'Saving...' : 'Save room'}
-                  </button>
-                </div>
+                <button
+                  onClick={handleSaveRoom}
+                  disabled={savingRoom || !roomName.trim()}
+                  className="mt-2 w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                >
+                  {savingRoom ? 'Saving...' : 'Save room'}
+                </button>
                 <p className="mt-2 text-xs text-slate-400">
-                  AI reads printed text near the centre of your shape - always double check it before saving.
+                  {manualMode
+                    ? 'Check the shape matches the room before saving.'
+                    : 'AI traced this from the drawing and read the label if visible - double check both before saving.'}
                 </p>
               </>
             )}
