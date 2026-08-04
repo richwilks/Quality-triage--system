@@ -39,7 +39,13 @@ type CompanyBranding = {
   white_label_enabled: boolean
   logo_url: string | null
   accent_color: string | null
+  feature_branded_reports: boolean
+  feature_hide_inspectiq_brand: boolean
+  feature_custom_terminology: boolean
+  feature_private_knowledge_base: boolean
+  feature_custom_email_sender: boolean
 }
+
 
 const ACCOUNT_TYPES = ['employee', 'contractor', 'client_agent', 'client']
 const TABS = ['Users', 'Projects', 'Invites', 'Branding'] as const
