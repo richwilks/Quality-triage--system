@@ -111,6 +111,8 @@ export default function DrawingPinPage() {
         body: JSON.stringify({ imageBase64: base64, mimeType: 'image/jpeg', clickX: x, clickY: y }),
       })
       const result = await res.json()
+      console.log('Boundary detection result:', JSON.stringify(result).slice(0, 500))
+
 
       if (result.boundary && result.boundary.length >= 3) {
         setDrawPoints(result.boundary)
