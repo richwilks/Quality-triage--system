@@ -76,7 +76,7 @@ export default function CompanyAdminPage() {
     const { data: brandingData } = await supabase
       .from('company_settings')
       .select('white_label_enabled, logo_url, accent_color, feature_branded_reports')
-      .eq('company_name', profile.company_name)
+      .ilike('company_name', profile.company_name)
       .maybeSingle()
 
     if (brandingData) {
