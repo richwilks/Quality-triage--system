@@ -5,7 +5,26 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 type Drawing = { id: string; name: string | null; image_url: string | null; project_id: string }
-type Room = { id: string; name: string; pin_x: number; pin_y: number }
+type Point = { x: number; y: number }
+type Room = { id: string; name: string; pin_x: number; pin_y: number; boundary: Point[] | null }
+
+function centroid(points: Point[]): Point {
+  const n = points.length
+  const sum = points.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 })
+  return { x: sum.x / n, y: sum.y / n }
+}
+
+function pointInPolygon(x: number, y: number, poly: Point[]): boolean {
+  let inside = false
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i].x, yi = poly[i].y
+    const xj = poly[j].x, yj = poly[j].y
+    const intersect =
+      yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi
+    if (intersect) inside = !inside
+  }
+  return inside
+}
 
 export default function DrawingPinPage() {
   const supabase = createClient()
@@ -21,6 +40,7 @@ export default function DrawingPinPage() {
   const [loading, setLoading] = useState(true)
 
   const [markingMode, setMarkingMode] = useState(false)
+  const [drawPoints, setDrawPoints] = useState<Point[]>([])
   const [roomName, setRoomName] = useState('')
   const [detecting, setDetecting] = useState(false)
   const [savingRoom, setSavingRoom] = useState(false)
@@ -40,14 +60,19 @@ export default function DrawingPinPage() {
 
     const { data: roomData } = await supabase
       .from('rooms')
-      .select('id, name, pin_x, pin_y')
+      .select('id, name, pin_x, pin_y, boundary')
       .eq('drawing_id', drawingId)
     setRooms(roomData || [])
 
     setLoading(false)
   }
 
-  function findNearestRoom(x: number, y: number): Room | null {
+  function findContainingOrNearestRoom(x: number, y: number): Room | null {
+    for (const r of rooms) {
+      if (r.boundary && r.boundary.length >= 3 && pointInPolygon(x, y, r.boundary)) {
+        return r
+      }
+    }
     let closest: Room | null = null
     let closestDist = Infinity
     for (const r of rooms) {
@@ -64,22 +89,39 @@ export default function DrawingPinPage() {
     const rect = e.currentTarget.getBoundingClientRect()
     const x = ((e.clientX - rect.left) / rect.width) * 100
     const y = ((e.clientY - rect.top) / rect.height) * 100
+
+    if (markingMode) {
+      setDrawPoints((prev) => [...prev, { x, y }])
+      return
+    }
+
     setPin({ x, y })
-    setNearestRoom(findNearestRoom(x, y))
+    setNearestRoom(findContainingOrNearestRoom(x, y))
     setRoomName('')
     setSelectedRoomId(null)
   }
 
-  function handleRoomMarkerClick(e: React.MouseEvent, roomId: string) {
+  function handleRoomClick(e: React.MouseEvent, roomId: string) {
     e.stopPropagation()
+    if (markingMode) return
     setSelectedRoomId((current) => (current === roomId ? null : roomId))
   }
 
+  function undoLastPoint() {
+    setDrawPoints((prev) => prev.slice(0, -1))
+  }
+
+  function clearDrawing() {
+    setDrawPoints([])
+    setRoomName('')
+  }
+
   async function cropAndDetectLabel() {
-    if (!pin || !imgRef.current) return
+    if (drawPoints.length < 3 || !imgRef.current) return
     setDetecting(true)
     try {
       const img = imgRef.current
+      const center = centroid(drawPoints)
       const canvas = document.createElement('canvas')
       const cropSize = 0.18
       const naturalW = img.naturalWidth
@@ -87,8 +129,8 @@ export default function DrawingPinPage() {
 
       const cropW = naturalW * cropSize
       const cropH = naturalH * cropSize
-      const cx = (pin.x / 100) * naturalW - cropW / 2
-      const cy = (pin.y / 100) * naturalH - cropH / 2
+      const cx = (center.x / 100) * naturalW - cropW / 2
+      const cy = (center.y / 100) * naturalH - cropH / 2
 
       canvas.width = cropW
       canvas.height = cropH
@@ -109,7 +151,7 @@ export default function DrawingPinPage() {
         setRoomName(result.label)
       } else {
         setRoomName('')
-        alert('No readable label found near that point - enter the room name manually.')
+        alert('No readable label found in that area - enter the room name manually.')
       }
     } catch {
       alert('Could not read a label there - enter the room name manually.')
@@ -119,24 +161,27 @@ export default function DrawingPinPage() {
   }
 
   async function handleSaveRoom() {
-    if (!pin || !roomName.trim()) return
+    if (drawPoints.length < 3 || !roomName.trim()) return
     setSavingRoom(true)
 
     const {
       data: { user },
     } = await supabase.auth.getUser()
 
+    const center = centroid(drawPoints)
+
     await supabase.from('rooms').insert({
       drawing_id: drawingId,
       name: roomName.trim(),
-      pin_x: pin.x,
-      pin_y: pin.y,
+      pin_x: center.x,
+      pin_y: center.y,
+      boundary: drawPoints,
       created_by: user?.id,
     })
 
     setRoomName('')
+    setDrawPoints([])
     setMarkingMode(false)
-    setPin(null)
     setSavingRoom(false)
     load()
   }
@@ -202,6 +247,8 @@ export default function DrawingPinPage() {
     )
   }
 
+  const drawPointsStr = drawPoints.map((p) => `${p.x}%,${p.y}%`).join(' ')
+
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-md">
@@ -211,6 +258,7 @@ export default function DrawingPinPage() {
             onClick={() => {
               setMarkingMode((m) => !m)
               setPin(null)
+              setDrawPoints([])
               setRoomName('')
               setSelectedRoomId(null)
             }}
@@ -221,8 +269,8 @@ export default function DrawingPinPage() {
         </div>
         <p className="mt-1 text-sm text-slate-500">
           {markingMode
-            ? 'Tap the drawing where a room is, then name it or try AI detect.'
-            : 'Tap the drawing to drop a pin at your location. Tap a highlighted area to see its name.'}
+            ? `Tap each corner of the room in order (${drawPoints.length} point${drawPoints.length === 1 ? '' : 's'} so far). Need at least 3.`
+            : 'Tap the drawing to drop a pin at your location. Tap a highlighted room to see its name.'}
         </p>
 
         <div
@@ -239,40 +287,69 @@ export default function DrawingPinPage() {
             />
           )}
 
-          {rooms.map((r) => {
-            const isSelected = selectedRoomId === r.id
+          <svg
+            className="pointer-events-none absolute inset-0 h-full w-full"
+            preserveAspectRatio="none"
+            viewBox="0 0 100 100"
+          >
+            {rooms.map((r) => {
+              if (!r.boundary || r.boundary.length < 3) return null
+              const isSelected = selectedRoomId === r.id
+              const pointsStr = r.boundary.map((p) => `${p.x},${p.y}`).join(' ')
+              return (
+                <polygon
+                  key={r.id}
+                  points={pointsStr}
+                  fill={isSelected ? 'rgba(13,148,136,0.35)' : 'rgba(20,184,166,0.2)'}
+                  stroke={isSelected ? 'rgba(13,148,136,0.9)' : 'rgba(13,148,136,0.5)'}
+                  strokeWidth={0.3}
+                  className="pointer-events-auto cursor-pointer"
+                  onClick={(e: any) => handleRoomClick(e, r.id)}
+                />
+              )
+            })}
+
+            {markingMode && drawPoints.length > 0 && (
+              <polygon
+                points={drawPointsStr}
+                fill="rgba(220,38,38,0.2)"
+                stroke="rgba(220,38,38,0.8)"
+                strokeWidth={0.3}
+              />
+            )}
+          </svg>
+
+          {markingMode &&
+            drawPoints.map((p, i) => (
+              <div
+                key={i}
+                style={{
+                  position: 'absolute',
+                  left: `${p.x}%`,
+                  top: `${p.y}%`,
+                  transform: 'translate(-50%, -50%)',
+                }}
+                className="h-2.5 w-2.5 rounded-full border border-white bg-red-600"
+              />
+            ))}
+
+          {selectedRoomId && !markingMode && (() => {
+            const r = rooms.find((room) => room.id === selectedRoomId)
+            if (!r) return null
             return (
               <div
-                key={r.id}
-                onClick={(e) => handleRoomMarkerClick(e, r.id)}
                 style={{
                   position: 'absolute',
                   left: `${r.pin_x}%`,
                   top: `${r.pin_y}%`,
                   transform: 'translate(-50%, -50%)',
                 }}
+                className="pointer-events-none whitespace-nowrap rounded bg-slate-900/90 px-2 py-1 text-[11px] font-medium text-white"
               >
-                <div
-                  className="rounded-full transition-all"
-                  style={{
-                    width: isSelected ? 28 : 20,
-                    height: isSelected ? 28 : 20,
-                    backgroundColor: 'rgba(20, 184, 166, 0.25)',
-                    border: isSelected
-                      ? '2px solid rgba(13, 148, 136, 0.9)'
-                      : '1.5px solid rgba(13, 148, 136, 0.5)',
-                  }}
-                />
-                {isSelected && (
-                  <div
-                    className="absolute left-1/2 top-full mt-1 -translate-x-1/2 whitespace-nowrap rounded bg-slate-900/90 px-2 py-1 text-[11px] font-medium text-white"
-                  >
-                    {r.name}
-                  </div>
-                )}
+                {r.name}
               </div>
             )
-          })}
+          })()}
 
           {pin && (
             <div
@@ -283,35 +360,56 @@ export default function DrawingPinPage() {
           )}
         </div>
 
-        {markingMode && pin && (
+        {markingMode && (
           <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4">
-            <label className="block text-sm font-medium text-slate-700">Room name</label>
-            <input
-              type="text"
-              value={roomName}
-              onChange={(e) => setRoomName(e.target.value)}
-              placeholder="e.g. Bathroom 214"
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-            />
-            <div className="mt-2 flex gap-2">
+            <div className="flex gap-2">
               <button
-                onClick={cropAndDetectLabel}
-                disabled={detecting}
+                onClick={undoLastPoint}
+                disabled={drawPoints.length === 0}
                 className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50"
               >
-                {detecting ? 'Reading...' : 'AI: read label here'}
+                Undo last point
               </button>
               <button
-                onClick={handleSaveRoom}
-                disabled={savingRoom || !roomName.trim()}
-                className="flex-1 rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                onClick={clearDrawing}
+                disabled={drawPoints.length === 0}
+                className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50"
               >
-                {savingRoom ? 'Saving...' : 'Save room'}
+                Clear
               </button>
             </div>
-            <p className="mt-2 text-xs text-slate-400">
-              AI reads printed text on the drawing near your pin - always double check it before saving.
-            </p>
+
+            {drawPoints.length >= 3 && (
+              <>
+                <label className="mt-4 block text-sm font-medium text-slate-700">Room name</label>
+                <input
+                  type="text"
+                  value={roomName}
+                  onChange={(e) => setRoomName(e.target.value)}
+                  placeholder="e.g. Bathroom 214"
+                  className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                />
+                <div className="mt-2 flex gap-2">
+                  <button
+                    onClick={cropAndDetectLabel}
+                    disabled={detecting}
+                    className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50"
+                  >
+                    {detecting ? 'Reading...' : 'AI: read label here'}
+                  </button>
+                  <button
+                    onClick={handleSaveRoom}
+                    disabled={savingRoom || !roomName.trim()}
+                    className="flex-1 rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                  >
+                    {savingRoom ? 'Saving...' : 'Save room'}
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-slate-400">
+                  AI reads printed text near the centre of your shape - always double check it before saving.
+                </p>
+              </>
+            )}
           </div>
         )}
 
