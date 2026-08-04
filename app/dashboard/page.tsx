@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import StatusBadge from '@/components/StatusBadge'
-import PageHeader from '@/components/PageHeader'
 
 type Project = { id: string; name: string }
 type StatusCounts = Record<string, number>
@@ -12,14 +11,14 @@ type StatusCounts = Record<string, number>
 const STATUS_ORDER = ['draft', 'confirmed', 'assigned', 'closed', 'rejected']
 
 const QUICK_LINKS = [
-  { href: '/dashboard/projects/new', label: 'New project', primary: true },
-  { href: '/dashboard/company-analytics', label: 'Company performance' },
-  { href: '/dashboard/new-defect-video', label: 'From video' },
+  { href: '/dashboard/projects/new', label: 'New Project', primary: true },
+  { href: '/dashboard/company-analytics', label: 'Company Performance' },
+  { href: '/dashboard/new-defect-video', label: 'From Video' },
   { href: '/dashboard/drawings', label: 'Drawings' },
-  { href: '/dashboard/my-defects', label: 'My assigned' },
-  { href: '/dashboard/project-spec', label: 'Project spec' },
-  { href: '/dashboard/standards', label: 'Standards library' },
-  { href: '/dashboard/inspection/active', label: 'Active inspection' },
+  { href: '/dashboard/my-defects', label: 'My Assigned' },
+  { href: '/dashboard/project-spec', label: 'Project Spec' },
+  { href: '/dashboard/standards', label: 'Standards Library' },
+  { href: '/dashboard/inspection/active', label: 'Active Inspection' },
 ]
 
 export default function DashboardPage() {
@@ -75,104 +74,187 @@ export default function DashboardPage() {
   )
 
   return (
-    <div className="min-h-screen bg-brand-bg px-4 py-8">
-      <div className="mx-auto max-w-md">
-        <div className="flex items-center justify-between">
-          <PageHeader title="Dashboard" />
-          <Link href="/dashboard/account" className="text-sm font-medium text-brand-primary">
-            My account
+    <div className="cmd-deck min-h-screen" style={{ background: '#0B0D10' }}>
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+        .cmd-deck {
+          font-family: 'Inter', sans-serif;
+          color: #e8eaed;
+          -webkit-font-smoothing: antialiased;
+        }
+        .cmd-deck .mono {
+          font-family: 'JetBrains Mono', monospace;
+        }
+      `}</style>
+
+      <div className="mx-auto max-w-md pb-10">
+        <div
+          className="flex items-center justify-between px-4 py-4"
+          style={{ borderBottom: '1px solid #22262C' }}
+        >
+          <div className="flex items-center gap-2.5">
+            <div
+              className="mono flex h-8 w-8 items-center justify-center rounded-md text-xs font-bold"
+              style={{ background: '#4FD1C5', color: '#0B0D10' }}
+            >
+              IQ
+            </div>
+            <div>
+              <h1 className="text-base font-bold leading-none">Dashboard</h1>
+              <p className="mono mt-0.5 text-[9px] uppercase tracking-wide" style={{ color: '#4E545C' }}>
+                inspectiq.co
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/dashboard/account"
+            className="mono text-xs"
+            style={{ color: '#8B929C' }}
+          >
+            MY ACCOUNT
           </Link>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <div className="rounded-xl bg-brand-ink p-4 text-white">
-            <p className="text-2xl font-semibold">{projects.length}</p>
-            <p className="mt-0.5 text-xs text-slate-300">Active projects</p>
+        <div className="grid grid-cols-2" style={{ borderBottom: '1px solid #22262C' }}>
+          <div className="p-4" style={{ borderRight: '1px solid #22262C' }}>
+            <div className="flex items-center justify-between">
+              <span className="mono text-[10px] uppercase tracking-wide" style={{ color: '#4E545C' }}>
+                Projects
+              </span>
+              <span
+                className="h-1.5 w-1.5 rounded-full"
+                style={{ background: '#4E545C' }}
+              />
+            </div>
+            <p className="mono mt-1.5 text-3xl font-bold leading-none">
+              {String(projects.length).padStart(2, '0')}
+            </p>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
-            <p className="text-2xl font-semibold text-slate-900">{totalAcrossAll}</p>
-            <p className="mt-0.5 text-xs text-slate-500">Total defects logged</p>
+          <div className="p-4">
+            <div className="flex items-center justify-between">
+              <span className="mono text-[10px] uppercase tracking-wide" style={{ color: '#4E545C' }}>
+                Defects
+              </span>
+              <span
+                className="h-1.5 w-1.5 rounded-full"
+                style={{
+                  background: totalAcrossAll > 0 ? '#4FAE7B' : '#4E545C',
+                  boxShadow: totalAcrossAll > 0 ? '0 0 6px #4FAE7B' : 'none',
+                }}
+              />
+            </div>
+            <p className="mono mt-1.5 text-3xl font-bold leading-none">
+              {String(totalAcrossAll).padStart(2, '0')}
+            </p>
           </div>
         </div>
 
-        <Link
-          href="/dashboard/new-defect"
-          className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-brand-primary px-4 py-3.5 text-sm font-semibold text-white shadow-sm"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <circle cx="12" cy="12" r="9" />
-            <path d="M12 8v8M8 12h8" strokeLinecap="round" />
-          </svg>
-          Raise a new defect
-        </Link>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          {QUICK_LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`rounded-full border px-3.5 py-1.5 text-xs font-medium ${
-                link.primary
-                  ? 'border-brand-primary text-brand-primary'
-                  : 'border-slate-300 text-slate-600'
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
+        <div className="px-4 pt-4">
+          <Link
+            href="/dashboard/new-defect"
+            className="flex items-center justify-center gap-2 rounded-md py-3.5 text-sm font-bold"
+            style={{ background: '#14171B', border: '1px solid #4FD1C5', color: '#4FD1C5' }}
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+            </svg>
+            RAISE A NEW DEFECT
+          </Link>
         </div>
 
-        <h2 className="mt-8 text-sm font-semibold uppercase tracking-wide text-slate-500">
-          My projects
-        </h2>
-
-        {loading && <p className="mt-4 text-sm text-slate-500">Loading...</p>}
-
-        {!loading && projects.length === 0 && (
-          <div className="mt-4 rounded-xl border border-dashed border-slate-300 p-6 text-center">
-            <p className="text-sm text-slate-500">You're not on any projects yet.</p>
-            <Link
-              href="/dashboard/projects/new"
-              className="mt-2 inline-block text-sm font-medium text-brand-primary"
-            >
-              Create your first project
-            </Link>
-          </div>
-        )}
-
-        <div className="mt-4 space-y-3">
-          {projects.map((p) => {
-            const projectCounts = counts[p.id] || {}
-            const total = Object.values(projectCounts).reduce((a, b) => a + b, 0)
-
-            return (
+        <div className="px-4 pt-5">
+          <h2 className="mono mb-2.5 text-[10px] uppercase tracking-wide" style={{ color: '#4E545C' }}>
+            Quick Access
+          </h2>
+          <div className="overflow-hidden rounded-md" style={{ border: '1px solid #22262C' }}>
+            {QUICK_LINKS.map((link, i) => (
               <Link
-                key={p.id}
-                href={`/dashboard/projects/${p.id}`}
-                className="block rounded-xl border border-slate-200 bg-white p-4 shadow-sm active:bg-slate-50"
+                key={link.href}
+                href={link.href}
+                className="flex items-center justify-between px-3.5 py-3 text-[13.5px] font-medium"
+                style={{
+                  background: link.primary ? '#1A1E23' : '#14171B',
+                  color: link.primary ? '#4FD1C5' : '#E8EAED',
+                  borderBottom: i < QUICK_LINKS.length - 1 ? '1px solid #22262C' : 'none',
+                }}
               >
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-slate-900">{p.name}</p>
-                  <span className="text-xs text-slate-400">{total} total</span>
-                </div>
-
-                {total === 0 ? (
-                  <p className="mt-2 text-xs text-slate-400">No defects logged yet.</p>
-                ) : (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {STATUS_ORDER.filter((s) => projectCounts[s] > 0).map((s) => (
-                      <div key={s} className="flex items-center gap-1">
-                        <StatusBadge status={s} />
-                        <span className="text-xs font-medium text-slate-600">
-                          {projectCounts[s]}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <span>{link.label}</span>
+                <span className="mono" style={{ color: '#4E545C' }}>→</span>
               </Link>
-            )
-          })}
+            ))}
+          </div>
+        </div>
+
+        <div className="px-4 pt-6">
+          <h2 className="mono mb-2.5 text-[10px] uppercase tracking-wide" style={{ color: '#4E545C' }}>
+            My Projects
+          </h2>
+
+          {loading && (
+            <p className="mono text-xs" style={{ color: '#8B929C' }}>
+              LOADING...
+            </p>
+          )}
+
+          {!loading && projects.length === 0 && (
+            <div
+              className="rounded-md p-8 text-center"
+              style={{ border: '1px solid #22262C', background: '#14171B' }}
+            >
+              <p className="mono text-xs" style={{ color: '#8B929C' }}>
+                NO PROJECTS ASSIGNED
+              </p>
+              <Link
+                href="/dashboard/projects/new"
+                className="mt-2 inline-block text-sm font-semibold"
+                style={{ color: '#4FD1C5' }}
+              >
+                Create your first project →
+              </Link>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            {projects.map((p) => {
+              const projectCounts = counts[p.id] || {}
+              const total = Object.values(projectCounts).reduce((a, b) => a + b, 0)
+
+              return (
+                <Link
+                  key={p.id}
+                  href={`/dashboard/projects/${p.id}`}
+                  className="block rounded-md p-3.5"
+                  style={{ background: '#14171B', border: '1px solid #22262C' }}
+                >
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold" style={{ color: '#E8EAED' }}>
+                      {p.name}
+                    </p>
+                    <span className="mono text-xs" style={{ color: '#4E545C' }}>
+                      {total} TOTAL
+                    </span>
+                  </div>
+
+                  {total === 0 ? (
+                    <p className="mono mt-2 text-[11px]" style={{ color: '#4E545C' }}>
+                      NO DEFECTS LOGGED YET
+                    </p>
+                  ) : (
+                    <div className="mt-2.5 flex flex-wrap gap-2">
+                      {STATUS_ORDER.filter((s) => projectCounts[s] > 0).map((s) => (
+                        <div key={s} className="flex items-center gap-1">
+                          <StatusBadge status={s} />
+                          <span className="mono text-xs font-medium" style={{ color: '#8B929C' }}>
+                            {projectCounts[s]}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Link>
+              )
+            })}
+          </div>
         </div>
       </div>
     </div>
