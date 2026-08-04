@@ -7,6 +7,12 @@ import PageHeader from '@/components/PageHeader'
 
 type ProjectRow = { id: string; name: string; status: string }
 type UserRow = { id: string; full_name: string | null; email: string | null; account_type: string | null }
+type BrandingRow = {
+  white_label_enabled: boolean
+  logo_url: string | null
+  accent_color: string | null
+  feature_branded_reports: boolean
+}
 
 const ACCOUNT_TYPES = ['employee', 'contractor', 'client_agent', 'client']
 
@@ -23,6 +29,12 @@ export default function CompanyAdminPage() {
   const [inviteAccountType, setInviteAccountType] = useState('employee')
   const [inviting, setInviting] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+
+  const [branding, setBranding] = useState<BrandingRow | null>(null)
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [accentColor, setAccentColor] = useState('#2C5C57')
+  const [savingBranding, setSavingBranding] = useState(false)
+  const [brandingMessage, setBrandingMessage] = useState<string | null>(null)
 
   useEffect(() => {
     load()
@@ -60,6 +72,17 @@ export default function CompanyAdminPage() {
       .select('id, full_name, email, account_type')
       .ilike('company_name', profile.company_name)
     setUsers(userData || [])
+
+    const { data: brandingData } = await supabase
+      .from('company_settings')
+      .select('white_label_enabled, logo_url, accent_color, feature_branded_reports')
+      .eq('company_name', profile.company_name)
+      .maybeSingle()
+
+    if (brandingData) {
+      setBranding(brandingData)
+      if (brandingData.accent_color) setAccentColor(brandingData.accent_color)
+    }
 
     setLoading(false)
   }
@@ -107,6 +130,50 @@ export default function CompanyAdminPage() {
     setInviteEmail('')
     setInviting(false)
     load()
+  }
+
+  async function handleSaveBranding() {
+    setSavingBranding(true)
+    setBrandingMessage(null)
+
+    let logoUrl = branding?.logo_url || null
+
+    if (logoFile) {
+      const path = `${companyName}/${Date.now()}-${logoFile.name}`
+      const { error: uploadError } = await supabase.storage
+        .from('company-branding')
+        .upload(path, logoFile)
+
+      if (uploadError) {
+        setBrandingMessage(`Logo upload failed: ${uploadError.message}`)
+        setSavingBranding(false)
+        return
+      }
+
+      const { data: { publicUrl } } = supabase.storage.from('company-branding').getPublicUrl(path)
+      logoUrl = publicUrl
+    }
+
+    const { error } = await supabase.rpc('update_company_branding', {
+      target_company: companyName,
+      logo: logoUrl,
+      color: accentColor,
+    })
+
+    if (error) {
+      setBrandingMessage(`Could not save: ${error.message}`)
+    } else {
+      setBrandingMessage('Branding saved.')
+      setBranding((prev) => ({
+        white_label_enabled: prev?.white_label_enabled || false,
+        feature_branded_reports: prev?.feature_branded_reports || false,
+        logo_url: logoUrl,
+        accent_color: accentColor,
+      }))
+      setLogoFile(null)
+    }
+
+    setSavingBranding(false)
   }
 
   if (loading) {
@@ -209,6 +276,59 @@ export default function CompanyAdminPage() {
             {inviting ? 'Inviting...' : 'Invite'}
           </button>
         </div>
+
+        {(branding?.feature_branded_reports || branding?.white_label_enabled) && (
+          <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-sm font-medium text-slate-700">Branding</p>
+            <p className="mt-1 text-xs text-slate-500">
+              White-label is enabled for your company. Set your logo and accent colour below.
+            </p>
+
+            {branding.logo_url && (
+              <img
+                src={branding.logo_url}
+                alt="Current logo"
+                className="mt-3 h-12 w-auto rounded-md border border-slate-200 object-contain p-2"
+              />
+            )}
+
+            <label className="mt-3 block text-xs font-medium text-slate-600">Logo</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
+              className="mt-1 w-full text-sm"
+            />
+
+            <label className="mt-3 block text-xs font-medium text-slate-600">Accent colour</label>
+            <div className="mt-1 flex items-center gap-2">
+              <input
+                type="color"
+                value={accentColor}
+                onChange={(e) => setAccentColor(e.target.value)}
+                className="h-9 w-9 rounded-md border border-slate-300"
+              />
+              <input
+                type="text"
+                value={accentColor}
+                onChange={(e) => setAccentColor(e.target.value)}
+                className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm"
+              />
+            </div>
+
+            {brandingMessage && (
+              <p className="mt-2 text-sm text-slate-600">{brandingMessage}</p>
+            )}
+
+            <button
+              onClick={handleSaveBranding}
+              disabled={savingBranding}
+              className="mt-3 w-full rounded-md bg-brand-primary px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+            >
+              {savingBranding ? 'Saving...' : 'Save branding'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
