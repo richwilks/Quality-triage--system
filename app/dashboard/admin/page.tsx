@@ -46,7 +46,6 @@ type CompanyBranding = {
   feature_custom_email_sender: boolean
 }
 
-
 const ACCOUNT_TYPES = ['employee', 'contractor', 'client_agent', 'client']
 const TABS = ['Users', 'Projects', 'Invites', 'Branding'] as const
 
@@ -122,7 +121,7 @@ export default function PlatformAdminPage() {
 
     const { data: brandingData } = await supabase
       .from('company_settings')
-      .select('company_name, white_label_enabled, logo_url, accent_color')
+      .select('company_name, white_label_enabled, logo_url, accent_color, feature_branded_reports, feature_hide_inspectiq_brand, feature_custom_terminology, feature_private_knowledge_base, feature_custom_email_sender')
     const brandingMap: Record<string, CompanyBranding> = {}
     ;(brandingData || []).forEach((b: any) => {
       brandingMap[b.company_name] = b
@@ -202,21 +201,30 @@ export default function PlatformAdminPage() {
     await updateUser(id, { is_blocked: !current })
   }
 
-  async function toggleWhiteLabel(companyName: string, currentlyEnabled: boolean) {
+  async function toggleFeature(companyName: string, featureKey: keyof CompanyBranding, currentlyEnabled: boolean) {
     setBrandingBusy(companyName)
-    const { error } = await supabase.rpc('set_company_white_label', {
+    const { error } = await supabase.rpc('set_company_feature', {
       target_company: companyName,
+      feature_name: featureKey,
       enabled: !currentlyEnabled,
     })
     if (!error) {
       setCompanyBrandings((prev) => ({
         ...prev,
         [companyName]: {
-          company_name: companyName,
-          white_label_enabled: !currentlyEnabled,
-          logo_url: prev[companyName]?.logo_url || null,
-          accent_color: prev[companyName]?.accent_color || null,
-        },
+          ...(prev[companyName] || {
+            company_name: companyName,
+            white_label_enabled: false,
+            logo_url: null,
+            accent_color: null,
+            feature_branded_reports: false,
+            feature_hide_inspectiq_brand: false,
+            feature_custom_terminology: false,
+            feature_private_knowledge_base: false,
+            feature_custom_email_sender: false,
+          }),
+          [featureKey]: !currentlyEnabled,
+        } as CompanyBranding,
       }))
     }
     setBrandingBusy(null)
@@ -582,42 +590,54 @@ export default function PlatformAdminPage() {
         )}
 
         {tab === 'Branding' && (
-          <div className="mt-4 space-y-2">
+          <div className="mt-4 space-y-3">
             <p className="text-xs text-slate-500">
-              Enable white-label branding for a company. Once enabled, their company admin can set a logo and accent colour from their own admin page.
+              Toggle individual white-label features per company. Combine however you want to package them.
             </p>
             {distinctCompanies.length === 0 && (
               <p className="text-sm text-slate-500">No companies found yet.</p>
             )}
             {distinctCompanies.map((companyName) => {
-              const branding = companyBrandings[companyName]
-              const enabled = branding?.white_label_enabled || false
+              const b = companyBrandings[companyName]
+              const features: { key: keyof CompanyBranding; label: string }[] = [
+                { key: 'feature_branded_reports', label: 'Branded reports (logo + colour on exports)' },
+                { key: 'feature_hide_inspectiq_brand', label: 'Hide InspectIQ branding entirely' },
+                { key: 'feature_custom_terminology', label: 'Custom terminology' },
+                { key: 'feature_private_knowledge_base', label: 'Private defect knowledge base' },
+                { key: 'feature_custom_email_sender', label: 'Custom email sender name' },
+              ]
               return (
                 <div key={companyName} className="rounded-lg border border-slate-200 bg-white p-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">{companyName}</p>
-                      {enabled && branding?.accent_color && (
-                        <div className="mt-1 flex items-center gap-2">
-                          <span
-                            className="h-3 w-3 rounded-full border border-slate-300"
-                            style={{ backgroundColor: branding.accent_color }}
-                          />
-                          <span className="text-xs text-slate-500">{branding.accent_color}</span>
-                        </div>
-                      )}
+                  <p className="text-sm font-medium text-slate-900">{companyName}</p>
+                  {b?.accent_color && (
+                    <div className="mt-1 flex items-center gap-2">
+                      <span
+                        className="h-3 w-3 rounded-full border border-slate-300"
+                        style={{ backgroundColor: b.accent_color }}
+                      />
+                      <span className="text-xs text-slate-500">{b.accent_color}</span>
                     </div>
-                    <button
-                      onClick={() => toggleWhiteLabel(companyName, enabled)}
-                      disabled={brandingBusy === companyName}
-                      className={`rounded-full px-3 py-1 text-xs font-medium disabled:opacity-50 ${
-                        enabled
-                          ? 'bg-green-100 text-green-700'
-                          : 'border border-slate-300 text-slate-600'
-                      }`}
-                    >
-                      {brandingBusy === companyName ? '...' : enabled ? 'Enabled' : 'Disabled'}
-                    </button>
+                  )}
+                  <div className="mt-2 space-y-1.5">
+                    {features.map((f) => {
+                      const enabled = b?.[f.key] || false
+                      return (
+                        <div key={f.key} className="flex items-center justify-between">
+                          <span className="text-xs text-slate-600">{f.label}</span>
+                          <button
+                            onClick={() => toggleFeature(companyName, f.key, enabled)}
+                            disabled={brandingBusy === companyName}
+                            className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium disabled:opacity-50 ${
+                              enabled
+                                ? 'bg-green-100 text-green-700'
+                                : 'border border-slate-300 text-slate-600'
+                            }`}
+                          >
+                            {enabled ? 'On' : 'Off'}
+                          </button>
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               )
