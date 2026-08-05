@@ -16,6 +16,65 @@ type KnowledgeRow = {
   active: boolean
 }
 
+type ImportRow = {
+  title: string
+  element_type: string
+  country: string
+  applicable_standards: string
+  defect_description: string
+}
+
+type ImportResult = { row: number; title: string; status: 'success' | 'error'; error?: string }
+
+function parseCSV(text: string): ImportRow[] {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0)
+  if (lines.length < 2) return []
+
+  function parseLine(line: string): string[] {
+    const result: string[] = []
+    let current = ''
+    let inQuotes = false
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i]
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"'
+          i++
+        } else {
+          inQuotes = !inQuotes
+        }
+      } else if (char === ',' && !inQuotes) {
+        result.push(current.trim())
+        current = ''
+      } else {
+        current += char
+      }
+    }
+    result.push(current.trim())
+    return result
+  }
+
+  const headers = parseLine(lines[0]).map((h) => h.toLowerCase())
+  const rows: ImportRow[] = []
+
+  for (let i = 1; i < lines.length; i++) {
+    const values = parseLine(lines[i])
+    const row: any = {}
+    headers.forEach((h, idx) => {
+      row[h] = values[idx] || ''
+    })
+    rows.push({
+      title: row.title || '',
+      element_type: row.element_type || '',
+      country: row.country || '',
+      applicable_standards: row.applicable_standards || '',
+      defect_description: row.defect_description || '',
+    })
+  }
+
+  return rows
+}
+
 export default function DefectKnowledgeAdminPage() {
   const supabase = createClient()
   const [entries, setEntries] = useState<KnowledgeRow[]>([])
@@ -31,6 +90,11 @@ export default function DefectKnowledgeAdminPage() {
   const [defectDescription, setDefectDescription] = useState('')
   const [correctReference, setCorrectReference] = useState('')
   const [severityDefault, setSeverityDefault] = useState('ncr')
+
+  const [csvFile, setCsvFile] = useState<File | null>(null)
+  const [importPreview, setImportPreview] = useState<ImportRow[]>([])
+  const [importing, setImporting] = useState(false)
+  const [importResults, setImportResults] = useState<ImportResult[] | null>(null)
 
   useEffect(() => {
     checkAccessAndLoad()
@@ -114,6 +178,69 @@ export default function DefectKnowledgeAdminPage() {
     load()
   }
 
+  function handleCsvSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] || null
+    setCsvFile(file)
+    setImportResults(null)
+    setImportPreview([])
+
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const text = event.target?.result as string
+      const parsed = parseCSV(text)
+      setImportPreview(parsed)
+    }
+    reader.readAsText(file)
+  }
+
+  async function handleImport() {
+    if (importPreview.length === 0) return
+    setImporting(true)
+    setImportResults(null)
+
+    const { data: { user } } = await supabase.auth.getUser()
+    const results: ImportResult[] = []
+
+    for (let i = 0; i < importPreview.length; i++) {
+      const row = importPreview[i]
+
+      if (!row.title.trim() || !row.defect_description.trim()) {
+        results.push({
+          row: i + 2,
+          title: row.title || '(missing title)',
+          status: 'error',
+          error: 'Missing required title or defect_description',
+        })
+        continue
+      }
+
+      const { error: insertError } = await supabase.from('defect_knowledge_base').insert({
+        title: row.title.trim(),
+        element_type: row.element_type.trim() || null,
+        country: row.country.trim() || null,
+        applicable_standards: row.applicable_standards.trim() || null,
+        defect_description: row.defect_description.trim(),
+        correct_reference: null,
+        severity_default: 'ncr',
+        created_by: user?.id,
+      })
+
+      if (insertError) {
+        results.push({ row: i + 2, title: row.title, status: 'error', error: insertError.message })
+      } else {
+        results.push({ row: i + 2, title: row.title, status: 'success' })
+      }
+    }
+
+    setImportResults(results)
+    setImporting(false)
+    setCsvFile(null)
+    setImportPreview([])
+    load()
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 p-8">
@@ -130,6 +257,9 @@ export default function DefectKnowledgeAdminPage() {
     )
   }
 
+  const successCount = importResults?.filter((r) => r.status === 'success').length || 0
+  const errorCount = importResults?.filter((r) => r.status === 'error').length || 0
+
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-md">
@@ -137,6 +267,64 @@ export default function DefectKnowledgeAdminPage() {
         <p className="mt-1 text-sm text-slate-500">
           Shared defect patterns that apply across all projects, matched automatically by country and standard during photo analysis.
         </p>
+
+        <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-sm font-medium text-slate-700">Bulk import from CSV</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Columns required: <span className="font-mono">title, element_type, country, applicable_standards, defect_description</span>. Only <span className="font-mono">title</span> and <span className="font-mono">defect_description</span> are required per row - the rest can be left blank.
+          </p>
+
+          <input
+            type="file"
+            accept=".csv"
+            onChange={handleCsvSelect}
+            className="mt-3 w-full text-sm"
+          />
+
+          {importPreview.length > 0 && (
+            <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs font-medium text-slate-700">
+                {importPreview.length} row{importPreview.length === 1 ? '' : 's'} found
+              </p>
+              <div className="mt-2 max-h-40 space-y-1 overflow-y-auto">
+                {importPreview.slice(0, 5).map((row, i) => (
+                  <p key={i} className="text-xs text-slate-500 truncate">
+                    {i + 1}. {row.title || '(no title)'}
+                  </p>
+                ))}
+                {importPreview.length > 5 && (
+                  <p className="text-xs text-slate-400">...and {importPreview.length - 5} more</p>
+                )}
+              </div>
+              <button
+                onClick={handleImport}
+                disabled={importing}
+                className="mt-3 w-full rounded-md bg-brand-primary px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+              >
+                {importing ? 'Importing...' : `Import ${importPreview.length} entries`}
+              </button>
+            </div>
+          )}
+
+          {importResults && (
+            <div className="mt-3 rounded-md border border-slate-200 p-3">
+              <p className="text-xs font-medium text-slate-700">
+                {successCount} imported, {errorCount} failed
+              </p>
+              {errorCount > 0 && (
+                <div className="mt-2 max-h-32 space-y-1 overflow-y-auto">
+                  {importResults
+                    .filter((r) => r.status === 'error')
+                    .map((r, i) => (
+                      <p key={i} className="text-xs text-red-600">
+                        Row {r.row} ({r.title}): {r.error}
+                      </p>
+                    ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         <div className="mt-4 space-y-2">
           {entries.length === 0 && (
@@ -178,7 +366,7 @@ export default function DefectKnowledgeAdminPage() {
         </div>
 
         <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-sm font-medium text-slate-700">Add a knowledge entry</p>
+          <p className="text-sm font-medium text-slate-700">Add a single entry</p>
 
           <input
             type="text"
