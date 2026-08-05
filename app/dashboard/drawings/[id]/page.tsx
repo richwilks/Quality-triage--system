@@ -8,6 +8,10 @@ type Drawing = { id: string; name: string | null; image_url: string | null; proj
 type Point = { x: number; y: number }
 type Room = { id: string; name: string; pin_x: number; pin_y: number; boundary: Point[] | null }
 
+// NOTE: adjust this to match the exact string your profiles.role column uses
+// for company admins (e.g. 'admin', 'owner'). Confirm against your schema.
+const ADMIN_ROLE = 'company_admin'
+
 function centroid(points: Point[]): Point {
   const n = points.length
   const sum = points.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 })
@@ -38,6 +42,7 @@ export default function DrawingPinPage() {
   const [pin, setPin] = useState<{ x: number; y: number } | null>(null)
   const [nearestRoom, setNearestRoom] = useState<Room | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   const [markingMode, setMarkingMode] = useState(false)
   const [manualMode, setManualMode] = useState(false)
@@ -49,6 +54,7 @@ export default function DrawingPinPage() {
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null)
   const [boundaryError, setBoundaryError] = useState<string | null>(null)
   const [deletingRoom, setDeletingRoom] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     load()
@@ -67,6 +73,19 @@ export default function DrawingPinPage() {
       .select('id, name, pin_x, pin_y, boundary')
       .eq('drawing_id', drawingId)
     setRooms(roomData || [])
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+      setIsAdmin(profile?.role === ADMIN_ROLE)
+    }
 
     setLoading(false)
   }
@@ -212,6 +231,8 @@ export default function DrawingPinPage() {
     const x = ((e.clientX - rect.left) / rect.width) * 100
     const y = ((e.clientY - rect.top) / rect.height) * 100
 
+    if (markingMode && !isAdmin) return
+
     if (markingMode && manualMode) {
       setDrawPoints((prev) => [...prev, { x, y }])
       return
@@ -247,6 +268,7 @@ export default function DrawingPinPage() {
   }
 
   async function handleSaveRoom() {
+    if (!isAdmin) return
     if (drawPoints.length < 3 || !roomName.trim()) return
     setSavingRoom(true)
 
@@ -256,7 +278,7 @@ export default function DrawingPinPage() {
 
     const center = centroid(drawPoints)
 
-    await supabase.from('rooms').insert({
+    const { error } = await supabase.from('rooms').insert({
       drawing_id: drawingId,
       name: roomName.trim(),
       pin_x: center.x,
@@ -264,6 +286,12 @@ export default function DrawingPinPage() {
       boundary: drawPoints,
       created_by: user?.id,
     })
+
+    if (error) {
+      setBoundaryError(`Could not save room: ${error.message}`)
+      setSavingRoom(false)
+      return
+    }
 
     setRoomName('')
     setDrawPoints([])
@@ -274,8 +302,18 @@ export default function DrawingPinPage() {
   }
 
   async function handleDeleteRoom(roomId: string) {
+    if (!isAdmin) return
     setDeletingRoom(true)
-    await supabase.from('rooms').delete().eq('id', roomId)
+    setDeleteError(null)
+
+    const { error } = await supabase.from('rooms').delete().eq('id', roomId)
+
+    if (error) {
+      setDeleteError(error.message)
+      setDeletingRoom(false)
+      return
+    }
+
     setSelectedRoomId(null)
     setDeletingRoom(false)
     load()
@@ -349,20 +387,22 @@ export default function DrawingPinPage() {
       <div className="mx-auto max-w-md">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold text-slate-900">{drawing.name}</h1>
-          <button
-            onClick={() => {
-              setMarkingMode((m) => !m)
-              setManualMode(false)
-              setPin(null)
-              setDrawPoints([])
-              setRoomName('')
-              setSelectedRoomId(null)
-              setBoundaryError(null)
-            }}
-            className="text-xs font-medium text-slate-900 underline"
-          >
-            {markingMode ? 'Cancel marking' : 'Mark rooms'}
-          </button>
+          {isAdmin && (
+            <button
+              onClick={() => {
+                setMarkingMode((m) => !m)
+                setManualMode(false)
+                setPin(null)
+                setDrawPoints([])
+                setRoomName('')
+                setSelectedRoomId(null)
+                setBoundaryError(null)
+              }}
+              className="text-xs font-medium text-slate-900 underline"
+            >
+              {markingMode ? 'Cancel marking' : 'Mark rooms'}
+            </button>
+          )}
         </div>
         <p className="mt-1 text-sm text-slate-500">
           {markingMode && !manualMode && 'Tap once inside a room - AI will trace its walls automatically.'}
@@ -454,20 +494,31 @@ export default function DrawingPinPage() {
           )}
         </div>
 
-        {selectedRoom && !markingMode && (
-          <div className="mt-3 flex items-center justify-between rounded-lg border border-slate-200 bg-white p-3">
-            <p className="text-sm font-medium text-slate-900">{selectedRoom.name}</p>
-            <button
-              onClick={() => handleDeleteRoom(selectedRoom.id)}
-              disabled={deletingRoom}
-              className="text-xs font-medium text-red-600 disabled:opacity-50"
-            >
-              {deletingRoom ? 'Removing...' : 'Remove this markup'}
-            </button>
+        {selectedRoom && !markingMode && isAdmin && (
+          <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-slate-900">{selectedRoom.name}</p>
+              <button
+                onClick={() => handleDeleteRoom(selectedRoom.id)}
+                disabled={deletingRoom}
+                className="text-xs font-medium text-red-600 disabled:opacity-50"
+              >
+                {deletingRoom ? 'Removing...' : 'Remove this markup'}
+              </button>
+            </div>
+            {deleteError && (
+              <p className="mt-2 text-xs text-red-600">Could not remove: {deleteError}</p>
+            )}
           </div>
         )}
 
-        {markingMode && (
+        {selectedRoom && !markingMode && !isAdmin && (
+          <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+            <p className="text-sm font-medium text-slate-900">{selectedRoom.name}</p>
+          </div>
+        )}
+
+        {markingMode && isAdmin && (
           <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4">
             {detectingBoundary && (
               <p className="text-sm text-slate-500">Tracing room walls...</p>
