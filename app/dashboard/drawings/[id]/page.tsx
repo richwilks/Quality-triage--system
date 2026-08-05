@@ -8,9 +8,7 @@ type Drawing = { id: string; name: string | null; image_url: string | null; proj
 type Point = { x: number; y: number }
 type Room = { id: string; name: string; pin_x: number; pin_y: number; boundary: Point[] | null }
 
-// NOTE: adjust this to match the exact string your profiles.role column uses
-// for company admins (e.g. 'admin', 'owner'). Confirm against your schema.
-const ADMIN_ROLE = 'company_admin'
+
 
 function centroid(points: Point[]): Point {
   const n = points.length
@@ -43,6 +41,7 @@ export default function DrawingPinPage() {
   const [nearestRoom, setNearestRoom] = useState<Room | null>(null)
   const [loading, setLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [adminDebug, setAdminDebug] = useState<string | null>(null)
 
   const [markingMode, setMarkingMode] = useState(false)
   const [manualMode, setManualMode] = useState(false)
@@ -79,12 +78,19 @@ export default function DrawingPinPage() {
     } = await supabase.auth.getUser()
 
     if (user) {
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('role')
+        .select('company_admin')
         .eq('id', user.id)
         .single()
-      setIsAdmin(profile?.role === ADMIN_ROLE)
+      if (profileError) {
+        setAdminDebug(`Profile query error: ${profileError.message}`)
+      } else {
+        setAdminDebug(`Profile row: ${JSON.stringify(profile)}`)
+      }
+      setIsAdmin(profile?.company_admin === true)
+    } else {
+      setAdminDebug('No authenticated user found')
     }
 
     setLoading(false)
@@ -404,6 +410,13 @@ export default function DrawingPinPage() {
             </button>
           )}
         </div>
+        {/* TEMPORARY DEBUG - remove once admin gating is confirmed working */}
+        {adminDebug && (
+          <p className="mt-1 rounded bg-amber-50 p-2 text-xs text-amber-800">
+            DEBUG — isAdmin: {String(isAdmin)} | {adminDebug}
+          </p>
+        )}
+
         <p className="mt-1 text-sm text-slate-500">
           {markingMode && !manualMode && 'Tap once inside a room - AI will trace its walls automatically.'}
           {markingMode && manualMode && `Tap each corner of the room in order (${drawPoints.length} point${drawPoints.length === 1 ? '' : 's'} so far). Need at least 3.`}
@@ -615,4 +628,3 @@ export default function DrawingPinPage() {
     </div>
   )
 }
-
