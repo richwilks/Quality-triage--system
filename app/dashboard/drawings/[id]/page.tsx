@@ -48,6 +48,7 @@ export default function DrawingPinPage() {
   const [savingRoom, setSavingRoom] = useState(false)
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null)
   const [boundaryError, setBoundaryError] = useState<string | null>(null)
+  const [deletingRoom, setDeletingRoom] = useState(false)
 
   useEffect(() => {
     load()
@@ -272,10 +273,17 @@ export default function DrawingPinPage() {
     load()
   }
 
+  async function handleDeleteRoom(roomId: string) {
+    setDeletingRoom(true)
+    await supabase.from('rooms').delete().eq('id', roomId)
+    setSelectedRoomId(null)
+    setDeletingRoom(false)
+    load()
+  }
+
   function buildLocationText(): string {
     if (nearestRoom) return nearestRoom.name
-    if (!pin) return ''
-    return `Pinned on ${drawing?.name || 'drawing'} (${Math.round(pin.x)}%, ${Math.round(pin.y)}%)`
+    return drawing?.name || 'Custom location'
   }
 
   function handleRaiseDefect() {
@@ -334,6 +342,7 @@ export default function DrawingPinPage() {
   }
 
   const drawPointsStr = drawPoints.map((p) => `${p.x}%,${p.y}%`).join(' ')
+  const selectedRoom = selectedRoomId ? rooms.find((r) => r.id === selectedRoomId) : null
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
@@ -358,7 +367,7 @@ export default function DrawingPinPage() {
         <p className="mt-1 text-sm text-slate-500">
           {markingMode && !manualMode && 'Tap once inside a room - AI will trace its walls automatically.'}
           {markingMode && manualMode && `Tap each corner of the room in order (${drawPoints.length} point${drawPoints.length === 1 ? '' : 's'} so far). Need at least 3.`}
-          {!markingMode && 'Tap the drawing to drop a pin at your location. Tap a highlighted room to see its name.'}
+          {!markingMode && 'Tap the drawing to drop a pin at your location. Tap a highlighted room to see its name and options.'}
         </p>
 
         <div
@@ -422,23 +431,19 @@ export default function DrawingPinPage() {
               />
             ))}
 
-          {selectedRoomId && !markingMode && (() => {
-            const r = rooms.find((room) => room.id === selectedRoomId)
-            if (!r) return null
-            return (
-              <div
-                style={{
-                  position: 'absolute',
-                  left: `${r.pin_x}%`,
-                  top: `${r.pin_y}%`,
-                  transform: 'translate(-50%, -50%)',
-                }}
-                className="pointer-events-none whitespace-nowrap rounded bg-slate-900/90 px-2 py-1 text-[11px] font-medium text-white"
-              >
-                {r.name}
-              </div>
-            )
-          })()}
+          {selectedRoom && !markingMode && (
+            <div
+              style={{
+                position: 'absolute',
+                left: `${selectedRoom.pin_x}%`,
+                top: `${selectedRoom.pin_y}%`,
+                transform: 'translate(-50%, -50%)',
+              }}
+              className="pointer-events-none whitespace-nowrap rounded bg-slate-900/90 px-2 py-1 text-[11px] font-medium text-white"
+            >
+              {selectedRoom.name}
+            </div>
+          )}
 
           {pin && (
             <div
@@ -448,6 +453,19 @@ export default function DrawingPinPage() {
             </div>
           )}
         </div>
+
+        {selectedRoom && !markingMode && (
+          <div className="mt-3 flex items-center justify-between rounded-lg border border-slate-200 bg-white p-3">
+            <p className="text-sm font-medium text-slate-900">{selectedRoom.name}</p>
+            <button
+              onClick={() => handleDeleteRoom(selectedRoom.id)}
+              disabled={deletingRoom}
+              className="text-xs font-medium text-red-600 disabled:opacity-50"
+            >
+              {deletingRoom ? 'Removing...' : 'Remove this markup'}
+            </button>
+          </div>
+        )}
 
         {markingMode && (
           <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4">
