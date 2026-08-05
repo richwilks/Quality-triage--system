@@ -54,6 +54,12 @@ export default function DrawingPinPage() {
   const [boundaryError, setBoundaryError] = useState<string | null>(null)
   const [deletingRoom, setDeletingRoom] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [editingBoundary, setEditingBoundary] = useState(false)
+  const [editPoints, setEditPoints] = useState<Point[]>([])
+  const [draggingPointIndex, setDraggingPointIndex] = useState<number | null>(null)
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     load()
@@ -233,6 +239,7 @@ export default function DrawingPinPage() {
   }
 
   function handleImageClick(e: React.MouseEvent<HTMLDivElement>) {
+    if (editingBoundary) return
     const rect = e.currentTarget.getBoundingClientRect()
     const x = ((e.clientX - rect.left) / rect.width) * 100
     const y = ((e.clientY - rect.top) / rect.height) * 100
@@ -322,6 +329,73 @@ export default function DrawingPinPage() {
 
     setSelectedRoomId(null)
     setDeletingRoom(false)
+    load()
+  }
+
+  function startEditingBoundary(room: Room) {
+    if (!isAdmin || !room.boundary) return
+    setEditingBoundary(true)
+    setEditPoints(room.boundary.map((p) => ({ ...p })))
+    setEditError(null)
+  }
+
+  function cancelEditingBoundary() {
+    setEditingBoundary(false)
+    setEditPoints([])
+    setDraggingPointIndex(null)
+    setEditError(null)
+  }
+
+  function pointFromClientCoords(clientX: number, clientY: number): Point {
+    const rect = containerRef.current!.getBoundingClientRect()
+    return {
+      x: Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100)),
+      y: Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100)),
+    }
+  }
+
+  function handlePointDragStart(index: number, e: React.MouseEvent | React.TouchEvent) {
+    e.stopPropagation()
+    setDraggingPointIndex(index)
+  }
+
+  function handleContainerPointerMove(e: React.MouseEvent | React.TouchEvent) {
+    if (draggingPointIndex === null) return
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
+    const next = pointFromClientCoords(clientX, clientY)
+    setEditPoints((prev) => {
+      const updated = [...prev]
+      updated[draggingPointIndex] = next
+      return updated
+    })
+  }
+
+  function handleContainerPointerUp() {
+    setDraggingPointIndex(null)
+  }
+
+  async function handleSaveBoundaryEdit(room: Room) {
+    if (!isAdmin || editPoints.length < 3) return
+    setSavingEdit(true)
+    setEditError(null)
+
+    const center = centroid(editPoints)
+
+    const { error } = await supabase
+      .from('rooms')
+      .update({ boundary: editPoints, pin_x: center.x, pin_y: center.y })
+      .eq('id', room.id)
+
+    if (error) {
+      setEditError(error.message)
+      setSavingEdit(false)
+      return
+    }
+
+    setSavingEdit(false)
+    setEditingBoundary(false)
+    setEditPoints([])
     load()
   }
 
@@ -424,8 +498,13 @@ export default function DrawingPinPage() {
         </p>
 
         <div
+          ref={containerRef}
           className="relative mt-4 w-full cursor-crosshair overflow-hidden rounded-lg border border-slate-200"
           onClick={handleImageClick}
+          onMouseMove={handleContainerPointerMove}
+          onMouseUp={handleContainerPointerUp}
+          onTouchMove={handleContainerPointerMove}
+          onTouchEnd={handleContainerPointerUp}
         >
           {drawing.image_url && (
             <img
@@ -467,6 +546,15 @@ export default function DrawingPinPage() {
                 strokeWidth={0.3}
               />
             )}
+
+            {editingBoundary && editPoints.length > 0 && (
+              <polygon
+                points={editPoints.map((p) => `${p.x},${p.y}`).join(' ')}
+                fill="rgba(37,99,235,0.2)"
+                stroke="rgba(37,99,235,0.9)"
+                strokeWidth={0.3}
+              />
+            )}
           </svg>
 
           {markingMode &&
@@ -498,6 +586,23 @@ export default function DrawingPinPage() {
             </div>
           )}
 
+          {editingBoundary &&
+            editPoints.map((p, i) => (
+              <div
+                key={i}
+                onMouseDown={(e) => handlePointDragStart(i, e)}
+                onTouchStart={(e) => handlePointDragStart(i, e)}
+                style={{
+                  position: 'absolute',
+                  left: `${p.x}%`,
+                  top: `${p.y}%`,
+                  transform: 'translate(-50%, -50%)',
+                  touchAction: 'none',
+                }}
+                className="h-4 w-4 cursor-grab rounded-full border-2 border-white bg-blue-600 shadow active:cursor-grabbing"
+              />
+            ))}
+
           {pin && (
             <div
               style={{ position: 'absolute', left: `${pin.x}%`, top: `${pin.y}%`, transform: 'translate(-50%, -100%)' }}
@@ -507,20 +612,54 @@ export default function DrawingPinPage() {
           )}
         </div>
 
-        {selectedRoom && !markingMode && isAdmin && (
+        {selectedRoom && !markingMode && isAdmin && !editingBoundary && (
           <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium text-slate-900">{selectedRoom.name}</p>
-              <button
-                onClick={() => handleDeleteRoom(selectedRoom.id)}
-                disabled={deletingRoom}
-                className="text-xs font-medium text-red-600 disabled:opacity-50"
-              >
-                {deletingRoom ? 'Removing...' : 'Remove this markup'}
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => startEditingBoundary(selectedRoom)}
+                  className="text-xs font-medium text-slate-700 underline"
+                >
+                  Adjust boundary
+                </button>
+                <button
+                  onClick={() => handleDeleteRoom(selectedRoom.id)}
+                  disabled={deletingRoom}
+                  className="text-xs font-medium text-red-600 disabled:opacity-50"
+                >
+                  {deletingRoom ? 'Removing...' : 'Remove this markup'}
+                </button>
+              </div>
             </div>
             {deleteError && (
               <p className="mt-2 text-xs text-red-600">Could not remove: {deleteError}</p>
+            )}
+          </div>
+        )}
+
+        {selectedRoom && editingBoundary && isAdmin && (
+          <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
+            <p className="text-sm font-medium text-slate-900">Adjusting: {selectedRoom.name}</p>
+            <p className="mt-1 text-xs text-slate-500">Drag the blue points to match the room's actual corners.</p>
+            <div className="mt-2 flex gap-2">
+              <button
+                onClick={() => handleSaveBoundaryEdit(selectedRoom)}
+                disabled={savingEdit || editPoints.length < 3}
+                className="flex-1 rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+              >
+                {savingEdit ? 'Saving...' : 'Save changes'}
+              </button>
+              <button
+                onClick={cancelEditingBoundary}
+                disabled={savingEdit}
+                className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+            {editError && (
+              <p className="mt-2 text-xs text-red-600">Could not save: {editError}</p>
             )}
           </div>
         )}
