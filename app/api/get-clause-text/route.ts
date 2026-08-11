@@ -16,6 +16,23 @@ export async function POST(req: NextRequest) {
       .single()
 
     const sources: { label: string; text: string }[] = []
+
+    // Pull all project specs (concrete, drainage, sub station, etc) - the actual documents used in analysis
+    const { data: projectSpecs } = await supabase
+      .from('project_specs')
+      .select('name, extracted_text')
+      .eq('project_id', projectId)
+      .not('extracted_text', 'is', null)
+
+    if (projectSpecs) {
+      projectSpecs.forEach((s) => {
+        if (s.extracted_text) {
+          sources.push({ label: s.name || 'Project specification', text: s.extracted_text })
+        }
+      })
+    }
+
+    // Legacy single-column field, kept as a fallback for older projects
     if (project?.spec_extracted_text) {
       sources.push({ label: 'Project specification', text: project.spec_extracted_text })
     }
@@ -31,9 +48,22 @@ export async function POST(req: NextRequest) {
       matches.forEach((m) => sources.push({ label: m.code, text: m.extracted_text }))
     }
 
-    const numberMatches = (standardReference.match(/[0-9]+(\.[0-9]+)*/g) || []).sort(
-      (a: string, b: string) => b.length - a.length
-    )
+    // 1. Try an exact match of the full standard reference string first - most precise
+    for (const source of sources) {
+      const idx = source.text.indexOf(standardReference)
+      if (idx !== -1) {
+        const start = Math.max(0, idx - 300)
+        const end = Math.min(source.text.length, idx + 500)
+        const snippet = (start > 0 ? '...' : '') + source.text.slice(start, end).trim() + (end < source.text.length ? '...' : '')
+        return NextResponse.json({ found: true, source: source.label, snippet })
+      }
+    }
+
+    // 2. Fall back to clause/section numbers, but only meaningful ones - skip single digits
+    // and standalone zeros, which match too easily in unrelated places (dates, doc refs, page numbers).
+    const numberMatches = (standardReference.match(/[0-9]+(\.[0-9]+)+|[0-9]{2,}/g) || [])
+      .filter((n: string) => n !== '0')
+      .sort((a: string, b: string) => b.length - a.length)
 
     for (const source of sources) {
       for (const num of numberMatches) {
