@@ -450,7 +450,7 @@ export default function ReviewDefectsPage() {
                     setEditedText((prev) => ({ ...prev, [defect.id]: e.target.value }))
                   }
                   rows={3}
-                  className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                 />
 
                 {isNcr && (
@@ -464,7 +464,7 @@ export default function ReviewDefectsPage() {
                       onChange={(e) => setRootCause((prev) => ({ ...prev, [defect.id]: e.target.value }))}
                       rows={2}
                       placeholder="Why did this non-conformance occur?"
-                      className="mt-1 w-full rounded-md border border-deck-border px-2 py-1.5 text-sm"
+                      className="mt-1 w-full rounded-md border border-deck-border px-2 py-1.5 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                     />
                     <label className="mt-2 block text-xs font-medium text-deck-body">Corrective action</label>
                     <textarea
@@ -472,7 +472,7 @@ export default function ReviewDefectsPage() {
                       onChange={(e) => setCorrectiveAction((prev) => ({ ...prev, [defect.id]: e.target.value }))}
                       rows={2}
                       placeholder="What needs to happen to resolve this and prevent recurrence?"
-                      className="mt-1 w-full rounded-md border border-deck-border px-2 py-1.5 text-sm"
+                      className="mt-1 w-full rounded-md border border-deck-border px-2 py-1.5 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                     />
                   </div>
                 )}
@@ -484,7 +484,7 @@ export default function ReviewDefectsPage() {
                     onChange={(e) =>
                       setAssignedPartner((prev) => ({ ...prev, [defect.id]: e.target.value }))
                     }
-                    className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                   >
                     <option value="">Unassigned</option>
                     {partners.map((p) => (
@@ -505,7 +505,7 @@ export default function ReviewDefectsPage() {
                     onChange={(e) =>
                       setTargetDate((prev) => ({ ...prev, [defect.id]: e.target.value }))
                     }
-                    className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                   />
                 </div>
 
@@ -518,7 +518,7 @@ export default function ReviewDefectsPage() {
                       value={rejectReason}
                       onChange={(e) => setRejectReason(e.target.value)}
                       rows={2}
-                      className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+                      className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                       placeholder="e.g. this is within tolerance, or normal finish for this material"
                     />
                     <div className="mt-2 flex gap-2">

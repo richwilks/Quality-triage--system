@@ -92,7 +92,7 @@ const [isCompanyAdmin, setIsCompanyAdmin] = useState(false)
             type="text"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
-            className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           />
 
           <label className="mt-4 block text-sm font-medium text-deck-body">Company</label>
@@ -101,7 +101,7 @@ const [isCompanyAdmin, setIsCompanyAdmin] = useState(false)
             value={companyName}
             onChange={(e) => setCompanyName(e.target.value)}
             placeholder="e.g. ABC Construction"
-            className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           />
           {role === 'partner' && (
             <p className="mt-1 text-xs text-deck-dim">

@@ -245,7 +245,7 @@ export default function CompanyAdminPage() {
           <select
             value={inviteProjectId}
             onChange={(e) => setInviteProjectId(e.target.value)}
-            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           >
             {projects.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
@@ -256,12 +256,12 @@ export default function CompanyAdminPage() {
             value={inviteEmail}
             onChange={(e) => setInviteEmail(e.target.value)}
             placeholder="their@email.com"
-            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           />
           <select
             value={inviteAccountType}
             onChange={(e) => setInviteAccountType(e.target.value)}
-            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           >
             {ACCOUNT_TYPES.map((t) => (
               <option key={t} value={t}>{t.replace('_', ' ')}</option>
@@ -312,7 +312,7 @@ export default function CompanyAdminPage() {
                 type="text"
                 value={accentColor}
                 onChange={(e) => setAccentColor(e.target.value)}
-                className="flex-1 rounded-md border border-deck-border px-3 py-2 text-sm"
+                className="flex-1 rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
               />
             </div>
 

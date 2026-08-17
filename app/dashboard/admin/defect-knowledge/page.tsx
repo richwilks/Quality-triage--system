@@ -373,47 +373,47 @@ export default function DefectKnowledgeAdminPage() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Title, e.g. Inpro movement joint - max expansion"
-            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           />
           <input
             type="text"
             value={elementType}
             onChange={(e) => setElementType(e.target.value)}
             placeholder="Element type, e.g. Movement joint"
-            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           />
           <input
             type="text"
             value={country}
             onChange={(e) => setCountry(e.target.value)}
             placeholder="Country, e.g. UK (leave blank to apply to all)"
-            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           />
           <input
             type="text"
             value={applicableStandards}
             onChange={(e) => setApplicableStandards(e.target.value)}
             placeholder="Applicable standard code, e.g. IPC.3087 (optional)"
-            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           />
           <textarea
             value={defectDescription}
             onChange={(e) => setDefectDescription(e.target.value)}
             placeholder="What wrong looks like - be specific and visual"
             rows={3}
-            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           />
           <textarea
             value={correctReference}
             onChange={(e) => setCorrectReference(e.target.value)}
             placeholder="What correct looks like (optional, but recommended)"
             rows={3}
-            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           />
           <select
             value={severityDefault}
             onChange={(e) => setSeverityDefault(e.target.value)}
-            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           >
             <option value="ncr">NCR</option>
             <option value="snag">Snag</option>

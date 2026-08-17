@@ -726,7 +726,7 @@ export default function DrawingPinPage() {
                   value={roomName}
                   onChange={(e) => setRoomName(e.target.value)}
                   placeholder="e.g. Bathroom 214"
-                  className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                 />
                 <button
                   onClick={handleSaveRoom}

@@ -199,7 +199,7 @@ export default function ProjectSpecPage() {
           <select
             value={projectId}
             onChange={(e) => setProjectId(e.target.value)}
-            className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           >
             {projects.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
@@ -256,7 +256,7 @@ export default function ProjectSpecPage() {
             value={specName}
             onChange={(e) => setSpecName(e.target.value)}
             placeholder="Name (only used if selecting a single file)"
-            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           />
           <input
             type="file"

@@ -103,7 +103,7 @@ function DrawingsPageInner() {
           <select
             value={projectId}
             onChange={(e) => setProjectId(e.target.value)}
-            className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           >
             {projects.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
@@ -137,7 +137,7 @@ function DrawingsPageInner() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Level 2 Floor Plan"
-            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           />
           <input
             type="file"

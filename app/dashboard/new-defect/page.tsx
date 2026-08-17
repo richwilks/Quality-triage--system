@@ -397,7 +397,7 @@ function NewDefectPageInner() {
             <select
               value={projectId}
               onChange={(e) => setProjectId(e.target.value)}
-              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
             >
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -414,7 +414,7 @@ function NewDefectPageInner() {
               value={finishGrade}
               onChange={(e) => setFinishGrade(e.target.value)}
               placeholder="e.g. SR1 exposed floor finish, or FM2 plant room slab"
-              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
             />
             <p className="mt-1 text-xs text-deck-dim">
               Critical for concrete/finish work - tells the AI what level of imperfection is actually acceptable here.
@@ -438,7 +438,7 @@ function NewDefectPageInner() {
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               placeholder="e.g. Block A, Level 2, Room 214"
-              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
             />
             {drawingId && (
               <p className="mt-1 text-xs text-deck-dim">Pinned location attached from drawing.</p>
@@ -533,7 +533,7 @@ function NewDefectPageInner() {
                       type="text"
                       value={it.title}
                       onChange={(e) => updateItem(it.localId, { title: e.target.value })}
-                      className="w-2/3 rounded-md border border-deck-border px-2 py-1 text-sm font-medium"
+                      className="w-2/3 rounded-md border border-deck-border px-2 py-1 text-sm font-medium bg-deck-surface text-deck-text placeholder:text-deck-mute"
                     />
                     <label className="flex items-center gap-1 text-xs text-deck-body">
                       <input
@@ -548,7 +548,7 @@ function NewDefectPageInner() {
                     value={it.description}
                     onChange={(e) => updateItem(it.localId, { description: e.target.value })}
                     rows={2}
-                    className="mt-2 w-full rounded-md border border-deck-border px-2 py-1 text-sm"
+                    className="mt-2 w-full rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                   />
                                   <p className="mt-1 text-xs text-deck-dim">
                     Confidence: {Math.round(it.confidence * 100)}%
@@ -618,7 +618,7 @@ function NewDefectPageInner() {
                 type="date"
                 value={targetDate}
                 onChange={(e) => setTargetDate(e.target.value)}
-                className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
               />
             </div>
           </div>

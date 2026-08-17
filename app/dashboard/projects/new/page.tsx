@@ -76,7 +76,7 @@ export default function NewProjectPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Commercial B - Logistics Hub"
-              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
             />
           </div>
 
@@ -87,7 +87,7 @@ export default function NewProjectPage() {
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
               placeholder="Brief description of the project and construction type"
-              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
             />
           </div>
 
@@ -98,7 +98,7 @@ export default function NewProjectPage() {
               onChange={(e) => setStandards(e.target.value)}
               rows={3}
               placeholder="e.g. BS 8204 Parts 1-3, BS EN 1090-2..."
-              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
             />
           </div>
 

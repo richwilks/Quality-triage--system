@@ -131,7 +131,7 @@ export default function EditProjectPage() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
             />
           </div>
 
@@ -141,7 +141,7 @@ export default function EditProjectPage() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
             />
           </div>
 
@@ -233,7 +233,7 @@ export default function EditProjectPage() {
               onChange={(e) => setStandards(e.target.value)}
               rows={3}
               placeholder="e.g. BS 8204 Parts 1-3, BS EN 1090-2..."
-              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
             />
           </div>
 

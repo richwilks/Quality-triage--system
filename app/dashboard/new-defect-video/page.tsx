@@ -309,7 +309,7 @@ export default function NewDefectVideoPage() {
             <select
               value={projectId}
               onChange={(e) => setProjectId(e.target.value)}
-              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
             >
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
@@ -324,7 +324,7 @@ export default function NewDefectVideoPage() {
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               placeholder="e.g. Block A, Level 2"
-              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
             />
           </div>
 
@@ -412,7 +412,7 @@ export default function NewDefectVideoPage() {
                             type="text"
                             value={it.title}
                             onChange={(e) => updateItem(it.localId, { title: e.target.value })}
-                            className="w-2/3 rounded-md border border-deck-border px-2 py-1 text-sm font-medium"
+                            className="w-2/3 rounded-md border border-deck-border px-2 py-1 text-sm font-medium bg-deck-surface text-deck-text placeholder:text-deck-mute"
                           />
                           <label className="flex items-center gap-1 text-xs text-deck-body">
                             <input
@@ -427,7 +427,7 @@ export default function NewDefectVideoPage() {
                           value={it.description}
                           onChange={(e) => updateItem(it.localId, { description: e.target.value })}
                           rows={2}
-                          className="mt-2 w-full rounded-md border border-deck-border px-2 py-1 text-sm"
+                          className="mt-2 w-full rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                         />
                         <p className="mt-1 text-xs text-deck-dim">
                           Confidence: {Math.round(it.confidence * 100)}%
@@ -448,7 +448,7 @@ export default function NewDefectVideoPage() {
                 <select
                   value={assignedPartnerId}
                   onChange={(e) => setAssignedPartnerId(e.target.value)}
-                  className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                 >
                   <option value="">Unassigned</option>
                   {partners.map((p) => (
@@ -468,7 +468,7 @@ export default function NewDefectVideoPage() {
                     type="date"
                     value={targetDate}
                     onChange={(e) => setTargetDate(e.target.value)}
-                    className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                   />
                 </div>
               </div>

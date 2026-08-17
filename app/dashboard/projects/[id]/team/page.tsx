@@ -145,7 +145,7 @@ export default function ProjectTeamPage() {
                 <select
                   value={m.project_role}
                   onChange={(e) => updateRole(m.id, e.target.value)}
-                  className="rounded-md border border-deck-border px-2 py-1 text-xs"
+                  className="rounded-md border border-deck-border px-2 py-1 text-xs bg-deck-surface text-deck-text placeholder:text-deck-mute"
                 >
                   <option value="owner">Owner</option>
                   <option value="member">Member</option>
@@ -180,12 +180,12 @@ export default function ProjectTeamPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="their@email.com"
-            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           />
           <select
             value={role}
             onChange={(e) => setRole(e.target.value)}
-            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           >
             <option value="member">Member</option>
             <option value="owner">Owner</option>

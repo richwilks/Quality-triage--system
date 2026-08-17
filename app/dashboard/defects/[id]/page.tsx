@@ -208,7 +208,7 @@ export default function DefectDetailPage() {
                 onChange={(e) => setRootCause(e.target.value)}
                 rows={2}
                 placeholder="Why did this non-conformance occur?"
-                className="mt-1 w-full rounded-md border border-deck-border px-2 py-1.5 text-sm"
+                className="mt-1 w-full rounded-md border border-deck-border px-2 py-1.5 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
               />
               <label className="mt-2 block text-xs font-medium text-deck-body">Corrective action</label>
               <textarea
@@ -216,7 +216,7 @@ export default function DefectDetailPage() {
                 onChange={(e) => setCorrectiveAction(e.target.value)}
                 rows={2}
                 placeholder="What needs to happen to resolve this and prevent recurrence?"
-                className="mt-1 w-full rounded-md border border-deck-border px-2 py-1.5 text-sm"
+                className="mt-1 w-full rounded-md border border-deck-border px-2 py-1.5 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
               />
             </div>
           )}
@@ -225,7 +225,7 @@ export default function DefectDetailPage() {
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           >
             {STATUS_OPTIONS.map((s) => (
               <option key={s} value={s}>
@@ -242,7 +242,7 @@ export default function DefectDetailPage() {
             onChange={(e) => setClosureNotes(e.target.value)}
             rows={3}
             placeholder="What was done to resolve this, or why it's being rejected"
-            className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           />
 
           <label className="mt-4 block text-sm font-medium text-deck-body">

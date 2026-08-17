@@ -296,7 +296,7 @@ export default function PlatformAdminPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={tab === 'Users' ? 'Search name, email, or company' : 'Search project or company'}
-            className="mt-3 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
+            className="mt-3 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           />
         )}
 
@@ -317,7 +317,7 @@ export default function PlatformAdminPage() {
                         setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, full_name: e.target.value } : x)))
                       }
                       placeholder="Full name"
-                      className="w-full rounded-md border border-deck-border px-2 py-1 text-sm"
+                      className="w-full rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                     />
                     <input
                       value={u.company_name || ''}
@@ -325,14 +325,14 @@ export default function PlatformAdminPage() {
                         setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, company_name: e.target.value } : x)))
                       }
                       placeholder="Company"
-                      className="w-full rounded-md border border-deck-border px-2 py-1 text-sm"
+                      className="w-full rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                     />
                     <select
                       value={u.account_type || ''}
                       onChange={(e) =>
                         setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, account_type: e.target.value } : x)))
                       }
-                      className="w-full rounded-md border border-deck-border px-2 py-1 text-sm"
+                      className="w-full rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                     >
                       <option value="">No type set</option>
                       {ACCOUNT_TYPES.map((t) => (
@@ -344,7 +344,7 @@ export default function PlatformAdminPage() {
                       onChange={(e) =>
                         setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, role: e.target.value } : x)))
                       }
-                      className="w-full rounded-md border border-deck-border px-2 py-1 text-sm"
+                      className="w-full rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                     >
                       <option value="internal">Internal (sees own projects fully)</option>
                       <option value="partner">Partner (sees only assigned defects)</option>
@@ -426,12 +426,12 @@ export default function PlatformAdminPage() {
                             </span>
                           )}
                           {u.is_platform_admin && (
-                            <span className="rounded-full bg-brand-ink/10 px-2 py-0.5 text-[10px] font-medium text-brand-ink">
+                            <span className="rounded-full bg-deck-mute/20 px-2 py-0.5 text-[10px] font-medium text-deck-text">
                               Platform admin
                             </span>
                           )}
                           {u.is_blocked && (
-                            <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700">
+                            <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-medium text-red-300">
                               Blocked
                             </span>
                           )}
@@ -484,7 +484,7 @@ export default function PlatformAdminPage() {
                         setProjects((prev) => prev.map((x) => (x.id === p.id ? { ...x, name: e.target.value } : x)))
                       }
                       placeholder="Project name"
-                      className="w-full rounded-md border border-deck-border px-2 py-1 text-sm"
+                      className="w-full rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                     />
                     <textarea
                       value={p.description || ''}
@@ -493,7 +493,7 @@ export default function PlatformAdminPage() {
                       }
                       placeholder="Description"
                       rows={2}
-                      className="w-full rounded-md border border-deck-border px-2 py-1 text-sm"
+                      className="w-full rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                     />
                     <textarea
                       value={p.standards || ''}
@@ -502,7 +502,7 @@ export default function PlatformAdminPage() {
                       }
                       placeholder="Applicable standards"
                       rows={2}
-                      className="w-full rounded-md border border-deck-border px-2 py-1 text-sm"
+                      className="w-full rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                     />
                     <input
                       value={p.company_name || ''}
@@ -510,14 +510,14 @@ export default function PlatformAdminPage() {
                         setProjects((prev) => prev.map((x) => (x.id === p.id ? { ...x, company_name: e.target.value } : x)))
                       }
                       placeholder="Company"
-                      className="w-full rounded-md border border-deck-border px-2 py-1 text-sm"
+                      className="w-full rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                     />
                     <select
                       value={p.status}
                       onChange={(e) =>
                         setProjects((prev) => prev.map((x) => (x.id === p.id ? { ...x, status: e.target.value } : x)))
                       }
-                      className="w-full rounded-md border border-deck-border px-2 py-1 text-sm"
+                      className="w-full rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                     >
                       <option value="active">Active</option>
                       <option value="closed">Closed</option>
