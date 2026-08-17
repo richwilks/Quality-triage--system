@@ -84,26 +84,26 @@ function DrawingsPageInner() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
-        <p className="text-sm text-slate-500">Loading...</p>
+      <div className="min-h-screen p-8">
+        <p className="text-sm text-deck-dim">Loading...</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8">
+    <div className="min-h-screen px-4 py-8">
       <div className="mx-auto max-w-md">
         <PageHeader title="Drawings" />
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-deck-dim">
           Choose a drawing, then tap it to drop a pin and raise a defect at that location.
         </p>
 
-        <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <label className="block text-sm font-medium text-slate-700">Project</label>
+        <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
+          <label className="block text-sm font-medium text-deck-body">Project</label>
           <select
             value={projectId}
             onChange={(e) => setProjectId(e.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
           >
             {projects.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
@@ -116,28 +116,28 @@ function DrawingsPageInner() {
             <Link
               key={d.id}
               href={`/dashboard/drawings/${d.id}`}
-              className="overflow-hidden rounded-lg border border-slate-200 bg-white"
+              className="overflow-hidden rounded-lg border border-deck-border bg-deck-surface"
             >
               {d.image_url && (
                 <img src={d.image_url} alt={d.name || 'Drawing'} className="h-28 w-full object-cover" />
               )}
-              <p className="p-2 text-xs font-medium text-slate-700 truncate">{d.name}</p>
+              <p className="p-2 text-xs font-medium text-deck-body truncate">{d.name}</p>
             </Link>
           ))}
         </div>
 
         {drawings.length === 0 && (
-          <p className="mt-4 text-sm text-slate-500">No drawings uploaded for this project yet.</p>
+          <p className="mt-4 text-sm text-deck-dim">No drawings uploaded for this project yet.</p>
         )}
 
-        <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-sm font-medium text-slate-700">Upload a new drawing</p>
+        <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
+          <p className="text-sm font-medium text-deck-body">Upload a new drawing</p>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Level 2 Floor Plan"
-            className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
           />
           <input
             type="file"
@@ -148,11 +148,11 @@ function DrawingsPageInner() {
           <button
             onClick={handleUpload}
             disabled={uploading || !file || !projectId}
-            className="mt-3 w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="mt-3 w-full rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
           >
             {uploading ? 'Uploading...' : 'Upload drawing'}
           </button>
-          <p className="mt-2 text-xs text-slate-400">
+          <p className="mt-2 text-xs text-deck-dim">
             Photos or scanned plans work best as JPG/PNG. PDF plans need converting to an image first for now.
           </p>
         </div>
@@ -165,8 +165,8 @@ export default function DrawingsPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-slate-50 p-8">
-          <p className="text-sm text-slate-500">Loading...</p>
+        <div className="min-h-screen p-8">
+          <p className="text-sm text-deck-dim">Loading...</p>
         </div>
       }
     >

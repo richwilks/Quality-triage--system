@@ -296,20 +296,20 @@ export default function NewDefectVideoPage() {
   const progressPercent = frames.length > 0 ? Math.round((framesDone / frames.length) * 100) : 0
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8">
+    <div className="min-h-screen px-4 py-8">
       <div className="mx-auto max-w-md">
         <PageHeader title="New Defect (Video)" />
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-deck-dim">
           Upload a walkthrough video - {FRAME_COUNT} frames will be sampled and checked for defects.
         </p>
 
-        <div className="mt-6 space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mt-6 space-y-4 rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
           <div>
-            <label className="block text-sm font-medium text-slate-700">Project</label>
+            <label className="block text-sm font-medium text-deck-body">Project</label>
             <select
               value={projectId}
               onChange={(e) => setProjectId(e.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
             >
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
@@ -318,18 +318,18 @@ export default function NewDefectVideoPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700">Location</label>
+            <label className="block text-sm font-medium text-deck-body">Location</label>
             <input
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               placeholder="e.g. Block A, Level 2"
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700">Video</label>
+            <label className="block text-sm font-medium text-deck-body">Video</label>
             <input
               type="file"
               accept="video/*"
@@ -342,24 +342,24 @@ export default function NewDefectVideoPage() {
             <button
               onClick={handleAnalyze}
               disabled={!projectId}
-              className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+              className="w-full rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
             >
               Analyze video
             </button>
           )}
 
           {processing && (
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <p className="text-sm font-medium text-slate-700">{progress || 'Working...'}</p>
+            <div className="rounded-lg border border-deck-border bg-deck-raised p-3">
+              <p className="text-sm font-medium text-deck-body">{progress || 'Working...'}</p>
               {frames.length > 0 && (
                 <>
-                  <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                  <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-deck-raised">
                     <div
-                      className="h-2 bg-slate-900 transition-all"
+                      className="h-2 bg-deck-accent transition-all"
                       style={{ width: `${progressPercent}%` }}
                     />
                   </div>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-deck-dim">
                     {framesDone} of {frames.length} frames checked - keep this tab open and in the foreground
                   </p>
                 </>
@@ -404,7 +404,7 @@ export default function NewDefectVideoPage() {
                     return (
                       <div
                         key={it.localId}
-                        className="rounded-lg border border-slate-200 p-3"
+                        className="rounded-lg border border-deck-border p-3"
                         style={{ borderLeftWidth: 4, borderLeftColor: BOX_COLORS[colorIndex % BOX_COLORS.length] }}
                       >
                         <div className="flex items-center justify-between">
@@ -412,9 +412,9 @@ export default function NewDefectVideoPage() {
                             type="text"
                             value={it.title}
                             onChange={(e) => updateItem(it.localId, { title: e.target.value })}
-                            className="w-2/3 rounded-md border border-slate-300 px-2 py-1 text-sm font-medium"
+                            className="w-2/3 rounded-md border border-deck-border px-2 py-1 text-sm font-medium"
                           />
-                          <label className="flex items-center gap-1 text-xs text-slate-600">
+                          <label className="flex items-center gap-1 text-xs text-deck-body">
                             <input
                               type="checkbox"
                               checked={it.included}
@@ -427,9 +427,9 @@ export default function NewDefectVideoPage() {
                           value={it.description}
                           onChange={(e) => updateItem(it.localId, { description: e.target.value })}
                           rows={2}
-                          className="mt-2 w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
+                          className="mt-2 w-full rounded-md border border-deck-border px-2 py-1 text-sm"
                         />
-                        <p className="mt-1 text-xs text-slate-500">
+                        <p className="mt-1 text-xs text-deck-dim">
                           Confidence: {Math.round(it.confidence * 100)}%
                           {it.standard_reference && ` · Standard: ${it.standard_reference}`}
                         </p>
@@ -444,11 +444,11 @@ export default function NewDefectVideoPage() {
           {items.length > 0 && !processing && (
             <>
               <div>
-                <label className="block text-sm font-medium text-slate-700">Assigned</label>
+                <label className="block text-sm font-medium text-deck-body">Assigned</label>
                 <select
                   value={assignedPartnerId}
                   onChange={(e) => setAssignedPartnerId(e.target.value)}
-                  className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
                 >
                   <option value="">Unassigned</option>
                   {partners.map((p) => (
@@ -459,35 +459,35 @@ export default function NewDefectVideoPage() {
 
               <div className="flex gap-4">
                 <div className="flex-1">
-                  <label className="block text-sm font-medium text-slate-700">Date created</label>
-                  <p className="mt-1 rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-500">{todayLabel}</p>
+                  <label className="block text-sm font-medium text-deck-body">Date created</label>
+                  <p className="mt-1 rounded-md bg-deck-raised px-3 py-2 text-sm text-deck-dim">{todayLabel}</p>
                 </div>
                 <div className="flex-1">
-                  <label className="block text-sm font-medium text-slate-700">Target completion</label>
+                  <label className="block text-sm font-medium text-deck-body">Target completion</label>
                   <input
                     type="date"
                     value={targetDate}
                     onChange={(e) => setTargetDate(e.target.value)}
-                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
                   />
                 </div>
               </div>
             </>
           )}
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-red-400">{error}</p>}
 
           {items.length > 0 && !saved && !processing && (
             <button
               onClick={handleSave}
               disabled={saving || items.filter((i) => i.included).length === 0}
-              className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+              className="w-full rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
             >
               {saving ? 'Saving...' : 'Save selected defects'}
             </button>
           )}
           {saved && (
-            <p className="text-sm font-medium text-green-600">
+            <p className="text-sm font-medium text-emerald-400">
               Saved. You can review them on the dashboard.
             </p>
           )}

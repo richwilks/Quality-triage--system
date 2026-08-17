@@ -446,16 +446,16 @@ export default function DrawingPinPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
-        <p className="text-sm text-slate-500">Loading...</p>
+      <div className="min-h-screen p-8">
+        <p className="text-sm text-deck-dim">Loading...</p>
       </div>
     )
   }
 
   if (!drawing) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
-        <p className="text-sm text-slate-500">Drawing not found.</p>
+      <div className="min-h-screen p-8">
+        <p className="text-sm text-deck-dim">Drawing not found.</p>
       </div>
     )
   }
@@ -464,7 +464,7 @@ export default function DrawingPinPage() {
   const selectedRoom = selectedRoomId ? rooms.find((r) => r.id === selectedRoomId) : null
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8">
+    <div className="min-h-screen px-4 py-8">
       <div className="mx-auto max-w-md">
         <div className="flex items-center justify-between">
           <PageHeader title={drawing.name || 'Drawing'} />
@@ -479,7 +479,7 @@ export default function DrawingPinPage() {
                 setSelectedRoomId(null)
                 setBoundaryError(null)
               }}
-              className="text-xs font-medium text-slate-900 underline"
+              className="text-xs font-medium text-deck-text underline"
             >
               {markingMode ? 'Cancel marking' : 'Mark rooms'}
             </button>
@@ -487,12 +487,12 @@ export default function DrawingPinPage() {
         </div>
         {/* TEMPORARY DEBUG - remove once admin gating is confirmed working */}
         {adminDebug && (
-          <p className="mt-1 rounded bg-amber-50 p-2 text-xs text-amber-800">
+          <p className="mt-1 rounded bg-amber-500/10 p-2 text-xs text-amber-300">
             DEBUG — isAdmin: {String(isAdmin)} | {adminDebug}
           </p>
         )}
 
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-deck-dim">
           {markingMode && !manualMode && 'Tap once inside a room - AI will trace its walls automatically.'}
           {markingMode && manualMode && `Tap each corner of the room in order (${drawPoints.length} point${drawPoints.length === 1 ? '' : 's'} so far). Need at least 3.`}
           {!markingMode && 'Tap the drawing to drop a pin at your location. Tap a highlighted room to see its name and options.'}
@@ -500,7 +500,7 @@ export default function DrawingPinPage() {
 
         <div
           ref={containerRef}
-          className="relative mt-4 w-full cursor-crosshair overflow-hidden rounded-lg border border-slate-200"
+          className="relative mt-4 w-full cursor-crosshair overflow-hidden rounded-lg border border-deck-border"
           onClick={handleImageClick}
           onMouseMove={handleContainerPointerMove}
           onMouseUp={handleContainerPointerUp}
@@ -581,7 +581,7 @@ export default function DrawingPinPage() {
                 top: `${selectedRoom.pin_y}%`,
                 transform: 'translate(-50%, -50%)',
               }}
-              className="pointer-events-none whitespace-nowrap rounded bg-slate-900/90 px-2 py-1 text-[11px] font-medium text-white"
+              className="pointer-events-none whitespace-nowrap rounded bg-deck-raised/95 px-2 py-1 text-[11px] font-medium text-deck-text"
             >
               {selectedRoom.name}
             </div>
@@ -614,77 +614,77 @@ export default function DrawingPinPage() {
         </div>
 
         {selectedRoom && !markingMode && isAdmin && !editingBoundary && (
-          <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+          <div className="mt-3 rounded-lg border border-deck-border bg-deck-surface p-3">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-slate-900">{selectedRoom.name}</p>
+              <p className="text-sm font-medium text-deck-text">{selectedRoom.name}</p>
               <div className="flex gap-3">
                 <button
                   onClick={() => startEditingBoundary(selectedRoom)}
-                  className="text-xs font-medium text-slate-700 underline"
+                  className="text-xs font-medium text-deck-body underline"
                 >
                   Adjust boundary
                 </button>
                 <button
                   onClick={() => handleDeleteRoom(selectedRoom.id)}
                   disabled={deletingRoom}
-                  className="text-xs font-medium text-red-600 disabled:opacity-50"
+                  className="text-xs font-medium text-red-400 disabled:opacity-50"
                 >
                   {deletingRoom ? 'Removing...' : 'Remove this markup'}
                 </button>
               </div>
             </div>
             {deleteError && (
-              <p className="mt-2 text-xs text-red-600">Could not remove: {deleteError}</p>
+              <p className="mt-2 text-xs text-red-400">Could not remove: {deleteError}</p>
             )}
           </div>
         )}
 
         {selectedRoom && editingBoundary && isAdmin && (
           <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
-            <p className="text-sm font-medium text-slate-900">Adjusting: {selectedRoom.name}</p>
-            <p className="mt-1 text-xs text-slate-500">Drag the blue points to match the room's actual corners.</p>
+            <p className="text-sm font-medium text-deck-text">Adjusting: {selectedRoom.name}</p>
+            <p className="mt-1 text-xs text-deck-dim">Drag the blue points to match the room's actual corners.</p>
             <div className="mt-2 flex gap-2">
               <button
                 onClick={() => handleSaveBoundaryEdit(selectedRoom)}
                 disabled={savingEdit || editPoints.length < 3}
-                className="flex-1 rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                className="flex-1 rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
               >
                 {savingEdit ? 'Saving...' : 'Save changes'}
               </button>
               <button
                 onClick={cancelEditingBoundary}
                 disabled={savingEdit}
-                className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50"
+                className="flex-1 rounded-md border border-deck-border px-3 py-2 text-sm font-medium text-deck-body disabled:opacity-50"
               >
                 Cancel
               </button>
             </div>
             {editError && (
-              <p className="mt-2 text-xs text-red-600">Could not save: {editError}</p>
+              <p className="mt-2 text-xs text-red-400">Could not save: {editError}</p>
             )}
           </div>
         )}
 
         {selectedRoom && !markingMode && !isAdmin && (
-          <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
-            <p className="text-sm font-medium text-slate-900">{selectedRoom.name}</p>
+          <div className="mt-3 rounded-lg border border-deck-border bg-deck-surface p-3">
+            <p className="text-sm font-medium text-deck-text">{selectedRoom.name}</p>
           </div>
         )}
 
         {markingMode && isAdmin && (
-          <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4">
+          <div className="mt-4 rounded-lg border border-deck-border bg-deck-surface p-4">
             {detectingBoundary && (
-              <p className="text-sm text-slate-500">Tracing room walls...</p>
+              <p className="text-sm text-deck-dim">Tracing room walls...</p>
             )}
 
             {boundaryError && !detectingBoundary && (
-              <p className="text-sm text-amber-600">{boundaryError}</p>
+              <p className="text-sm text-amber-400">{boundaryError}</p>
             )}
 
             {!manualMode && !detectingBoundary && drawPoints.length === 0 && !boundaryError && (
               <button
                 onClick={() => setManualMode(true)}
-                className="text-xs font-medium text-slate-500 underline"
+                className="text-xs font-medium text-deck-dim underline"
               >
                 Prefer to draw it manually instead?
               </button>
@@ -695,14 +695,14 @@ export default function DrawingPinPage() {
                 <button
                   onClick={undoLastPoint}
                   disabled={drawPoints.length === 0}
-                  className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50"
+                  className="flex-1 rounded-md border border-deck-border px-3 py-2 text-sm font-medium text-deck-body disabled:opacity-50"
                 >
                   Undo last point
                 </button>
                 <button
                   onClick={clearDrawing}
                   disabled={drawPoints.length === 0}
-                  className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50"
+                  className="flex-1 rounded-md border border-deck-border px-3 py-2 text-sm font-medium text-deck-body disabled:opacity-50"
                 >
                   Clear
                 </button>
@@ -712,7 +712,7 @@ export default function DrawingPinPage() {
             {!manualMode && boundaryError && (
               <button
                 onClick={() => setManualMode(true)}
-                className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700"
+                className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm font-medium text-deck-body"
               >
                 Draw manually instead
               </button>
@@ -720,22 +720,22 @@ export default function DrawingPinPage() {
 
             {drawPoints.length >= 3 && (
               <>
-                <label className="mt-4 block text-sm font-medium text-slate-700">Room name</label>
+                <label className="mt-4 block text-sm font-medium text-deck-body">Room name</label>
                 <input
                   type="text"
                   value={roomName}
                   onChange={(e) => setRoomName(e.target.value)}
                   placeholder="e.g. Bathroom 214"
-                  className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
                 />
                 <button
                   onClick={handleSaveRoom}
                   disabled={savingRoom || !roomName.trim()}
-                  className="mt-2 w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                  className="mt-2 w-full rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
                 >
                   {savingRoom ? 'Saving...' : 'Save room'}
                 </button>
-                <p className="mt-2 text-xs text-slate-400">
+                <p className="mt-2 text-xs text-deck-dim">
                   {manualMode
                     ? 'Check the shape matches the room before saving.'
                     : 'AI traced this from the drawing and read the label if visible - double check both before saving.'}
@@ -748,17 +748,17 @@ export default function DrawingPinPage() {
         {!markingMode && pin && (
           <div className="mt-4 space-y-2">
             {nearestRoom && (
-              <p className="text-sm font-medium text-slate-700">Nearest marked room: {nearestRoom.name}</p>
+              <p className="text-sm font-medium text-deck-body">Nearest marked room: {nearestRoom.name}</p>
             )}
             <button
               onClick={handleStartInspection}
-              className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white"
+              className="w-full rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg"
             >
               Start inspection here
             </button>
             <button
               onClick={handleRaiseDefect}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700"
+              className="w-full rounded-md border border-deck-border px-3 py-2 text-sm font-medium text-deck-body"
             >
               Raise a one-off defect here
             </button>

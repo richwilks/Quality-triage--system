@@ -113,65 +113,65 @@ export default function PlatformAnalyticsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
-        <p className="text-sm text-slate-500">Loading...</p>
+      <div className="min-h-screen p-8">
+        <p className="text-sm text-deck-dim">Loading...</p>
       </div>
     )
   }
 
   if (!allowed) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
-        <p className="text-sm text-slate-500">You don't have access to this page.</p>
+      <div className="min-h-screen p-8">
+        <p className="text-sm text-deck-dim">You don't have access to this page.</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8">
+    <div className="min-h-screen px-4 py-8">
       <div className="mx-auto max-w-md">
         <PageHeader title="Platform Analytics" />
-        <p className="mt-1 text-sm text-slate-500">Usage, engagement, and AI cost across every company.</p>
+        <p className="mt-1 text-sm text-deck-dim">Usage, engagement, and AI cost across every company.</p>
 
         <div className="mt-4 rounded-xl bg-brand-ink p-4 text-white">
           <p className="text-2xl font-semibold">${totalCostAllTime.toFixed(2)}</p>
-          <p className="mt-0.5 text-xs text-slate-300">Total estimated AI cost, all time</p>
+          <p className="mt-0.5 text-xs text-white/70">Total estimated AI cost, all time</p>
         </div>
 
         <div className="mt-4 space-y-3">
           {companies.map((c) => (
-            <div key={c.company_name} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div key={c.company_name} className="rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-slate-900">{c.company_name}</p>
-                <span className="text-xs text-slate-400">{c.activeUsers} users</span>
+                <p className="text-sm font-semibold text-deck-text">{c.company_name}</p>
+                <span className="text-xs text-deck-dim">{c.activeUsers} users</span>
               </div>
 
               <div className="mt-2 grid grid-cols-5 gap-1 text-center">
                 <div>
-                  <p className="text-sm font-semibold text-slate-500">{c.draft}</p>
-                  <p className="text-[10px] text-slate-400">Draft</p>
+                  <p className="text-sm font-semibold text-deck-dim">{c.draft}</p>
+                  <p className="text-[10px] text-deck-dim">Draft</p>
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-blue-600">{c.confirmed}</p>
-                  <p className="text-[10px] text-slate-400">Confirmed</p>
+                  <p className="text-[10px] text-deck-dim">Confirmed</p>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-amber-600">{c.assigned}</p>
-                  <p className="text-[10px] text-slate-400">Assigned</p>
+                  <p className="text-sm font-semibold text-amber-400">{c.assigned}</p>
+                  <p className="text-[10px] text-deck-dim">Assigned</p>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-green-700">{c.closed}</p>
-                  <p className="text-[10px] text-slate-400">Closed</p>
+                  <p className="text-sm font-semibold text-emerald-400">{c.closed}</p>
+                  <p className="text-[10px] text-deck-dim">Closed</p>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-red-600">{c.rejected}</p>
-                  <p className="text-[10px] text-slate-400">Rejected</p>
+                  <p className="text-sm font-semibold text-red-400">{c.rejected}</p>
+                  <p className="text-[10px] text-deck-dim">Rejected</p>
                 </div>
               </div>
 
-              <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2 text-xs text-slate-500">
+              <div className="mt-3 flex items-center justify-between border-t border-deck-border pt-2 text-xs text-deck-dim">
                 <span>{c.photoCount} photos · {c.videoFrameCount} video frames analyzed</span>
-                <span className="font-medium text-slate-700">${c.totalCost.toFixed(2)}</span>
+                <span className="font-medium text-deck-body">${c.totalCost.toFixed(2)}</span>
               </div>
             </div>
           ))}

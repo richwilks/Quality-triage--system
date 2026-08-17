@@ -108,8 +108,8 @@ export default function EditProjectPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
-        <p className="text-sm text-slate-500">Loading...</p>
+      <div className="min-h-screen p-8">
+        <p className="text-sm text-deck-dim">Loading...</p>
       </div>
     )
   }
@@ -120,50 +120,50 @@ export default function EditProjectPage() {
   })).filter((g) => g.items.length > 0)
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8">
+    <div className="min-h-screen px-4 py-8">
       <div className="mx-auto max-w-md">
         <PageHeader title="Edit Project" />
 
-        <div className="mt-6 space-y-5 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mt-6 space-y-5 rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
           <div>
-            <label className="block text-sm font-medium text-slate-700">Project name</label>
+            <label className="block text-sm font-medium text-deck-body">Project name</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700">Description</label>
+            <label className="block text-sm font-medium text-deck-body">Description</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
             />
           </div>
 
           <div>
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-slate-700">Project specifications</p>
+              <p className="text-sm font-medium text-deck-body">Project specifications</p>
               <Link
                 href={`/dashboard/project-spec?projectId=${projectId}`}
-                className="text-xs font-medium text-brand-primary underline"
+                className="text-xs font-medium text-deck-accent underline"
               >
                 Manage specs
               </Link>
             </div>
             {specs.length === 0 ? (
-              <p className="mt-1 text-xs text-slate-400">No specification documents uploaded yet.</p>
+              <p className="mt-1 text-xs text-deck-dim">No specification documents uploaded yet.</p>
             ) : (
               <div className="mt-2 space-y-1">
                 {specs.map((s) => (
-                  <div key={s.id} className="flex items-center justify-between rounded-md bg-slate-50 px-2.5 py-1.5">
-                    <span className="text-xs text-slate-700">{s.name}</span>
+                  <div key={s.id} className="flex items-center justify-between rounded-md bg-deck-raised px-2.5 py-1.5">
+                    <span className="text-xs text-deck-body">{s.name}</span>
                     {s.document_url && (
-                      <a href={s.document_url} target="_blank" rel="noreferrer" className="text-xs text-brand-primary underline">
+                      <a href={s.document_url} target="_blank" rel="noreferrer" className="text-xs text-deck-accent underline">
                         View
                       </a>
                     )}
@@ -174,8 +174,8 @@ export default function EditProjectPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700">Applicable standards</label>
-            <p className="mt-1 text-xs text-slate-400">
+            <label className="block text-sm font-medium text-deck-body">Applicable standards</label>
+            <p className="mt-1 text-xs text-deck-dim">
               Tap standards from your library below, grouped by category. A standard only feeds into analysis if its code appears here.
             </p>
 
@@ -184,10 +184,10 @@ export default function EditProjectPage() {
                 {standards.split(',').map((s) => s.trim()).filter(Boolean).map((s) => (
                   <span
                     key={s}
-                    className="flex items-center gap-1 rounded-full bg-brand-primary/10 px-2.5 py-1 text-xs font-medium text-brand-primary"
+                    className="flex items-center gap-1 rounded-full bg-deck-accent/10 px-2.5 py-1 text-xs font-medium text-deck-accent"
                   >
                     {s}
-                    <button onClick={() => removeStandardCode(s)} className="text-brand-primary/70">×</button>
+                    <button onClick={() => removeStandardCode(s)} className="text-deck-accent/70">×</button>
                   </span>
                 ))}
               </div>
@@ -195,11 +195,11 @@ export default function EditProjectPage() {
 
             <div className="mt-3 space-y-3">
               {groupedLibrary.length === 0 && (
-                <p className="text-xs text-slate-400">No standards in your library yet.</p>
+                <p className="text-xs text-deck-dim">No standards in your library yet.</p>
               )}
               {groupedLibrary.map((g) => (
                 <div key={g.category}>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-deck-dim">
                     {g.category}
                   </p>
                   <div className="mt-1 flex flex-wrap gap-1.5">
@@ -212,8 +212,8 @@ export default function EditProjectPage() {
                           disabled={included}
                           className={`rounded-full border px-2.5 py-1 text-xs font-medium ${
                             included
-                              ? 'border-green-300 bg-green-50 text-green-700'
-                              : 'border-slate-300 text-slate-700'
+                              ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
+                              : 'border-deck-border text-deck-body'
                           }`}
                         >
                           {included ? `${s.code} ✓` : `+ ${s.code}`}
@@ -225,7 +225,7 @@ export default function EditProjectPage() {
               ))}
             </div>
 
-            <label className="mt-4 block text-xs font-medium text-slate-600">
+            <label className="mt-4 block text-xs font-medium text-deck-body">
               Additional standards not in your library (comma-separated)
             </label>
             <textarea
@@ -233,20 +233,20 @@ export default function EditProjectPage() {
               onChange={(e) => setStandards(e.target.value)}
               rows={3}
               placeholder="e.g. BS 8204 Parts 1-3, BS EN 1090-2..."
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
             />
           </div>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-red-400">{error}</p>}
 
           <button
             onClick={handleSave}
             disabled={saving}
-            className="w-full rounded-md bg-brand-primary px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="w-full rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
           >
             {saving ? 'Saving...' : 'Save changes'}
           </button>
-          {saved && <p className="text-sm font-medium text-green-600">Saved.</p>}
+          {saved && <p className="text-sm font-medium text-emerald-400">Saved.</p>}
         </div>
       </div>
     </div>

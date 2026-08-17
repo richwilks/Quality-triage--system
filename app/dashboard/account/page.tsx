@@ -65,46 +65,46 @@ const [isCompanyAdmin, setIsCompanyAdmin] = useState(false)
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
-        <p className="text-sm text-slate-500">Loading...</p>
+      <div className="min-h-screen p-8">
+        <p className="text-sm text-deck-dim">Loading...</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8">
+    <div className="min-h-screen px-4 py-8">
       <div className="mx-auto max-w-md">
         <PageHeader title="Account" />
-        <div className="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+        <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
+          <p className="text-xs font-medium uppercase tracking-wide text-deck-dim">
             Account type
           </p>
-          <p className="mt-1 text-sm font-semibold text-slate-900">
+          <p className="mt-1 text-sm font-semibold text-deck-text">
                         {role === 'internal' ? 'Internal' : role === 'partner' ? 'Supply chain partner' : role}
 
           </p>
 
-          <label className="mt-4 block text-sm font-medium text-slate-700">Email</label>
-          <p className="mt-1 rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-500">{email}</p>
+          <label className="mt-4 block text-sm font-medium text-deck-body">Email</label>
+          <p className="mt-1 rounded-md bg-deck-raised px-3 py-2 text-sm text-deck-dim">{email}</p>
 
-          <label className="mt-4 block text-sm font-medium text-slate-700">Full name</label>
+          <label className="mt-4 block text-sm font-medium text-deck-body">Full name</label>
           <input
             type="text"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
           />
 
-          <label className="mt-4 block text-sm font-medium text-slate-700">Company</label>
+          <label className="mt-4 block text-sm font-medium text-deck-body">Company</label>
           <input
             type="text"
             value={companyName}
             onChange={(e) => setCompanyName(e.target.value)}
             placeholder="e.g. ABC Construction"
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
           />
           {role === 'partner' && (
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-deck-dim">
               This must match your company name exactly as it will be used to group your team's assigned defects.
             </p>
           )}
@@ -112,16 +112,16 @@ const [isCompanyAdmin, setIsCompanyAdmin] = useState(false)
                  <button
             onClick={handleSave}
             disabled={saving}
-            className="mt-5 w-full rounded-md bg-brand-primary px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="mt-5 w-full rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
           >
             {saving ? 'Saving...' : 'Save changes'}
           </button>
-          {saved && <p className="mt-2 text-sm text-green-600">Saved.</p>}
+          {saved && <p className="mt-2 text-sm text-emerald-400">Saved.</p>}
         </div>
         {isCompanyAdmin && (
           <a
             href="/dashboard/admin/company"
-            className="mt-4 block w-full rounded-md border border-brand-primary px-3 py-2 text-center text-sm font-medium text-brand-primary"
+            className="mt-4 block w-full rounded-md border border-deck-accent px-3 py-2 text-center text-sm font-medium text-deck-accent"
           >
             Company Admin
           </a>
@@ -129,7 +129,7 @@ const [isCompanyAdmin, setIsCompanyAdmin] = useState(false)
         {isPlatformAdmin && (
           <a
             href="/dashboard/admin"
-            className="mt-4 block w-full rounded-md border border-brand-primary px-3 py-2 text-center text-sm font-medium text-brand-primary"
+            className="mt-4 block w-full rounded-md border border-deck-accent px-3 py-2 text-center text-sm font-medium text-deck-accent"
           >
             Platform Admin
           </a>
@@ -137,7 +137,7 @@ const [isCompanyAdmin, setIsCompanyAdmin] = useState(false)
 
         <button
           onClick={handleLogout}
-          className="mt-4 w-full rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-600"
+          className="mt-4 w-full rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-400"
         >
           Log out
         </button>

@@ -178,8 +178,8 @@ export default function ProjectSpecPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
-        <p className="text-sm text-slate-500">Loading...</p>
+      <div className="min-h-screen p-8">
+        <p className="text-sm text-deck-dim">Loading...</p>
       </div>
     )
   }
@@ -187,19 +187,19 @@ export default function ProjectSpecPage() {
   const anyInProgress = uploading
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8">
+    <div className="min-h-screen px-4 py-8">
       <div className="mx-auto max-w-md">
         <PageHeader title="Project Specifications" />
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-deck-dim">
           Upload as many spec documents as needed - each is processed once, then reused for every photo analysis on this project.
         </p>
 
         <div className="mt-4">
-          <label className="block text-sm font-medium text-slate-700">Project</label>
+          <label className="block text-sm font-medium text-deck-body">Project</label>
           <select
             value={projectId}
             onChange={(e) => setProjectId(e.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
           >
             {projects.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
@@ -209,36 +209,36 @@ export default function ProjectSpecPage() {
 
         <div className="mt-4 space-y-2">
           {specs.length === 0 && (
-            <p className="text-sm text-slate-500">No specifications uploaded yet for this project.</p>
+            <p className="text-sm text-deck-dim">No specifications uploaded yet for this project.</p>
           )}
           {specs.map((s) => (
-            <div key={s.id} className="rounded-lg border border-slate-200 bg-white p-3">
+            <div key={s.id} className="rounded-lg border border-deck-border bg-deck-surface p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-900">{s.name}</p>
+                  <p className="text-sm font-medium text-deck-text">{s.name}</p>
                   {s.document_url && (
-                    <a href={s.document_url} target="_blank" rel="noreferrer" className="text-xs text-brand-primary underline">
+                    <a href={s.document_url} target="_blank" rel="noreferrer" className="text-xs text-deck-accent underline">
                       View document
                     </a>
                   )}
                 </div>
                 <button
                   onClick={() => handleDelete(s.id)}
-                  className="text-xs font-medium text-red-600"
+                  className="text-xs font-medium text-red-400"
                 >
                   Remove
                 </button>
               </div>
               <p className="mt-1 text-xs">
                 {s.extracted_text ? (
-                  <span className="text-green-700">Ready for analysis</span>
+                  <span className="text-emerald-400">Ready for analysis</span>
                 ) : (
-                  <span className="text-amber-600">
+                  <span className="text-amber-400">
                     Processing...{' '}
                     <button
                       onClick={() => handleRetry(s.id)}
                       disabled={extracting}
-                      className="ml-1 underline text-brand-primary disabled:opacity-50"
+                      className="ml-1 underline text-deck-accent disabled:opacity-50"
                     >
                       Retry
                     </button>
@@ -249,14 +249,14 @@ export default function ProjectSpecPage() {
           ))}
         </div>
 
-        <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-sm font-medium text-slate-700">Add specification(s)</p>
+        <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
+          <p className="text-sm font-medium text-deck-body">Add specification(s)</p>
           <input
             type="text"
             value={specName}
             onChange={(e) => setSpecName(e.target.value)}
             placeholder="Name (only used if selecting a single file)"
-            className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm"
           />
           <input
             type="file"
@@ -269,9 +269,9 @@ export default function ProjectSpecPage() {
           {files.length > 0 && (
             <div className="mt-2 space-y-1">
               {files.map((f, i) => (
-                <div key={i} className="flex items-center justify-between rounded-md bg-slate-50 px-2 py-1 text-xs text-slate-600">
+                <div key={i} className="flex items-center justify-between rounded-md bg-deck-raised px-2 py-1 text-xs text-deck-body">
                   <span className="truncate">{f.name}</span>
-                  <button onClick={() => removeSelectedFile(i)} className="ml-2 text-red-600">✕</button>
+                  <button onClick={() => removeSelectedFile(i)} className="ml-2 text-red-400">✕</button>
                 </div>
               ))}
             </div>
@@ -281,22 +281,22 @@ export default function ProjectSpecPage() {
             <div className="mt-3 space-y-1">
               {progress.map((p, i) => (
                 <div key={i} className="text-xs">
-                  <span className="font-medium text-slate-700">{p.fileName}</span>{' '}
-                  {p.status === 'uploading' && <span className="text-slate-500">Uploading...</span>}
-                  {p.status === 'processing' && <span className="text-amber-600">Processing...</span>}
-                  {p.status === 'done' && <span className="text-green-700">Ready</span>}
-                  {p.status === 'error' && <span className="text-red-600">Failed: {p.error}</span>}
+                  <span className="font-medium text-deck-body">{p.fileName}</span>{' '}
+                  {p.status === 'uploading' && <span className="text-deck-dim">Uploading...</span>}
+                  {p.status === 'processing' && <span className="text-amber-400">Processing...</span>}
+                  {p.status === 'done' && <span className="text-emerald-400">Ready</span>}
+                  {p.status === 'error' && <span className="text-red-400">Failed: {p.error}</span>}
                 </div>
               ))}
             </div>
           )}
 
-          {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+          {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
 
           <button
             onClick={handleUpload}
             disabled={anyInProgress || files.length === 0 || !projectId}
-            className="mt-3 w-full rounded-md bg-brand-primary px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="mt-3 w-full rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
           >
             {uploading ? `Processing ${files.length} file(s)...` : `Add ${files.length || ''} specification${files.length === 1 ? '' : 's'}`}
           </button>

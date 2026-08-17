@@ -69,22 +69,22 @@ export default function ProjectDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
-        <p className="text-sm text-slate-500">Loading...</p>
+      <div className="min-h-screen p-8">
+        <p className="text-sm text-deck-dim">Loading...</p>
       </div>
     )
   }
 
   if (!project) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
-        <p className="text-sm text-slate-500">Project not found.</p>
+      <div className="min-h-screen p-8">
+        <p className="text-sm text-deck-dim">Project not found.</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8">
+    <div className="min-h-screen px-4 py-8">
       <div className="mx-auto max-w-md">
         <div className="flex items-start justify-between">
           <PageHeader title={project.name} />
@@ -92,13 +92,13 @@ export default function ProjectDetailPage() {
             <div className="flex flex-col items-end gap-1">
               <Link
                 href={`/dashboard/projects/${projectId}/edit`}
-                className="whitespace-nowrap text-xs font-medium text-slate-900 underline"
+                className="whitespace-nowrap text-xs font-medium text-deck-text underline"
               >
                 Edit project
               </Link>
               <Link
                 href={`/dashboard/projects/${projectId}/team`}
-                className="whitespace-nowrap text-xs font-medium text-slate-900 underline"
+                className="whitespace-nowrap text-xs font-medium text-deck-text underline"
               >
                 Manage team
               </Link>
@@ -106,38 +106,38 @@ export default function ProjectDetailPage() {
           )}
         </div>
         {project.description && (
-          <p className="mt-1 text-sm text-slate-500">{project.description}</p>
+          <p className="mt-1 text-sm text-deck-dim">{project.description}</p>
         )}
 
         <div className="mt-4 flex flex-wrap gap-2">
           {STATUS_ORDER.filter((s) => counts[s] > 0).map((s) => (
             <div key={s} className="flex items-center gap-1">
               <StatusBadge status={s} />
-              <span className="text-xs font-medium text-slate-600">{counts[s]}</span>
+              <span className="text-xs font-medium text-deck-body">{counts[s]}</span>
             </div>
           ))}
           {defects.length === 0 && (
-            <p className="text-sm text-slate-500">No defects logged yet.</p>
+            <p className="text-sm text-deck-dim">No defects logged yet.</p>
           )}
         </div>
 
                 <div className="mt-6 flex gap-3">
           <Link
             href={`/dashboard/new-defect?projectId=${projectId}`}
-            className="inline-block rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white"
+            className="inline-block rounded-md bg-deck-accent px-4 py-2 text-sm font-medium text-deck-bg"
           >
             + New defect
           </Link>
           <Link
             href={`/dashboard/projects/${projectId}/report`}
-            className="inline-block rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
+            className="inline-block rounded-md border border-deck-border px-4 py-2 text-sm font-medium text-deck-body"
           >
             View report
           </Link>
         </div>
 
 
-        <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-slate-500">
+        <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-deck-dim">
           All defects
         </h2>
 
@@ -146,12 +146,12 @@ export default function ProjectDetailPage() {
             <Link
               key={d.id}
               href={`/dashboard/defects/${d.id}`}
-              className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-3"
+              className="flex items-center justify-between rounded-lg border border-deck-border bg-deck-surface p-3"
             >
               <div>
-                <p className="text-sm font-medium text-slate-900">{d.title || 'Untitled'}</p>
+                <p className="text-sm font-medium text-deck-text">{d.title || 'Untitled'}</p>
                 {d.target_close_date && (
-                  <p className="text-xs text-slate-400">Due {d.target_close_date}</p>
+                  <p className="text-xs text-deck-dim">Due {d.target_close_date}</p>
                 )}
               </div>
               <StatusBadge status={d.status} />
