@@ -211,6 +211,29 @@ export default function ReviewDefectsPage() {
     })
   }
 
+  // Reuses the ncr_number column as a general per-project, per-classification reference
+  // code (SNAG001, SNAG002... / NCR001, NCR002...) since snags previously got no code at
+  // all and titles could repeat ("Defect 1") across separate uploads.
+  async function generateReferenceNumber(projectId: string, cls: 'snag' | 'ncr') {
+    const prefix = cls === 'ncr' ? 'NCR' : 'SNAG'
+    const { data } = await supabase
+      .from('defects')
+      .select('ncr_number')
+      .eq('project_id', projectId)
+      .eq('classification', cls)
+      .not('ncr_number', 'is', null)
+
+    let maxNumber = 0
+    ;(data || []).forEach((row: { ncr_number: string | null }) => {
+      const match = row.ncr_number?.match(/(\d+)$/)
+      if (match) {
+        maxNumber = Math.max(maxNumber, parseInt(match[1], 10))
+      }
+    })
+
+    return `${prefix}${String(maxNumber + 1).padStart(3, '0')}`
+  }
+
   async function handleConfirm(defect: Defect) {
     setBusyId(defect.id)
     const {
@@ -239,11 +262,8 @@ export default function ReviewDefectsPage() {
       }
     }
 
-    let ncrNumber = defect.ncr_number
-    if (finalClassification === 'ncr' && !ncrNumber) {
-      const { data: generated } = await supabase.rpc('generate_ncr_number', { pid: defect.project_id })
-      ncrNumber = generated || null
-    }
+    const referenceNumber =
+      defect.ncr_number || (await generateReferenceNumber(defect.project_id, finalClassification))
 
     await supabase
       .from('defects')
@@ -256,7 +276,7 @@ export default function ReviewDefectsPage() {
         bounding_box: box,
         annotated_photo_url: annotatedUrl,
         classification: finalClassification,
-        ncr_number: ncrNumber,
+        ncr_number: referenceNumber,
         root_cause: finalClassification === 'ncr' ? rootCause[defect.id] || null : null,
         corrective_action: finalClassification === 'ncr' ? correctiveAction[defect.id] || null : null,
       })
@@ -437,7 +457,9 @@ export default function ReviewDefectsPage() {
                     </button>
                   </div>
                   {defect.ncr_number && (
-                    <span className="text-xs font-medium text-red-400">{defect.ncr_number}</span>
+                    <span className={`text-xs font-medium ${isNcr ? 'text-red-400' : 'text-deck-accent'}`}>
+                      {defect.ncr_number}
+                    </span>
                   )}
                 </div>
 

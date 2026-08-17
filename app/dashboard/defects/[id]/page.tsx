@@ -169,7 +169,9 @@ export default function DefectDetailPage() {
             {isNcr ? 'Non-Conformance (NCR)' : 'Snag'}
           </span>
           {defect.ncr_number && (
-            <span className="text-xs font-medium text-red-400">{defect.ncr_number}</span>
+            <span className={`text-xs font-medium ${isNcr ? 'text-red-400' : 'text-deck-accent'}`}>
+              {defect.ncr_number}
+            </span>
           )}
         </div>
 

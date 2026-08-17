@@ -260,10 +260,15 @@ function NewDefectPageInner() {
         return
       }
 
+      const { count: existingCount } = await supabase
+        .from('defects')
+        .select('id', { count: 'exact', head: true })
+        .eq('project_id', projectId)
+
       const mapped: ReviewItem[] = result.defects.map((d: DetectedDefect, i: number) => ({
         ...d,
         localId: `${Date.now()}-${i}`,
-        title: `Defect ${i + 1}`,
+        title: `Defect ${(existingCount || 0) + i + 1}`,
         included: true,
         measurement: { ...EMPTY_MEASUREMENT },
       }))

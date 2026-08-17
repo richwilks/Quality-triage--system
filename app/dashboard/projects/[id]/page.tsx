@@ -13,6 +13,7 @@ type Defect = {
   title: string | null
   status: string
   target_close_date: string | null
+  ncr_number: string | null
 }
 
 const STATUS_ORDER = ['draft', 'confirmed', 'assigned', 'closed', 'rejected']
@@ -41,7 +42,7 @@ export default function ProjectDetailPage() {
 
     const { data: defectData } = await supabase
       .from('defects')
-      .select('id, title, status, target_close_date')
+      .select('id, title, status, target_close_date, ncr_number')
       .eq('project_id', projectId)
       .order('created_at', { ascending: false })
     setDefects(defectData || [])
@@ -149,6 +150,11 @@ export default function ProjectDetailPage() {
               className="flex items-center justify-between rounded-lg border border-deck-border bg-deck-surface p-3"
             >
               <div>
+                {d.ncr_number && (
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-deck-mute">
+                    {d.ncr_number}
+                  </p>
+                )}
                 <p className="text-sm font-medium text-deck-text">{d.title || 'Untitled'}</p>
                 {d.target_close_date && (
                   <p className="text-xs text-deck-dim">Due {d.target_close_date}</p>

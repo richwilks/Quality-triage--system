@@ -148,6 +148,11 @@ export default function NewDefectVideoPage() {
       const extracted = await extractFrames(videoFile, FRAME_COUNT)
       setFrames(extracted)
 
+      const { count: existingCount } = await supabase
+        .from('defects')
+        .select('id', { count: 'exact', head: true })
+        .eq('project_id', projectId)
+
       const allItems: ReviewItem[] = []
       let frameErrors = 0
       let lastErrorMessage = ''
@@ -177,7 +182,7 @@ export default function NewDefectVideoPage() {
               allItems.push({
                 ...d,
                 localId: `${i}-${j}`,
-                title: `Defect ${allItems.length + 1}`,
+                title: `Defect ${(existingCount || 0) + allItems.length + 1}`,
                 included: true,
                 frameIndex: i,
               })
