@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import PageHeader from '@/components/PageHeader'
 
 type Session = {
   id: string
@@ -72,7 +73,7 @@ export default function ActiveInspectionPage() {
     return (
       <div className="min-h-screen bg-slate-50 px-4 py-8">
         <div className="mx-auto max-w-md">
-          <h1 className="text-xl font-semibold text-slate-900">No active inspection</h1>
+          <PageHeader title="No active inspection" />
           <p className="mt-2 text-sm text-slate-500">Start one from a project's drawing.</p>
           <Link
             href="/dashboard/drawings"
@@ -96,7 +97,7 @@ export default function ActiveInspectionPage() {
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-md">
-        <h1 className="text-xl font-semibold text-slate-900">Active Inspection</h1>
+        <PageHeader title="Active Inspection" />
 
         <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-xs font-medium text-slate-500">{getProjectName(session)}</p>

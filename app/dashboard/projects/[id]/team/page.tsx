@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import PageHeader from '@/components/PageHeader'
 
 type Member = {
   id: string
@@ -122,7 +123,7 @@ export default function ProjectTeamPage() {
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-md">
-        <h1 className="text-xl font-semibold text-slate-900">Project Team</h1>
+        <PageHeader title="Project Team" />
         <p className="mt-1 text-sm text-slate-500">
           Invite people by email - they only get access once accepted, either instantly if they already have an account, or automatically the next time they sign up or log in.
         </p>

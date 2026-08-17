@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import PageHeader from '@/components/PageHeader'
 
 type Drawing = { id: string; name: string | null; image_url: string | null; project_id: string }
 type Point = { x: number; y: number }
@@ -466,7 +467,7 @@ export default function DrawingPinPage() {
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-md">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-slate-900">{drawing.name}</h1>
+          <PageHeader title={drawing.name || 'Drawing'} />
           {isAdmin && (
             <button
               onClick={() => {

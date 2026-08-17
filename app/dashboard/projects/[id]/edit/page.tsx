@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import PageHeader from '@/components/PageHeader'
 
 type ProjectSpec = { id: string; name: string | null; document_url: string | null }
 type StandardDoc = { id: string; code: string; title: string | null; category: string | null }
@@ -121,7 +122,7 @@ export default function EditProjectPage() {
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-md">
-        <h1 className="text-xl font-semibold text-slate-900">Edit Project</h1>
+        <PageHeader title="Edit Project" />
 
         <div className="mt-6 space-y-5 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <div>
