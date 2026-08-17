@@ -178,48 +178,48 @@ export default function CompanyAdminPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
-        <p className="text-sm text-slate-500">Loading...</p>
+      <div className="min-h-screen p-8">
+        <p className="text-sm text-deck-dim">Loading...</p>
       </div>
     )
   }
 
   if (!allowed) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
-        <p className="text-sm text-slate-500">You don't have access to this page.</p>
+      <div className="min-h-screen p-8">
+        <p className="text-sm text-deck-dim">You don't have access to this page.</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8">
+    <div className="min-h-screen px-4 py-8">
       <div className="mx-auto max-w-md">
         <PageHeader title="Company Admin" />
-        <p className="mt-1 text-sm text-slate-500">{companyName} - projects and users.</p>
+        <p className="mt-1 text-sm text-deck-dim">{companyName} - projects and users.</p>
 
         <div className="mt-6 flex gap-3">
           <Link
             href="/dashboard/projects/new"
-            className="rounded-md bg-brand-primary px-4 py-2 text-sm font-medium text-white"
+            className="rounded-md bg-deck-accent px-4 py-2 text-sm font-medium text-deck-bg"
           >
             + New project
           </Link>
         </div>
 
-        <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-slate-500">
+        <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-deck-dim">
           Projects
         </h2>
         <div className="mt-2 space-y-2">
           {projects.map((p) => (
-            <div key={p.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-3">
-              <Link href={`/dashboard/projects/${p.id}`} className="text-sm font-medium text-slate-900">
+            <div key={p.id} className="flex items-center justify-between rounded-lg border border-deck-border bg-deck-surface p-3">
+              <Link href={`/dashboard/projects/${p.id}`} className="text-sm font-medium text-deck-text">
                 {p.name}
               </Link>
               <button
                 onClick={() => toggleProjectStatus(p.id, p.status)}
                 className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                  p.status === 'closed' ? 'bg-slate-200 text-slate-600' : 'bg-green-100 text-green-700'
+                  p.status === 'closed' ? 'bg-white/10 text-deck-dim' : 'bg-emerald-500/15 text-emerald-300'
                 }`}
               >
                 {p.status === 'closed' ? 'Closed - reopen' : 'Active - close'}
@@ -228,24 +228,24 @@ export default function CompanyAdminPage() {
           ))}
         </div>
 
-        <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-slate-500">
+        <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-deck-dim">
           Team
         </h2>
         <div className="mt-2 space-y-2">
           {users.map((u) => (
-            <div key={u.id} className="rounded-lg border border-slate-200 bg-white p-3">
-              <p className="text-sm font-medium text-slate-900">{u.full_name || 'Unnamed'}</p>
-              <p className="text-xs text-slate-500">{u.email} - {u.account_type || 'no type set'}</p>
+            <div key={u.id} className="rounded-lg border border-deck-border bg-deck-surface p-3">
+              <p className="text-sm font-medium text-deck-text">{u.full_name || 'Unnamed'}</p>
+              <p className="text-xs text-deck-dim">{u.email} - {u.account_type || 'no type set'}</p>
             </div>
           ))}
         </div>
 
-        <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-sm font-medium text-slate-700">Invite to a project</p>
+        <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
+          <p className="text-sm font-medium text-deck-body">Invite to a project</p>
           <select
             value={inviteProjectId}
             onChange={(e) => setInviteProjectId(e.target.value)}
-            className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           >
             {projects.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
@@ -256,31 +256,31 @@ export default function CompanyAdminPage() {
             value={inviteEmail}
             onChange={(e) => setInviteEmail(e.target.value)}
             placeholder="their@email.com"
-            className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           />
           <select
             value={inviteAccountType}
             onChange={(e) => setInviteAccountType(e.target.value)}
-            className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           >
             {ACCOUNT_TYPES.map((t) => (
               <option key={t} value={t}>{t.replace('_', ' ')}</option>
             ))}
           </select>
-          {message && <p className="mt-2 text-sm text-green-700">{message}</p>}
+          {message && <p className="mt-2 text-sm text-emerald-400">{message}</p>}
           <button
             onClick={handleInvite}
             disabled={inviting || !inviteEmail}
-            className="mt-3 w-full rounded-md bg-brand-primary px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="mt-3 w-full rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
           >
             {inviting ? 'Inviting...' : 'Invite'}
           </button>
         </div>
 
         {(branding?.feature_branded_reports || branding?.white_label_enabled) && (
-          <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-sm font-medium text-slate-700">Branding</p>
-            <p className="mt-1 text-xs text-slate-500">
+          <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
+            <p className="text-sm font-medium text-deck-body">Branding</p>
+            <p className="mt-1 text-xs text-deck-dim">
               White-label is enabled for your company. Set your logo and accent colour below.
             </p>
 
@@ -288,11 +288,11 @@ export default function CompanyAdminPage() {
               <img
                 src={branding.logo_url}
                 alt="Current logo"
-                className="mt-3 h-12 w-auto rounded-md border border-slate-200 object-contain p-2"
+                className="mt-3 h-12 w-auto rounded-md border border-deck-border object-contain p-2"
               />
             )}
 
-            <label className="mt-3 block text-xs font-medium text-slate-600">Logo</label>
+            <label className="mt-3 block text-xs font-medium text-deck-body">Logo</label>
             <input
               type="file"
               accept="image/*"
@@ -300,30 +300,30 @@ export default function CompanyAdminPage() {
               className="mt-1 w-full text-sm"
             />
 
-            <label className="mt-3 block text-xs font-medium text-slate-600">Accent colour</label>
+            <label className="mt-3 block text-xs font-medium text-deck-body">Accent colour</label>
             <div className="mt-1 flex items-center gap-2">
               <input
                 type="color"
                 value={accentColor}
                 onChange={(e) => setAccentColor(e.target.value)}
-                className="h-9 w-9 rounded-md border border-slate-300"
+                className="h-9 w-9 rounded-md border border-deck-border"
               />
               <input
                 type="text"
                 value={accentColor}
                 onChange={(e) => setAccentColor(e.target.value)}
-                className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="flex-1 rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
               />
             </div>
 
             {brandingMessage && (
-              <p className="mt-2 text-sm text-slate-600">{brandingMessage}</p>
+              <p className="mt-2 text-sm text-deck-body">{brandingMessage}</p>
             )}
 
             <button
               onClick={handleSaveBranding}
               disabled={savingBranding}
-              className="mt-3 w-full rounded-md bg-brand-primary px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+              className="mt-3 w-full rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
             >
               {savingBranding ? 'Saving...' : 'Save branding'}
             </button>

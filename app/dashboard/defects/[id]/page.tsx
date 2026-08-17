@@ -134,16 +134,16 @@ export default function DefectDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
-        <p className="text-sm text-slate-500">Loading...</p>
+      <div className="min-h-screen p-8">
+        <p className="text-sm text-deck-dim">Loading...</p>
       </div>
     )
   }
 
   if (!defect) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
-        <p className="text-sm text-slate-500">Defect not found.</p>
+      <div className="min-h-screen p-8">
+        <p className="text-sm text-deck-dim">Defect not found.</p>
       </div>
     )
   }
@@ -152,28 +152,28 @@ export default function DefectDetailPage() {
   const isNcr = defect.classification === 'ncr'
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8">
+    <div className="min-h-screen px-4 py-8">
       <div className="mx-auto max-w-md">
         <div className="flex items-center justify-between">
           <PageHeader title={defect.title || 'Defect'} />
           <StatusBadge status={defect.status} />
         </div>
-        {defect.location && <p className="mt-1 text-sm text-slate-500">{defect.location}</p>}
+        {defect.location && <p className="mt-1 text-sm text-deck-dim">{defect.location}</p>}
 
         <div className="mt-2 flex items-center gap-2">
           <span
             className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-              isNcr ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'
+              isNcr ? 'bg-red-500/15 text-red-300' : 'bg-white/10 text-deck-dim'
             }`}
           >
             {isNcr ? 'Non-Conformance (NCR)' : 'Snag'}
           </span>
           {defect.ncr_number && (
-            <span className="text-xs font-medium text-red-600">{defect.ncr_number}</span>
+            <span className="text-xs font-medium text-red-400">{defect.ncr_number}</span>
           )}
         </div>
 
-        <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mt-4 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
           {displayPhoto && (
             <img
               src={displayPhoto}
@@ -182,15 +182,15 @@ export default function DefectDetailPage() {
             />
           )}
 
-          <p className="mt-3 text-sm text-slate-700">{defect.description}</p>
+          <p className="mt-3 text-sm text-deck-body">{defect.description}</p>
           {defect.standard_reference && (
             <>
-              <p className="mt-1 text-xs text-slate-500">Standard: {defect.standard_reference}</p>
+              <p className="mt-1 text-xs text-deck-dim">Standard: {defect.standard_reference}</p>
               <ClauseViewer projectId={defect.project_id} standardReference={defect.standard_reference} />
             </>
           )}
           {defect.target_close_date && (
-            <p className="mt-1 text-xs text-slate-500">Due {defect.target_close_date}</p>
+            <p className="mt-1 text-xs text-deck-dim">Due {defect.target_close_date}</p>
           )}
 
           {defect.requires_measurement && (
@@ -198,34 +198,34 @@ export default function DefectDetailPage() {
           )}
 
           {isNcr && (
-            <div className="mt-3 rounded-md border border-red-300 bg-red-50 p-3">
-              <p className="text-xs font-semibold text-red-800">
+            <div className="mt-3 rounded-md border border-red-500/30 bg-red-500/10 p-3">
+              <p className="text-xs font-semibold text-red-400">
                 Non-conformance - root cause and corrective action required for closure
               </p>
-              <label className="mt-2 block text-xs font-medium text-slate-700">Root cause</label>
+              <label className="mt-2 block text-xs font-medium text-deck-body">Root cause</label>
               <textarea
                 value={rootCause}
                 onChange={(e) => setRootCause(e.target.value)}
                 rows={2}
                 placeholder="Why did this non-conformance occur?"
-                className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+                className="mt-1 w-full rounded-md border border-deck-border px-2 py-1.5 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
               />
-              <label className="mt-2 block text-xs font-medium text-slate-700">Corrective action</label>
+              <label className="mt-2 block text-xs font-medium text-deck-body">Corrective action</label>
               <textarea
                 value={correctiveAction}
                 onChange={(e) => setCorrectiveAction(e.target.value)}
                 rows={2}
                 placeholder="What needs to happen to resolve this and prevent recurrence?"
-                className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+                className="mt-1 w-full rounded-md border border-deck-border px-2 py-1.5 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
               />
             </div>
           )}
 
-          <label className="mt-4 block text-sm font-medium text-slate-700">Status</label>
+          <label className="mt-4 block text-sm font-medium text-deck-body">Status</label>
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           >
             {STATUS_OPTIONS.map((s) => (
               <option key={s} value={s}>
@@ -234,7 +234,7 @@ export default function DefectDetailPage() {
             ))}
           </select>
 
-          <label className="mt-4 block text-sm font-medium text-slate-700">
+          <label className="mt-4 block text-sm font-medium text-deck-body">
             Response / closure notes
           </label>
           <textarea
@@ -242,10 +242,10 @@ export default function DefectDetailPage() {
             onChange={(e) => setClosureNotes(e.target.value)}
             rows={3}
             placeholder="What was done to resolve this, or why it's being rejected"
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           />
 
-          <label className="mt-4 block text-sm font-medium text-slate-700">
+          <label className="mt-4 block text-sm font-medium text-deck-body">
             Evidence photo (optional)
           </label>
           {defect.closure_photo_url && (
@@ -265,11 +265,11 @@ export default function DefectDetailPage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="mt-4 w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="mt-4 w-full rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
           >
             {saving ? 'Saving...' : 'Save changes'}
           </button>
-          {saved && <p className="mt-2 text-sm text-green-600">Saved.</p>}
+          {saved && <p className="mt-2 text-sm text-emerald-400">Saved.</p>}
         </div>
       </div>
     </div>

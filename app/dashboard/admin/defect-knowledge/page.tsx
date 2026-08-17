@@ -243,16 +243,16 @@ export default function DefectKnowledgeAdminPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
-        <p className="text-sm text-slate-500">Loading...</p>
+      <div className="min-h-screen p-8">
+        <p className="text-sm text-deck-dim">Loading...</p>
       </div>
     )
   }
 
   if (!authorized) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
-        <p className="text-sm text-red-600">You don't have access to this page.</p>
+      <div className="min-h-screen p-8">
+        <p className="text-sm text-red-400">You don't have access to this page.</p>
       </div>
     )
   }
@@ -261,16 +261,16 @@ export default function DefectKnowledgeAdminPage() {
   const errorCount = importResults?.filter((r) => r.status === 'error').length || 0
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8">
+    <div className="min-h-screen px-4 py-8">
       <div className="mx-auto max-w-md">
         <PageHeader title="Defect Knowledge Base" />
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-deck-dim">
           Shared defect patterns that apply across all projects, matched automatically by country and standard during photo analysis.
         </p>
 
-        <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-sm font-medium text-slate-700">Bulk import from CSV</p>
-          <p className="mt-1 text-xs text-slate-500">
+        <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
+          <p className="text-sm font-medium text-deck-body">Bulk import from CSV</p>
+          <p className="mt-1 text-xs text-deck-dim">
             Columns required: <span className="font-mono">title, element_type, country, applicable_standards, defect_description</span>. Only <span className="font-mono">title</span> and <span className="font-mono">defect_description</span> are required per row - the rest can be left blank.
           </p>
 
@@ -282,24 +282,24 @@ export default function DefectKnowledgeAdminPage() {
           />
 
           {importPreview.length > 0 && (
-            <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
-              <p className="text-xs font-medium text-slate-700">
+            <div className="mt-3 rounded-md border border-deck-border bg-deck-raised p-3">
+              <p className="text-xs font-medium text-deck-body">
                 {importPreview.length} row{importPreview.length === 1 ? '' : 's'} found
               </p>
               <div className="mt-2 max-h-40 space-y-1 overflow-y-auto">
                 {importPreview.slice(0, 5).map((row, i) => (
-                  <p key={i} className="text-xs text-slate-500 truncate">
+                  <p key={i} className="text-xs text-deck-dim truncate">
                     {i + 1}. {row.title || '(no title)'}
                   </p>
                 ))}
                 {importPreview.length > 5 && (
-                  <p className="text-xs text-slate-400">...and {importPreview.length - 5} more</p>
+                  <p className="text-xs text-deck-dim">...and {importPreview.length - 5} more</p>
                 )}
               </div>
               <button
                 onClick={handleImport}
                 disabled={importing}
-                className="mt-3 w-full rounded-md bg-brand-primary px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                className="mt-3 w-full rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
               >
                 {importing ? 'Importing...' : `Import ${importPreview.length} entries`}
               </button>
@@ -307,8 +307,8 @@ export default function DefectKnowledgeAdminPage() {
           )}
 
           {importResults && (
-            <div className="mt-3 rounded-md border border-slate-200 p-3">
-              <p className="text-xs font-medium text-slate-700">
+            <div className="mt-3 rounded-md border border-deck-border p-3">
+              <p className="text-xs font-medium text-deck-body">
                 {successCount} imported, {errorCount} failed
               </p>
               {errorCount > 0 && (
@@ -316,7 +316,7 @@ export default function DefectKnowledgeAdminPage() {
                   {importResults
                     .filter((r) => r.status === 'error')
                     .map((r, i) => (
-                      <p key={i} className="text-xs text-red-600">
+                      <p key={i} className="text-xs text-red-400">
                         Row {r.row} ({r.title}): {r.error}
                       </p>
                     ))}
@@ -328,35 +328,35 @@ export default function DefectKnowledgeAdminPage() {
 
         <div className="mt-4 space-y-2">
           {entries.length === 0 && (
-            <p className="text-sm text-slate-500">No knowledge base entries yet.</p>
+            <p className="text-sm text-deck-dim">No knowledge base entries yet.</p>
           )}
           {entries.map((e) => (
-            <div key={e.id} className="rounded-lg border border-slate-200 bg-white p-3">
+            <div key={e.id} className="rounded-lg border border-deck-border bg-deck-surface p-3">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">{e.title}</p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-sm font-semibold text-deck-text">{e.title}</p>
+                  <p className="text-xs text-deck-dim">
                     {[e.element_type, e.country, e.applicable_standards].filter(Boolean).join(' · ') || 'General'}
                   </p>
                 </div>
-                <span className={`text-xs font-medium ${e.active ? 'text-green-700' : 'text-slate-400'}`}>
+                <span className={`text-xs font-medium ${e.active ? 'text-emerald-400' : 'text-deck-dim'}`}>
                   {e.active ? 'Active' : 'Inactive'}
                 </span>
               </div>
-              <p className="mt-2 text-xs text-slate-700"><strong>Wrong:</strong> {e.defect_description}</p>
+              <p className="mt-2 text-xs text-deck-body"><strong>Wrong:</strong> {e.defect_description}</p>
               {e.correct_reference && (
-                <p className="mt-1 text-xs text-slate-700"><strong>Correct:</strong> {e.correct_reference}</p>
+                <p className="mt-1 text-xs text-deck-body"><strong>Correct:</strong> {e.correct_reference}</p>
               )}
               <div className="mt-2 flex gap-3">
                 <button
                   onClick={() => handleToggleActive(e.id, e.active)}
-                  className="text-xs font-medium text-brand-primary underline"
+                  className="text-xs font-medium text-deck-accent underline"
                 >
                   {e.active ? 'Deactivate' : 'Activate'}
                 </button>
                 <button
                   onClick={() => handleDelete(e.id)}
-                  className="text-xs font-medium text-red-600"
+                  className="text-xs font-medium text-red-400"
                 >
                   Delete
                 </button>
@@ -365,66 +365,66 @@ export default function DefectKnowledgeAdminPage() {
           ))}
         </div>
 
-        <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-sm font-medium text-slate-700">Add a single entry</p>
+        <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
+          <p className="text-sm font-medium text-deck-body">Add a single entry</p>
 
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Title, e.g. Inpro movement joint - max expansion"
-            className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           />
           <input
             type="text"
             value={elementType}
             onChange={(e) => setElementType(e.target.value)}
             placeholder="Element type, e.g. Movement joint"
-            className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           />
           <input
             type="text"
             value={country}
             onChange={(e) => setCountry(e.target.value)}
             placeholder="Country, e.g. UK (leave blank to apply to all)"
-            className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           />
           <input
             type="text"
             value={applicableStandards}
             onChange={(e) => setApplicableStandards(e.target.value)}
             placeholder="Applicable standard code, e.g. IPC.3087 (optional)"
-            className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           />
           <textarea
             value={defectDescription}
             onChange={(e) => setDefectDescription(e.target.value)}
             placeholder="What wrong looks like - be specific and visual"
             rows={3}
-            className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           />
           <textarea
             value={correctReference}
             onChange={(e) => setCorrectReference(e.target.value)}
             placeholder="What correct looks like (optional, but recommended)"
             rows={3}
-            className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           />
           <select
             value={severityDefault}
             onChange={(e) => setSeverityDefault(e.target.value)}
-            className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           >
             <option value="ncr">NCR</option>
             <option value="snag">Snag</option>
           </select>
 
-          {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+          {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
 
           <button
             onClick={handleAdd}
             disabled={saving || !title || !defectDescription}
-            className="mt-3 w-full rounded-md bg-brand-primary px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="mt-3 w-full rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
           >
             {saving ? 'Saving...' : 'Add entry'}
           </button>

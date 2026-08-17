@@ -101,16 +101,16 @@ export default function CompanyAnalyticsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
-        <p className="text-sm text-slate-500">Loading...</p>
+      <div className="min-h-screen p-8">
+        <p className="text-sm text-deck-dim">Loading...</p>
       </div>
     )
   }
 
   if (!allowed) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
-        <p className="text-sm text-slate-500">You don't have access to this page.</p>
+      <div className="min-h-screen p-8">
+        <p className="text-sm text-deck-dim">You don't have access to this page.</p>
       </div>
     )
   }
@@ -119,69 +119,69 @@ export default function CompanyAnalyticsPage() {
   const totalClosed = projects.reduce((sum, p) => sum + p.closed, 0)
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8">
+    <div className="min-h-screen px-4 py-8">
       <div className="mx-auto max-w-md">
         <PageHeader title="Company Performance" />
-        <p className="mt-1 text-sm text-slate-500">{companyName} - across all your projects.</p>
+        <p className="mt-1 text-sm text-deck-dim">{companyName} - across all your projects.</p>
 
         <div className="mt-4 grid grid-cols-2 gap-3">
           <div className="rounded-xl bg-brand-ink p-4 text-white">
             <p className="text-2xl font-semibold">{totalAll}</p>
-            <p className="mt-0.5 text-xs text-slate-300">Total defects logged</p>
+            <p className="mt-0.5 text-xs text-white/70">Total defects logged</p>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
-            <p className="text-2xl font-semibold text-slate-900">
+          <div className="rounded-xl border border-deck-border bg-deck-surface p-4">
+            <p className="text-2xl font-semibold text-deck-text">
               {avgDaysToClose !== null ? avgDaysToClose.toFixed(1) : '-'}
             </p>
-            <p className="mt-0.5 text-xs text-slate-500">Avg days to close</p>
+            <p className="mt-0.5 text-xs text-deck-dim">Avg days to close</p>
           </div>
         </div>
 
-        <div className="mt-3 rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-xs text-slate-500">
+        <div className="mt-3 rounded-xl border border-deck-border bg-deck-surface p-4">
+          <p className="text-xs text-deck-dim">
             {photoCount} photos analyzed · {totalClosed} of {totalAll} closed out
           </p>
         </div>
 
-        <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-slate-500">
+        <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-deck-dim">
           By project
         </h2>
         <div className="mt-2 space-y-2">
           {projects.map((p) => (
-            <div key={p.id} className="rounded-lg border border-slate-200 bg-white p-3">
+            <div key={p.id} className="rounded-lg border border-deck-border bg-deck-surface p-3">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-slate-900">{p.name}</p>
-                <span className="text-xs text-slate-400">{p.total} total</span>
+                <p className="text-sm font-medium text-deck-text">{p.name}</p>
+                <span className="text-xs text-deck-dim">{p.total} total</span>
               </div>
               <div className="mt-2 flex flex-wrap gap-2">
                 {p.draft > 0 && (
                   <div className="flex items-center gap-1">
                     <StatusBadge status="draft" />
-                    <span className="text-xs text-slate-600">{p.draft}</span>
+                    <span className="text-xs text-deck-body">{p.draft}</span>
                   </div>
                 )}
                 {p.confirmed > 0 && (
                   <div className="flex items-center gap-1">
                     <StatusBadge status="confirmed" />
-                    <span className="text-xs text-slate-600">{p.confirmed}</span>
+                    <span className="text-xs text-deck-body">{p.confirmed}</span>
                   </div>
                 )}
                 {p.assigned > 0 && (
                   <div className="flex items-center gap-1">
                     <StatusBadge status="assigned" />
-                    <span className="text-xs text-slate-600">{p.assigned}</span>
+                    <span className="text-xs text-deck-body">{p.assigned}</span>
                   </div>
                 )}
                 {p.closed > 0 && (
                   <div className="flex items-center gap-1">
                     <StatusBadge status="closed" />
-                    <span className="text-xs text-slate-600">{p.closed}</span>
+                    <span className="text-xs text-deck-body">{p.closed}</span>
                   </div>
                 )}
                 {p.rejected > 0 && (
                   <div className="flex items-center gap-1">
                     <StatusBadge status="rejected" />
-                    <span className="text-xs text-slate-600">{p.rejected}</span>
+                    <span className="text-xs text-deck-body">{p.rejected}</span>
                   </div>
                 )}
               </div>

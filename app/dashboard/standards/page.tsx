@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
 
@@ -37,8 +37,22 @@ export default function StandardsLibraryPage() {
   const [error, setError] = useState<string | null>(null)
   const [progress, setProgress] = useState<UploadProgress[]>([])
 
+  const [browseOpen, setBrowseOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const browseRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
     load()
+  }, [])
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (browseRef.current && !browseRef.current.contains(e.target as Node)) {
+        setBrowseOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
   async function load() {
@@ -179,69 +193,121 @@ export default function StandardsLibraryPage() {
     load()
   }
 
+  const filteredStandards = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return standards
+    return standards.filter(
+      (s) =>
+        s.code.toLowerCase().includes(q) ||
+        (s.title || '').toLowerCase().includes(q) ||
+        (s.category || '').toLowerCase().includes(q)
+    )
+  }, [standards, search])
+
+  const grouped = CATEGORIES.map((cat) => ({
+    category: cat,
+    items: filteredStandards.filter((s) => (s.category || 'General') === cat),
+  })).filter((g) => g.items.length > 0)
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
-        <p className="text-sm text-slate-500">Loading...</p>
+      <div className="min-h-screen p-8">
+        <p className="text-sm text-deck-dim">Loading...</p>
       </div>
     )
   }
 
-  const grouped = CATEGORIES.map((cat) => ({
-    category: cat,
-    items: standards.filter((s) => (s.category || 'General') === cat),
-  })).filter((g) => g.items.length > 0)
-
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8">
+    <div className="min-h-screen px-4 py-8">
       <div className="mx-auto max-w-md">
         <PageHeader title="Standards Library" />
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-deck-dim">
           Upload standards your organisation holds a licensed copy of. Each is processed once, then reused instantly for every relevant analysis.
         </p>
 
-        <div className="mt-6 space-y-5">
-          {grouped.length === 0 && (
-            <p className="text-sm text-slate-500">No standards uploaded yet.</p>
-          )}
-          {grouped.map((g) => (
-            <div key={g.category}>
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                {g.category}
-              </h2>
-              <div className="mt-2 space-y-2">
-                {g.items.map((s) => (
-                  <div key={s.id} className="rounded-lg border border-slate-200 bg-white p-3">
-                    <p className="text-sm font-semibold text-slate-900">{s.code}</p>
-                    {s.title && <p className="text-xs text-slate-500">{s.title}</p>}
-                    <p className="mt-1 text-xs">
-                      {s.extracted_text ? (
-                        <span className="text-green-700">Ready for analysis</span>
-                      ) : (
-                        <span className="text-amber-600">
-                          Processing...{' '}
-                          <button
-                            onClick={() => handleRetry(s.id)}
-                            className="ml-1 underline text-brand-primary"
-                          >
-                            Retry
-                          </button>
-                        </span>
-                      )}
-                    </p>
+        <div className="mt-6" ref={browseRef}>
+          <button
+            type="button"
+            onClick={() => setBrowseOpen((o) => !o)}
+            disabled={standards.length === 0}
+            className="flex w-full items-center justify-between rounded-lg border border-deck-border bg-deck-surface px-3.5 py-2.5 text-sm disabled:opacity-50"
+          >
+            <span className="font-medium text-deck-text">
+              {standards.length === 0
+                ? 'No standards uploaded yet'
+                : `Browse standards library (${standards.length})`}
+            </span>
+            {standards.length > 0 && (
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                className={`text-deck-dim transition-transform ${browseOpen ? 'rotate-180' : ''}`}
+              >
+                <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </button>
+
+          {browseOpen && standards.length > 0 && (
+            <div className="mt-1 rounded-lg border border-deck-border bg-deck-surface p-3">
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by code, title, or category..."
+                autoFocus
+                className="w-full rounded-md border border-deck-border bg-deck-raised px-3 py-2 text-sm text-deck-text placeholder:text-deck-mute"
+              />
+
+              <div className="mt-3 max-h-80 space-y-4 overflow-y-auto pr-1">
+                {grouped.length === 0 && (
+                  <p className="text-sm text-deck-dim">No standards match &ldquo;{search}&rdquo;.</p>
+                )}
+                {grouped.map((g) => (
+                  <div key={g.category}>
+                    <h2 className="text-xs font-semibold uppercase tracking-wide text-deck-mute">
+                      {g.category}
+                    </h2>
+                    <div className="mt-2 space-y-2">
+                      {g.items.map((s) => (
+                        <div key={s.id} className="rounded-lg border border-deck-border bg-deck-raised p-3">
+                          <p className="text-sm font-semibold text-deck-text">{s.code}</p>
+                          {s.title && <p className="text-xs text-deck-dim">{s.title}</p>}
+                          <p className="mt-1 text-xs">
+                            {s.extracted_text ? (
+                              <span className="text-emerald-400">Ready for analysis</span>
+                            ) : (
+                              <span className="text-amber-300">
+                                Processing...{' '}
+                                <button
+                                  onClick={() => handleRetry(s.id)}
+                                  className="ml-1 underline text-deck-accent"
+                                >
+                                  Retry
+                                </button>
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
-          ))}
+          )}
         </div>
 
-        <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-sm font-medium text-slate-700">Add standard(s)</p>
+        <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
+          <p className="text-sm font-medium text-deck-body">Add standard(s)</p>
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border bg-deck-raised px-3 py-2 text-sm text-deck-text"
           >
             {CATEGORIES.map((c) => (
               <option key={c} value={c}>{c}</option>
@@ -252,33 +318,33 @@ export default function StandardsLibraryPage() {
             value={code}
             onChange={(e) => setCode(e.target.value)}
             placeholder="Code, e.g. BS 8204-2 (only used for a single file)"
-            className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border bg-deck-raised px-3 py-2 text-sm text-deck-text placeholder:text-deck-mute"
           />
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Title (optional, single file only)"
-            className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border bg-deck-raised px-3 py-2 text-sm text-deck-text placeholder:text-deck-mute"
           />
           <input
             type="file"
             accept="application/pdf"
             multiple
             onChange={handleFileSelect}
-            className="mt-2 w-full text-sm"
+            className="mt-2 w-full text-sm text-deck-dim"
           />
 
           {files.length > 0 && (
             <div className="mt-2 space-y-1">
               {files.map((f, i) => (
-                <div key={i} className="flex items-center justify-between rounded-md bg-slate-50 px-2 py-1 text-xs text-slate-600">
+                <div key={i} className="flex items-center justify-between rounded-md bg-deck-raised px-2 py-1 text-xs text-deck-body">
                   <span className="truncate">{f.name}</span>
-                  <button onClick={() => removeSelectedFile(i)} className="ml-2 text-red-600">✕</button>
+                  <button onClick={() => removeSelectedFile(i)} className="ml-2 text-red-400">✕</button>
                 </div>
               ))}
               {files.length > 1 && (
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[11px] text-deck-dim">
                   Multiple files selected - each will use its filename as the code. You can rename them individually afterwards if needed.
                 </p>
               )}
@@ -289,26 +355,26 @@ export default function StandardsLibraryPage() {
             <div className="mt-3 space-y-1">
               {progress.map((p, i) => (
                 <div key={i} className="text-xs">
-                  <span className="font-medium text-slate-700">{p.fileName}</span>{' '}
-                  {p.status === 'uploading' && <span className="text-slate-500">Uploading...</span>}
-                  {p.status === 'processing' && <span className="text-amber-600">Processing...</span>}
-                  {p.status === 'done' && <span className="text-green-700">Ready</span>}
-                  {p.status === 'error' && <span className="text-red-600">Failed: {p.error}</span>}
+                  <span className="font-medium text-deck-body">{p.fileName}</span>{' '}
+                  {p.status === 'uploading' && <span className="text-deck-dim">Uploading...</span>}
+                  {p.status === 'processing' && <span className="text-amber-300">Processing...</span>}
+                  {p.status === 'done' && <span className="text-emerald-400">Ready</span>}
+                  {p.status === 'error' && <span className="text-red-400">Failed: {p.error}</span>}
                 </div>
               ))}
             </div>
           )}
 
-          {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+          {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
 
           <button
             onClick={handleUpload}
             disabled={uploading || files.length === 0 || (files.length === 1 && !code)}
-            className="mt-3 w-full rounded-md bg-brand-primary px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="mt-3 w-full rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
           >
             {uploading ? `Processing ${files.length} file(s)...` : `Add ${files.length || ''} standard${files.length === 1 ? '' : 's'}`}
           </button>
-          <p className="mt-2 text-xs text-slate-400">
+          <p className="mt-2 text-xs text-deck-dim">
             Only upload standards your organisation is properly licensed to hold - these are copyrighted documents.
           </p>
         </div>

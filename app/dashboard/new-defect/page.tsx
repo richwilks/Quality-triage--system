@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import PageHeader from '@/components/PageHeader'
 import MeasurementFields, { MeasurementData } from '@/components/MeasurementFields'
 import ClauseViewer from '@/components/ClauseViewer'
 
@@ -383,20 +384,20 @@ function NewDefectPageInner() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8">
+    <div className="min-h-screen px-4 py-8">
       <div className="mx-auto max-w-md">
-        <h1 className="text-xl font-semibold text-slate-900">New Defect</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <PageHeader title="New Defect" />
+        <p className="mt-1 text-sm text-deck-dim">
           Analyze a photo - the AI will highlight each defect it finds for you to approve.
         </p>
 
-        <div className="mt-6 space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mt-6 space-y-4 rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
           <div>
-            <label className="block text-sm font-medium text-slate-700">Project</label>
+            <label className="block text-sm font-medium text-deck-body">Project</label>
             <select
               value={projectId}
               onChange={(e) => setProjectId(e.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
             >
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -407,26 +408,26 @@ function NewDefectPageInner() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700">Specified finish/quality grade</label>
+            <label className="block text-sm font-medium text-deck-body">Specified finish/quality grade</label>
             <input
               type="text"
               value={finishGrade}
               onChange={(e) => setFinishGrade(e.target.value)}
               placeholder="e.g. SR1 exposed floor finish, or FM2 plant room slab"
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
             />
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-deck-dim">
               Critical for concrete/finish work - tells the AI what level of imperfection is actually acceptable here.
             </p>
           </div>
 
           <div>
             <div className="flex items-center justify-between">
-              <label className="block text-sm font-medium text-slate-700">Location</label>
+              <label className="block text-sm font-medium text-deck-body">Location</label>
               {projectId && (
                 <Link
                   href={`/dashboard/drawings?projectId=${projectId}`}
-                  className="text-xs font-medium text-slate-900 underline"
+                  className="text-xs font-medium text-deck-text underline"
                 >
                   Choose on drawing
                 </Link>
@@ -437,15 +438,15 @@ function NewDefectPageInner() {
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               placeholder="e.g. Block A, Level 2, Room 214"
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
             />
             {drawingId && (
-              <p className="mt-1 text-xs text-slate-500">Pinned location attached from drawing.</p>
+              <p className="mt-1 text-xs text-deck-dim">Pinned location attached from drawing.</p>
             )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700">Photo</label>
+            <label className="block text-sm font-medium text-deck-body">Photo</label>
             <input
               type="file"
               accept="image/*"
@@ -485,22 +486,22 @@ function NewDefectPageInner() {
             <button
               onClick={handleAnalyze}
               disabled={!projectId}
-              className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+              className="w-full rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
             >
               Analyze photo
             </button>
           )}
 
           {analyzing && (
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <p className="text-sm font-medium text-slate-700">Analyzing photo...</p>
-              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200">
+            <div className="rounded-lg border border-deck-border bg-deck-raised p-3">
+              <p className="text-sm font-medium text-deck-body">Analyzing photo...</p>
+              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-deck-raised">
                 <div
-                  className="h-2 bg-slate-900 transition-all duration-200"
+                  className="h-2 bg-deck-accent transition-all duration-200"
                   style={{ width: `${analyzeProgress}%` }}
                 />
               </div>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-deck-dim">
                 {elapsedSeconds}s elapsed - usually takes around {ESTIMATED_ANALYSIS_SECONDS}s, keep this tab open
               </p>
             </div>
@@ -509,22 +510,22 @@ function NewDefectPageInner() {
           {items.length > 0 && (
             <div className="space-y-3">
               {duplicateWarning && (
-                <div className="rounded-md border border-amber-300 bg-amber-50 p-3">
-                  <p className="text-xs font-semibold text-amber-800">
+                <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
+                  <p className="text-xs font-semibold text-amber-300">
                     Possible duplicate - {duplicateWarning}
                   </p>
-                  <p className="mt-1 text-xs text-amber-700">
+                  <p className="mt-1 text-xs text-amber-300">
                     Check whether this is already logged before saving again.
                   </p>
                 </div>
               )}
-              <p className="text-sm font-medium text-slate-700">
+              <p className="text-sm font-medium text-deck-body">
                 {items.length} defect{items.length > 1 ? 's' : ''} found - review below
               </p>
               {items.map((it, i) => (
                 <div
                   key={it.localId}
-                  className="rounded-lg border border-slate-200 p-3"
+                  className="rounded-lg border border-deck-border p-3"
                   style={{ borderLeftWidth: 4, borderLeftColor: BOX_COLORS[i % BOX_COLORS.length] }}
                 >
                   <div className="flex items-center justify-between">
@@ -532,9 +533,9 @@ function NewDefectPageInner() {
                       type="text"
                       value={it.title}
                       onChange={(e) => updateItem(it.localId, { title: e.target.value })}
-                      className="w-2/3 rounded-md border border-slate-300 px-2 py-1 text-sm font-medium"
+                      className="w-2/3 rounded-md border border-deck-border px-2 py-1 text-sm font-medium bg-deck-surface text-deck-text placeholder:text-deck-mute"
                     />
-                    <label className="flex items-center gap-1 text-xs text-slate-600">
+                    <label className="flex items-center gap-1 text-xs text-deck-body">
                       <input
                         type="checkbox"
                         checked={it.included}
@@ -547,9 +548,9 @@ function NewDefectPageInner() {
                     value={it.description}
                     onChange={(e) => updateItem(it.localId, { description: e.target.value })}
                     rows={2}
-                    className="mt-2 w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
+                    className="mt-2 w-full rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                   />
-                                  <p className="mt-1 text-xs text-slate-500">
+                                  <p className="mt-1 text-xs text-deck-dim">
                     Confidence: {Math.round(it.confidence * 100)}%
                     {it.standard_reference && ` · Standard: ${it.standard_reference}`}
                   </p>
@@ -559,15 +560,15 @@ function NewDefectPageInner() {
 
 
                   <div className="mt-2 flex items-center gap-2">
-                    <label className="text-xs font-medium text-slate-600">Classification:</label>
-                    <div className="flex overflow-hidden rounded-md border border-slate-300">
+                    <label className="text-xs font-medium text-deck-body">Classification:</label>
+                    <div className="flex overflow-hidden rounded-md border border-deck-border">
                       <button
                         type="button"
                         onClick={() => updateItem(it.localId, { classification: 'snag' })}
                         className={`px-3 py-1 text-xs font-medium ${
                           it.classification === 'snag'
-                            ? 'bg-slate-900 text-white'
-                            : 'bg-white text-slate-600'
+                            ? 'bg-deck-accent text-deck-bg'
+                            : 'bg-deck-surface text-deck-body'
                         }`}
                       >
                         Snag
@@ -578,7 +579,7 @@ function NewDefectPageInner() {
                         className={`px-3 py-1 text-xs font-medium ${
                           it.classification === 'ncr'
                             ? 'bg-red-600 text-white'
-                            : 'bg-white text-slate-600'
+                            : 'bg-deck-surface text-deck-body'
                         }`}
                       >
                         NCR
@@ -586,7 +587,7 @@ function NewDefectPageInner() {
                     </div>
                   </div>
                   {it.classification_reason && (
-                    <p className="mt-1 text-xs italic text-slate-400">{it.classification_reason}</p>
+                    <p className="mt-1 text-xs italic text-deck-dim">{it.classification_reason}</p>
                   )}
 
                   {it.requires_measurement && (
@@ -602,38 +603,38 @@ function NewDefectPageInner() {
 
           <div className="flex gap-4">
             <div className="flex-1">
-              <label className="block text-sm font-medium text-slate-700">
+              <label className="block text-sm font-medium text-deck-body">
                 Date created
               </label>
-              <p className="mt-1 rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-500">
+              <p className="mt-1 rounded-md bg-deck-raised px-3 py-2 text-sm text-deck-dim">
                 {todayLabel}
               </p>
             </div>
             <div className="flex-1">
-              <label className="block text-sm font-medium text-slate-700">
+              <label className="block text-sm font-medium text-deck-body">
                 Target completion
               </label>
               <input
                 type="date"
                 value={targetDate}
                 onChange={(e) => setTargetDate(e.target.value)}
-                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
               />
             </div>
           </div>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-red-400">{error}</p>}
 
           {!saved ? (
             <button
               onClick={handleSave}
               disabled={saving || items.filter((i) => i.included).length === 0}
-              className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+              className="w-full rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
             >
               {saving ? 'Saving...' : 'Save selected defects'}
             </button>
           ) : (
-            <p className="text-sm font-medium text-green-600">
+            <p className="text-sm font-medium text-emerald-400">
               Saved. Ready for the next one.
             </p>
           )}
@@ -647,8 +648,8 @@ export default function NewDefectPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-slate-50 p-8">
-          <p className="text-sm text-slate-500">Loading...</p>
+        <div className="min-h-screen p-8">
+          <p className="text-sm text-deck-dim">Loading...</p>
         </div>
       }
     >

@@ -74,22 +74,22 @@ export default function MyDefectsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
-        <p className="text-sm text-slate-500">Loading...</p>
+      <div className="min-h-screen p-8">
+        <p className="text-sm text-deck-dim">Loading...</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8">
+    <div className="min-h-screen px-4 py-8">
       <div className="mx-auto max-w-md">
-        <PageHeader title="My Companies Details" />h
-        <p className="mt-1 text-sm text-slate-500">
+        <PageHeader title="My Companies Details" />
+        <p className="mt-1 text-sm text-deck-dim">
           Everything assigned to anyone at your company.
         </p>
 
         {defects.length === 0 && (
-          <p className="mt-6 text-sm text-slate-500">
+          <p className="mt-6 text-sm text-deck-dim">
             Nothing assigned to your company right now.
           </p>
         )}
@@ -99,16 +99,16 @@ export default function MyDefectsPage() {
             <Link
               key={d.id}
               href={`/dashboard/defects/${d.id}`}
-              className="block rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+              className="block rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm"
             >
-              <p className="text-xs font-medium text-slate-500">{getProjectName(d)}</p>
+              <p className="text-xs font-medium text-deck-dim">{getProjectName(d)}</p>
               <div className="mt-1 flex items-center justify-between">
-                <p className="text-sm font-semibold text-slate-900">{d.title}</p>
+                <p className="text-sm font-semibold text-deck-text">{d.title}</p>
                 <StatusBadge status={d.status} />
               </div>
-              {d.location && <p className="mt-1 text-xs text-slate-500">{d.location}</p>}
+              {d.location && <p className="mt-1 text-xs text-deck-dim">{d.location}</p>}
               {d.target_close_date && (
-                <p className="mt-1 text-xs text-slate-500">Due {d.target_close_date}</p>
+                <p className="mt-1 text-xs text-deck-dim">Due {d.target_close_date}</p>
               )}
             </Link>
           ))}

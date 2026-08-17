@@ -49,21 +49,21 @@ export default function ClauseViewer({
       <button
         type="button"
         onClick={handleToggle}
-        className="text-xs font-medium text-brand-primary underline"
+        className="text-xs font-medium text-deck-accent underline"
       >
         {open ? 'Hide clause text ▲' : 'View clause text ▼'}
       </button>
       {open && (
-        <div className="mt-1 rounded-md border border-slate-200 bg-slate-50 p-2">
-          {loading && <p className="text-xs text-slate-500">Looking up clause...</p>}
+        <div className="mt-1 rounded-md border border-deck-border bg-deck-surface p-2">
+          {loading && <p className="text-xs text-deck-dim">Looking up clause...</p>}
           {!loading && found && (
             <>
-              <p className="text-[10px] font-semibold uppercase text-slate-400">{source}</p>
-              <p className="mt-1 whitespace-pre-wrap text-xs text-slate-700">{snippet}</p>
+              <p className="text-[10px] font-semibold uppercase text-deck-mute">{source}</p>
+              <p className="mt-1 whitespace-pre-wrap text-xs text-deck-body">{snippet}</p>
             </>
           )}
           {!loading && !found && (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-deck-dim">
               Couldn't locate this clause in the uploaded documents - check the original document directly.
             </p>
           )}

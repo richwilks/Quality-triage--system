@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import PageHeader from '@/components/PageHeader'
 
 type Session = {
   id: string
@@ -62,21 +63,21 @@ export default function ActiveInspectionPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
-        <p className="text-sm text-slate-500">Loading...</p>
+      <div className="min-h-screen p-8">
+        <p className="text-sm text-deck-dim">Loading...</p>
       </div>
     )
   }
 
   if (!session) {
     return (
-      <div className="min-h-screen bg-slate-50 px-4 py-8">
+      <div className="min-h-screen px-4 py-8">
         <div className="mx-auto max-w-md">
-          <h1 className="text-xl font-semibold text-slate-900">No active inspection</h1>
-          <p className="mt-2 text-sm text-slate-500">Start one from a project's drawing.</p>
+          <PageHeader title="No active inspection" />
+          <p className="mt-2 text-sm text-deck-dim">Start one from a project's drawing.</p>
           <Link
             href="/dashboard/drawings"
-            className="mt-4 inline-block rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white"
+            className="mt-4 inline-block rounded-md bg-deck-accent px-4 py-2 text-sm font-medium text-deck-bg"
           >
             Go to drawings
           </Link>
@@ -94,16 +95,16 @@ export default function ActiveInspectionPage() {
   })
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8">
+    <div className="min-h-screen px-4 py-8">
       <div className="mx-auto max-w-md">
-        <h1 className="text-xl font-semibold text-slate-900">Active Inspection</h1>
+        <PageHeader title="Active Inspection" />
 
-        <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs font-medium text-slate-500">{getProjectName(session)}</p>
-          <p className="mt-1 text-sm font-semibold text-slate-900">
+        <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
+          <p className="text-xs font-medium text-deck-dim">{getProjectName(session)}</p>
+          <p className="mt-1 text-sm font-semibold text-deck-text">
             {session.location_text || 'Location not set'}
           </p>
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="mt-1 text-xs text-deck-dim">
             Started {new Date(session.started_at).toLocaleString('en-GB')}
           </p>
         </div>
@@ -111,14 +112,14 @@ export default function ActiveInspectionPage() {
         <div className="mt-4 space-y-2">
           <Link
             href={`/dashboard/new-defect?${query.toString()}`}
-            className="block w-full rounded-md bg-slate-900 px-3 py-2 text-center text-sm font-medium text-white"
+            className="block w-full rounded-md bg-deck-accent px-3 py-2 text-center text-sm font-medium text-deck-bg"
           >
             Raise defect at this location
           </Link>
           {session.drawing_id && (
             <Link
               href={`/dashboard/drawings/${session.drawing_id}`}
-              className="block w-full rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700"
+              className="block w-full rounded-md border border-deck-border px-3 py-2 text-center text-sm font-medium text-deck-body"
             >
               Update location
             </Link>
@@ -126,7 +127,7 @@ export default function ActiveInspectionPage() {
           <button
             onClick={handleEnd}
             disabled={ending}
-            className="w-full rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-600 disabled:opacity-50"
+            className="w-full rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-400 disabled:opacity-50"
           >
             {ending ? 'Ending...' : 'End inspection'}
           </button>

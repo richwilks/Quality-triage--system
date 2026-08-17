@@ -239,37 +239,37 @@ export default function PlatformAdminPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
-        <p className="text-sm text-slate-500">Loading...</p>
+      <div className="min-h-screen p-8">
+        <p className="text-sm text-deck-dim">Loading...</p>
       </div>
     )
   }
 
   if (!allowed) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
-        <p className="text-sm text-slate-500">You don't have access to this page.</p>
+      <div className="min-h-screen p-8">
+        <p className="text-sm text-deck-dim">You don't have access to this page.</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8">
+    <div className="min-h-screen px-4 py-8">
       <div className="mx-auto max-w-md">
         <PageHeader title="Platform Admin" />
         
- <p className="mt-1 text-sm text-slate-500">Manage every user, project, and invite directly.</p>
+ <p className="mt-1 text-sm text-deck-dim">Manage every user, project, and invite directly.</p>
 
         <div className="mt-3 flex flex-col gap-1">
           <a
             href="/dashboard/admin/analytics"
-            className="inline-block text-sm font-medium text-brand-primary"
+            className="inline-block text-sm font-medium text-deck-accent"
           >
             View platform analytics →
           </a>
           <a
             href="/dashboard/admin/defect-knowledge"
-            className="inline-block text-sm font-medium text-brand-primary"
+            className="inline-block text-sm font-medium text-deck-accent"
           >
             Defect knowledge base →
           </a>
@@ -282,7 +282,7 @@ export default function PlatformAdminPage() {
               key={t}
               onClick={() => setTab(t)}
               className={`rounded-full px-4 py-1.5 text-sm font-medium ${
-                tab === t ? 'bg-brand-primary text-white' : 'border border-slate-300 text-slate-600'
+                tab === t ? 'bg-deck-accent text-deck-bg' : 'border border-deck-border text-deck-body'
               }`}
             >
               {t}
@@ -296,7 +296,7 @@ export default function PlatformAdminPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={tab === 'Users' ? 'Search name, email, or company' : 'Search project or company'}
-            className="mt-3 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-3 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           />
         )}
 
@@ -306,7 +306,7 @@ export default function PlatformAdminPage() {
               <div
                 key={u.id}
                 className={`rounded-lg border p-3 ${
-                  u.is_blocked ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-white'
+                  u.is_blocked ? 'border-red-500/30 bg-red-500/10' : 'border-deck-border bg-deck-surface'
                 }`}
               >
                 {editingUser === u.id ? (
@@ -317,7 +317,7 @@ export default function PlatformAdminPage() {
                         setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, full_name: e.target.value } : x)))
                       }
                       placeholder="Full name"
-                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
+                      className="w-full rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                     />
                     <input
                       value={u.company_name || ''}
@@ -325,14 +325,14 @@ export default function PlatformAdminPage() {
                         setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, company_name: e.target.value } : x)))
                       }
                       placeholder="Company"
-                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
+                      className="w-full rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                     />
                     <select
                       value={u.account_type || ''}
                       onChange={(e) =>
                         setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, account_type: e.target.value } : x)))
                       }
-                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
+                      className="w-full rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                     >
                       <option value="">No type set</option>
                       {ACCOUNT_TYPES.map((t) => (
@@ -344,13 +344,13 @@ export default function PlatformAdminPage() {
                       onChange={(e) =>
                         setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, role: e.target.value } : x)))
                       }
-                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
+                      className="w-full rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                     >
                       <option value="internal">Internal (sees own projects fully)</option>
                       <option value="partner">Partner (sees only assigned defects)</option>
                     </select>
                     <div className="flex gap-2">
-                      <label className="flex items-center gap-1 text-xs text-slate-600">
+                      <label className="flex items-center gap-1 text-xs text-deck-body">
                         <input
                           type="checkbox"
                           checked={u.company_admin}
@@ -360,7 +360,7 @@ export default function PlatformAdminPage() {
                         />
                         Company admin
                       </label>
-                      <label className="flex items-center gap-1 text-xs text-slate-600">
+                      <label className="flex items-center gap-1 text-xs text-deck-body">
                         <input
                           type="checkbox"
                           checked={u.is_platform_admin}
@@ -372,10 +372,10 @@ export default function PlatformAdminPage() {
                       </label>
                     </div>
 
-                    <p className="pt-1 text-xs font-medium text-slate-600">Assigned projects</p>
-                    <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-slate-200 p-2">
+                    <p className="pt-1 text-xs font-medium text-deck-body">Assigned projects</p>
+                    <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-deck-border p-2">
                       {projects.map((p) => (
-                        <label key={p.id} className="flex items-center gap-2 text-xs text-slate-700">
+                        <label key={p.id} className="flex items-center gap-2 text-xs text-deck-body">
                           <input
                             type="checkbox"
                             checked={(userProjectIds[u.id] || []).includes(p.id)}
@@ -399,13 +399,13 @@ export default function PlatformAdminPage() {
                           })
                           setEditingUser(null)
                         }}
-                        className="flex-1 rounded-md bg-brand-primary px-3 py-1.5 text-xs font-medium text-white"
+                        className="flex-1 rounded-md bg-deck-accent px-3 py-1.5 text-xs font-medium text-deck-bg"
                       >
                         Save
                       </button>
                       <button
                         onClick={() => setEditingUser(null)}
-                        className="flex-1 rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700"
+                        className="flex-1 rounded-md border border-deck-border px-3 py-1.5 text-xs font-medium text-deck-body"
                       >
                         Cancel
                       </button>
@@ -415,23 +415,23 @@ export default function PlatformAdminPage() {
                   <div>
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-slate-900">{u.full_name || 'Unnamed'}</p>
-                        <p className="text-xs text-slate-500">
+                        <p className="text-sm font-medium text-deck-text">{u.full_name || 'Unnamed'}</p>
+                        <p className="text-xs text-deck-dim">
                           {u.email} · {u.company_name || 'no company'} · {u.account_type || 'no type'}
                         </p>
                         <div className="mt-1 flex flex-wrap gap-1">
                           {u.company_admin && (
-                            <span className="rounded-full bg-brand-primary/10 px-2 py-0.5 text-[10px] font-medium text-brand-primary">
+                            <span className="rounded-full bg-deck-accent/10 px-2 py-0.5 text-[10px] font-medium text-deck-accent">
                               Company admin
                             </span>
                           )}
                           {u.is_platform_admin && (
-                            <span className="rounded-full bg-brand-ink/10 px-2 py-0.5 text-[10px] font-medium text-brand-ink">
+                            <span className="rounded-full bg-deck-mute/20 px-2 py-0.5 text-[10px] font-medium text-deck-text">
                               Platform admin
                             </span>
                           )}
                           {u.is_blocked && (
-                            <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700">
+                            <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-medium text-red-300">
                               Blocked
                             </span>
                           )}
@@ -439,7 +439,7 @@ export default function PlatformAdminPage() {
                       </div>
                       <button
                         onClick={() => setEditingUser(u.id)}
-                        className="text-xs font-medium text-brand-primary"
+                        className="text-xs font-medium text-deck-accent"
                       >
                         Edit
                       </button>
@@ -447,7 +447,7 @@ export default function PlatformAdminPage() {
                     <div className="mt-2 flex flex-wrap gap-2">
                       <button
                         onClick={() => u.email && sendPasswordReset(u.email, u.id)}
-                        className="rounded-full border border-slate-300 px-2.5 py-1 text-[11px] font-medium text-slate-600"
+                        className="rounded-full border border-deck-border px-2.5 py-1 text-[11px] font-medium text-deck-body"
                       >
                         Send password reset
                       </button>
@@ -455,14 +455,14 @@ export default function PlatformAdminPage() {
                         onClick={() => toggleBlocked(u.id, u.is_blocked)}
                         className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
                           u.is_blocked
-                            ? 'bg-green-100 text-green-700'
-                            : 'border border-red-300 text-red-600'
+                            ? 'bg-emerald-500/15 text-emerald-300'
+                            : 'border border-red-300 text-red-400'
                         }`}
                       >
                         {u.is_blocked ? 'Unblock login' : 'Block login'}
                       </button>
                       {resetMessage[u.id] && (
-                        <span className="text-[11px] text-slate-500">{resetMessage[u.id]}</span>
+                        <span className="text-[11px] text-deck-dim">{resetMessage[u.id]}</span>
                       )}
                     </div>
                   </div>
@@ -475,7 +475,7 @@ export default function PlatformAdminPage() {
         {tab === 'Projects' && (
           <div className="mt-4 space-y-2">
             {filteredProjects.map((p) => (
-              <div key={p.id} className="rounded-lg border border-slate-200 bg-white p-3">
+              <div key={p.id} className="rounded-lg border border-deck-border bg-deck-surface p-3">
                 {editingProject === p.id ? (
                   <div className="space-y-2">
                     <input
@@ -484,7 +484,7 @@ export default function PlatformAdminPage() {
                         setProjects((prev) => prev.map((x) => (x.id === p.id ? { ...x, name: e.target.value } : x)))
                       }
                       placeholder="Project name"
-                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
+                      className="w-full rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                     />
                     <textarea
                       value={p.description || ''}
@@ -493,7 +493,7 @@ export default function PlatformAdminPage() {
                       }
                       placeholder="Description"
                       rows={2}
-                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
+                      className="w-full rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                     />
                     <textarea
                       value={p.standards || ''}
@@ -502,7 +502,7 @@ export default function PlatformAdminPage() {
                       }
                       placeholder="Applicable standards"
                       rows={2}
-                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
+                      className="w-full rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                     />
                     <input
                       value={p.company_name || ''}
@@ -510,14 +510,14 @@ export default function PlatformAdminPage() {
                         setProjects((prev) => prev.map((x) => (x.id === p.id ? { ...x, company_name: e.target.value } : x)))
                       }
                       placeholder="Company"
-                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
+                      className="w-full rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                     />
                     <select
                       value={p.status}
                       onChange={(e) =>
                         setProjects((prev) => prev.map((x) => (x.id === p.id ? { ...x, status: e.target.value } : x)))
                       }
-                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
+                      className="w-full rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                     >
                       <option value="active">Active</option>
                       <option value="closed">Closed</option>
@@ -534,13 +534,13 @@ export default function PlatformAdminPage() {
                           })
                           setEditingProject(null)
                         }}
-                        className="flex-1 rounded-md bg-brand-primary px-3 py-1.5 text-xs font-medium text-white"
+                        className="flex-1 rounded-md bg-deck-accent px-3 py-1.5 text-xs font-medium text-deck-bg"
                       >
                         Save
                       </button>
                       <button
                         onClick={() => setEditingProject(null)}
-                        className="flex-1 rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700"
+                        className="flex-1 rounded-md border border-deck-border px-3 py-1.5 text-xs font-medium text-deck-body"
                       >
                         Cancel
                       </button>
@@ -549,11 +549,11 @@ export default function PlatformAdminPage() {
                 ) : (
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-slate-900">{p.name}</p>
-                      <p className="text-xs text-slate-500">{p.company_name || 'no company'}</p>
+                      <p className="text-sm font-medium text-deck-text">{p.name}</p>
+                      <p className="text-xs text-deck-dim">{p.company_name || 'no company'}</p>
                       <span
                         className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                          p.status === 'closed' ? 'bg-slate-200 text-slate-600' : 'bg-green-100 text-green-700'
+                          p.status === 'closed' ? 'bg-white/10 text-deck-dim' : 'bg-emerald-500/15 text-emerald-300'
                         }`}
                       >
                         {p.status}
@@ -561,7 +561,7 @@ export default function PlatformAdminPage() {
                     </div>
                     <button
                       onClick={() => setEditingProject(p.id)}
-                      className="text-xs font-medium text-brand-primary"
+                      className="text-xs font-medium text-deck-accent"
                     >
                       Edit
                     </button>
@@ -575,19 +575,19 @@ export default function PlatformAdminPage() {
         {tab === 'Invites' && (
           <div className="mt-4 space-y-2">
             {invites.length === 0 && (
-              <p className="text-sm text-slate-500">No pending invites anywhere.</p>
+              <p className="text-sm text-deck-dim">No pending invites anywhere.</p>
             )}
             {invites.map((inv) => (
-              <div key={inv.id} className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <div key={inv.id} className="flex items-center justify-between rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
                 <div>
-                  <p className="text-sm font-medium text-slate-900">{inv.email}</p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-sm font-medium text-deck-text">{inv.email}</p>
+                  <p className="text-xs text-deck-dim">
                     {getProjectName(inv)} · {inv.project_role} · {inv.account_type || 'no type'}
                   </p>
                 </div>
                 <button
                   onClick={() => cancelInvite(inv.id)}
-                  className="text-xs font-medium text-red-600"
+                  className="text-xs font-medium text-red-400"
                 >
                   Cancel
                 </button>
@@ -598,11 +598,11 @@ export default function PlatformAdminPage() {
 
         {tab === 'Branding' && (
           <div className="mt-4 space-y-3">
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-deck-dim">
               Toggle individual white-label features per company. Combine however you want to package them.
             </p>
             {distinctCompanies.length === 0 && (
-              <p className="text-sm text-slate-500">No companies found yet.</p>
+              <p className="text-sm text-deck-dim">No companies found yet.</p>
             )}
             {distinctCompanies.map((companyName) => {
               const b = companyBrandings[companyName]
@@ -614,15 +614,15 @@ export default function PlatformAdminPage() {
                 { key: 'feature_custom_email_sender', label: 'Custom email sender name' },
               ]
               return (
-                <div key={companyName} className="rounded-lg border border-slate-200 bg-white p-3">
-                  <p className="text-sm font-medium text-slate-900">{companyName}</p>
+                <div key={companyName} className="rounded-lg border border-deck-border bg-deck-surface p-3">
+                  <p className="text-sm font-medium text-deck-text">{companyName}</p>
                   {b?.accent_color && (
                     <div className="mt-1 flex items-center gap-2">
                       <span
-                        className="h-3 w-3 rounded-full border border-slate-300"
+                        className="h-3 w-3 rounded-full border border-deck-border"
                         style={{ backgroundColor: b.accent_color }}
                       />
-                      <span className="text-xs text-slate-500">{b.accent_color}</span>
+                      <span className="text-xs text-deck-dim">{b.accent_color}</span>
                     </div>
                   )}
                   <div className="mt-2 space-y-1.5">
@@ -630,14 +630,14 @@ export default function PlatformAdminPage() {
                       const enabled = Boolean(b?.[f.key])
                       return (
                         <div key={f.key} className="flex items-center justify-between">
-                          <span className="text-xs text-slate-600">{f.label}</span>
+                          <span className="text-xs text-deck-body">{f.label}</span>
                           <button
                             onClick={() => toggleFeature(companyName, f.key, enabled)}
                             disabled={brandingBusy === companyName}
                             className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium disabled:opacity-50 ${
                               enabled
-                                ? 'bg-green-100 text-green-700'
-                                : 'border border-slate-300 text-slate-600'
+                                ? 'bg-emerald-500/15 text-emerald-300'
+                                : 'border border-deck-border text-deck-body'
                             }`}
                           >
                             {enabled ? 'On' : 'Off'}

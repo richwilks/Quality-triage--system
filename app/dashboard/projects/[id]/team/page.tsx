@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import PageHeader from '@/components/PageHeader'
 
 type Member = {
   id: string
@@ -113,17 +114,17 @@ export default function ProjectTeamPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
-        <p className="text-sm text-slate-500">Loading...</p>
+      <div className="min-h-screen p-8">
+        <p className="text-sm text-deck-dim">Loading...</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8">
+    <div className="min-h-screen px-4 py-8">
       <div className="mx-auto max-w-md">
-        <h1 className="text-xl font-semibold text-slate-900">Project Team</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <PageHeader title="Project Team" />
+        <p className="mt-1 text-sm text-deck-dim">
           Invite people by email - they only get access once accepted, either instantly if they already have an account, or automatically the next time they sign up or log in.
         </p>
 
@@ -133,18 +134,18 @@ export default function ProjectTeamPage() {
             return (
               <div
                 key={m.id}
-                className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-3"
+                className="flex items-center justify-between rounded-lg border border-deck-border bg-deck-surface p-3"
               >
                 <div>
-                  <p className="text-sm font-medium text-slate-900">
+                  <p className="text-sm font-medium text-deck-text">
                     {profile?.full_name || 'Unnamed'}
                   </p>
-                  <p className="text-xs text-slate-500">{profile?.email}</p>
+                  <p className="text-xs text-deck-dim">{profile?.email}</p>
                 </div>
                 <select
                   value={m.project_role}
                   onChange={(e) => updateRole(m.id, e.target.value)}
-                  className="rounded-md border border-slate-300 px-2 py-1 text-xs"
+                  className="rounded-md border border-deck-border px-2 py-1 text-xs bg-deck-surface text-deck-text placeholder:text-deck-mute"
                 >
                   <option value="owner">Owner</option>
                   <option value="member">Member</option>
@@ -156,15 +157,15 @@ export default function ProjectTeamPage() {
           {invites.map((inv) => (
             <div
               key={inv.id}
-              className="flex items-center justify-between rounded-lg border border-dashed border-amber-300 bg-amber-50 p-3"
+              className="flex items-center justify-between rounded-lg border border-dashed border-amber-500/30 bg-amber-500/10 p-3"
             >
               <div>
-                <p className="text-sm font-medium text-slate-900">{inv.email}</p>
-                <p className="text-xs text-amber-600">Invited - pending ({inv.project_role})</p>
+                <p className="text-sm font-medium text-deck-text">{inv.email}</p>
+                <p className="text-xs text-amber-400">Invited - pending ({inv.project_role})</p>
               </div>
               <button
                 onClick={() => cancelInvite(inv.id)}
-                className="text-xs font-medium text-red-600 underline"
+                className="text-xs font-medium text-red-400 underline"
               >
                 Cancel
               </button>
@@ -172,29 +173,29 @@ export default function ProjectTeamPage() {
           ))}
         </div>
 
-        <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-sm font-medium text-slate-700">Invite someone</p>
+        <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
+          <p className="text-sm font-medium text-deck-body">Invite someone</p>
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="their@email.com"
-            className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           />
           <select
             value={role}
             onChange={(e) => setRole(e.target.value)}
-            className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           >
             <option value="member">Member</option>
             <option value="owner">Owner</option>
           </select>
-          {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-          {message && <p className="mt-2 text-sm text-green-700">{message}</p>}
+          {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
+          {message && <p className="mt-2 text-sm text-emerald-400">{message}</p>}
           <button
             onClick={handleInvite}
             disabled={adding || !email}
-            className="mt-3 w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="mt-3 w-full rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
           >
             {adding ? 'Sending...' : 'Invite'}
           </button>

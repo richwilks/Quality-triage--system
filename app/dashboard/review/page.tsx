@@ -311,22 +311,22 @@ export default function ReviewDefectsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
-        <p className="text-sm text-slate-500">Loading...</p>
+      <div className="min-h-screen p-8">
+        <p className="text-sm text-deck-dim">Loading...</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8">
+    <div className="min-h-screen px-4 py-8">
       <div className="mx-auto max-w-md">
         <PageHeader title="Review Defects" />
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-deck-dim">
           Confirm or reject each item. Drag the box to reposition, or drag the corner handle to resize - it'll be baked into the photo once confirmed.
         </p>
 
         {defects.length === 0 && (
-          <p className="mt-6 text-sm text-slate-500">
+          <p className="mt-6 text-sm text-deck-dim">
             Nothing waiting for review right now.
           </p>
         )}
@@ -338,13 +338,13 @@ export default function ReviewDefectsPage() {
             return (
               <div
                 key={defect.id}
-                className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+                className="rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm"
               >
-                <p className="text-xs font-medium text-slate-500">
+                <p className="text-xs font-medium text-deck-dim">
                   {getProjectName(defect)}
                 </p>
                 {defect.title && (
-                  <p className="mt-1 text-sm font-semibold text-slate-900">{defect.title}</p>
+                  <p className="mt-1 text-sm font-semibold text-deck-text">{defect.title}</p>
                 )}
 
                 {defect.photo_url && (
@@ -401,7 +401,7 @@ export default function ReviewDefectsPage() {
 
                               {defect.standard_reference && (
                   <>
-                    <p className="mt-2 text-xs text-slate-500">
+                    <p className="mt-2 text-xs text-deck-dim">
                       Standard: {defect.standard_reference}
                     </p>
                     <ClauseViewer projectId={defect.project_id} standardReference={defect.standard_reference} />
@@ -409,19 +409,19 @@ export default function ReviewDefectsPage() {
                 )}
 
                 {defect.ai_confidence !== null && (
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-deck-dim">
                     AI confidence: {Math.round((defect.ai_confidence || 0) * 100)}%
                   </p>
                 )}
 
                 <div className="mt-3 flex items-center gap-2">
-                  <label className="text-xs font-medium text-slate-600">Classification:</label>
-                  <div className="flex overflow-hidden rounded-md border border-slate-300">
+                  <label className="text-xs font-medium text-deck-body">Classification:</label>
+                  <div className="flex overflow-hidden rounded-md border border-deck-border">
                     <button
                       type="button"
                       onClick={() => setClassification((prev) => ({ ...prev, [defect.id]: 'snag' }))}
                       className={`px-3 py-1 text-xs font-medium ${
-                        !isNcr ? 'bg-slate-900 text-white' : 'bg-white text-slate-600'
+                        !isNcr ? 'bg-deck-accent text-deck-bg' : 'bg-deck-surface text-deck-body'
                       }`}
                     >
                       Snag
@@ -430,18 +430,18 @@ export default function ReviewDefectsPage() {
                       type="button"
                       onClick={() => setClassification((prev) => ({ ...prev, [defect.id]: 'ncr' }))}
                       className={`px-3 py-1 text-xs font-medium ${
-                        isNcr ? 'bg-red-600 text-white' : 'bg-white text-slate-600'
+                        isNcr ? 'bg-red-600 text-white' : 'bg-deck-surface text-deck-body'
                       }`}
                     >
                       NCR
                     </button>
                   </div>
                   {defect.ncr_number && (
-                    <span className="text-xs font-medium text-red-600">{defect.ncr_number}</span>
+                    <span className="text-xs font-medium text-red-400">{defect.ncr_number}</span>
                   )}
                 </div>
 
-                <label className="mt-3 block text-sm font-medium text-slate-700">
+                <label className="mt-3 block text-sm font-medium text-deck-body">
                   Description
                 </label>
                 <textarea
@@ -450,41 +450,41 @@ export default function ReviewDefectsPage() {
                     setEditedText((prev) => ({ ...prev, [defect.id]: e.target.value }))
                   }
                   rows={3}
-                  className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                 />
 
                 {isNcr && (
-                  <div className="mt-3 rounded-md border border-red-300 bg-red-50 p-3">
-                    <p className="text-xs font-semibold text-red-800">
+                  <div className="mt-3 rounded-md border border-red-500/30 bg-red-500/10 p-3">
+                    <p className="text-xs font-semibold text-red-400">
                       Non-conformance - root cause and corrective action required for closure
                     </p>
-                    <label className="mt-2 block text-xs font-medium text-slate-700">Root cause</label>
+                    <label className="mt-2 block text-xs font-medium text-deck-body">Root cause</label>
                     <textarea
                       value={rootCause[defect.id] || ''}
                       onChange={(e) => setRootCause((prev) => ({ ...prev, [defect.id]: e.target.value }))}
                       rows={2}
                       placeholder="Why did this non-conformance occur?"
-                      className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+                      className="mt-1 w-full rounded-md border border-deck-border px-2 py-1.5 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                     />
-                    <label className="mt-2 block text-xs font-medium text-slate-700">Corrective action</label>
+                    <label className="mt-2 block text-xs font-medium text-deck-body">Corrective action</label>
                     <textarea
                       value={correctiveAction[defect.id] || ''}
                       onChange={(e) => setCorrectiveAction((prev) => ({ ...prev, [defect.id]: e.target.value }))}
                       rows={2}
                       placeholder="What needs to happen to resolve this and prevent recurrence?"
-                      className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+                      className="mt-1 w-full rounded-md border border-deck-border px-2 py-1.5 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                     />
                   </div>
                 )}
 
                 <div className="mt-3">
-                  <label className="block text-sm font-medium text-slate-700">Assigned</label>
+                  <label className="block text-sm font-medium text-deck-body">Assigned</label>
                   <select
                     value={assignedPartner[defect.id] || ''}
                     onChange={(e) =>
                       setAssignedPartner((prev) => ({ ...prev, [defect.id]: e.target.value }))
                     }
-                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                   >
                     <option value="">Unassigned</option>
                     {partners.map((p) => (
@@ -496,7 +496,7 @@ export default function ReviewDefectsPage() {
                 </div>
 
                 <div className="mt-3">
-                  <label className="block text-sm font-medium text-slate-700">
+                  <label className="block text-sm font-medium text-deck-body">
                     Target completion
                   </label>
                   <input
@@ -505,20 +505,20 @@ export default function ReviewDefectsPage() {
                     onChange={(e) =>
                       setTargetDate((prev) => ({ ...prev, [defect.id]: e.target.value }))
                     }
-                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                   />
                 </div>
 
                 {rejectingId === defect.id ? (
                   <div className="mt-3">
-                    <label className="block text-sm font-medium text-slate-700">
+                    <label className="block text-sm font-medium text-deck-body">
                       Why is this not a defect?
                     </label>
                     <textarea
                       value={rejectReason}
                       onChange={(e) => setRejectReason(e.target.value)}
                       rows={2}
-                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                      className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                       placeholder="e.g. this is within tolerance, or normal finish for this material"
                     />
                     <div className="mt-2 flex gap-2">
@@ -531,7 +531,7 @@ export default function ReviewDefectsPage() {
                       </button>
                       <button
                         onClick={() => setRejectingId(null)}
-                        className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700"
+                        className="flex-1 rounded-md border border-deck-border px-3 py-2 text-sm font-medium text-deck-body"
                       >
                         Cancel
                       </button>
@@ -542,7 +542,7 @@ export default function ReviewDefectsPage() {
                     <button
                       onClick={() => handleConfirm(defect)}
                       disabled={busyId === defect.id}
-                      className="flex-1 rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                      className="flex-1 rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
                     >
                       {busyId === defect.id
                         ? 'Saving...'
@@ -552,7 +552,7 @@ export default function ReviewDefectsPage() {
                     </button>
                     <button
                       onClick={() => setRejectingId(defect.id)}
-                      className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700"
+                      className="flex-1 rounded-md border border-deck-border px-3 py-2 text-sm font-medium text-deck-body"
                     >
                       Not a defect
                     </button>

@@ -90,7 +90,7 @@ export default function ProjectReportPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
+      <div className="min-h-screen bg-slate-50 p-8 text-slate-900">
         <p className="text-sm text-slate-500">Loading...</p>
       </div>
     )
@@ -98,14 +98,14 @@ export default function ProjectReportPage() {
 
   if (!project) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
+      <div className="min-h-screen bg-slate-50 p-8 text-slate-900">
         <p className="text-sm text-slate-500">Project not found.</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 print:bg-white print:px-0 print:py-0">
+    <div className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 print:bg-white print:px-0 print:py-0">
       <div className="mx-auto max-w-3xl">
         <div className="mb-4 flex items-center justify-between print:hidden">
           <div>

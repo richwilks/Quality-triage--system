@@ -48,19 +48,19 @@ export default function NotificationsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
-        <p className="text-sm text-slate-500">Loading...</p>
+      <div className="min-h-screen p-8">
+        <p className="text-sm text-deck-dim">Loading...</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8">
+    <div className="min-h-screen px-4 py-8">
       <div className="mx-auto max-w-md">
         <PageHeader title="Notifications" />
 
         {notifications.length === 0 && (
-          <p className="mt-6 text-sm text-slate-500">No notifications yet.</p>
+          <p className="mt-6 text-sm text-deck-dim">No notifications yet.</p>
         )}
 
         <div className="mt-6 space-y-3">
@@ -68,24 +68,24 @@ export default function NotificationsPage() {
             <div
               key={n.id}
               className={`rounded-lg border p-4 ${
-                n.is_read ? 'border-slate-200 bg-white' : 'border-slate-900 bg-slate-50'
+                n.is_read ? 'border-deck-border bg-deck-surface' : 'border-deck-accent bg-deck-raised'
               }`}
             >
-              <p className="text-sm text-slate-800">{n.message}</p>
-              <p className="mt-1 text-xs text-slate-400">
+              <p className="text-sm text-deck-body">{n.message}</p>
+              <p className="mt-1 text-xs text-deck-dim">
                 {new Date(n.created_at).toLocaleString('en-GB')}
               </p>
               <div className="mt-2 flex gap-3">
                 <Link
                   href="/dashboard/my-defects"
-                  className="text-xs font-medium text-slate-900 underline"
+                  className="text-xs font-medium text-deck-text underline"
                 >
                   View assigned defects
                 </Link>
                 {!n.is_read && (
                   <button
                     onClick={() => markRead(n.id)}
-                    className="text-xs font-medium text-slate-500 underline"
+                    className="text-xs font-medium text-deck-dim underline"
                   >
                     Mark as read
                   </button>
