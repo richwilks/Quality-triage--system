@@ -102,11 +102,11 @@ export default function FMIQHomePage() {
             Switch system
           </Link>
         </div>
-        <p className="mt-1 text-sm text-deck-dim">Facilities management &amp; maintenance.</p>
+        <p className="mt-1 text-sm text-deck-dim">Property inspections, compliance &amp; maintenance.</p>
 
         <div className="mt-4 grid grid-cols-2 gap-3">
           <div className="rounded-xl border border-deck-border bg-deck-surface p-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-deck-mute">Assets</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-deck-mute">Properties</p>
             <p className="mt-1 text-2xl font-semibold text-deck-text">{assets.length}</p>
           </div>
           <div className="rounded-xl border border-deck-border bg-deck-surface p-4">
@@ -117,24 +117,44 @@ export default function FMIQHomePage() {
 
         <div className="mt-6 flex gap-3">
           <Link
-            href="/fmiq/assets/new"
+            href="/fmiq/inspections/new"
             className="flex-1 rounded-md bg-fmiq-accent px-4 py-2 text-center text-sm font-medium text-deck-bg"
           >
-            + New asset
+            + New inspection
           </Link>
           <Link
-            href="/fmiq/work-orders/new"
+            href="/fmiq/assets/new"
             className="flex-1 rounded-md border border-deck-border px-4 py-2 text-center text-sm font-medium text-deck-text"
           >
-            + New task
+            + New property
           </Link>
         </div>
 
-        <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-deck-dim">Assets</h2>
+        <div className="mt-5">
+          <h2 className="mb-2.5 text-sm font-semibold uppercase tracking-wide text-deck-dim">Quick Access</h2>
+          <div className="overflow-hidden rounded-md border border-deck-border">
+            <Link
+              href="/fmiq/regulations"
+              className="flex items-center justify-between border-b border-deck-border bg-deck-surface px-3.5 py-3 text-[13.5px] font-medium text-deck-text"
+            >
+              <span>Regulations Library</span>
+              <span className="text-deck-mute">→</span>
+            </Link>
+            <Link
+              href="/fmiq/economic-reports"
+              className="flex items-center justify-between bg-deck-surface px-3.5 py-3 text-[13.5px] font-medium text-deck-text"
+            >
+              <span>Economic Reports</span>
+              <span className="text-deck-mute">→</span>
+            </Link>
+          </div>
+        </div>
+
+        <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-deck-dim">Properties</h2>
 
         {assets.length === 0 && (
           <p className="mt-2 text-sm text-deck-dim">
-            No assets yet.{' '}
+            No properties yet.{' '}
             <Link href="/fmiq/assets/new" className="font-medium text-fmiq-accent underline">
               Add your first one
             </Link>

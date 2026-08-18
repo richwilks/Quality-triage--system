@@ -357,3 +357,251 @@ If you cannot confidently trace a single enclosed room around the marker, respon
     return { boundary: null, label: '' }
   }
 }
+
+// --- FMIQ property inspections ---
+
+export type InspectionFinding = {
+  description: string
+  confidence: number
+  regulation_reference: string
+  severity: 'minor' | 'moderate' | 'major' | 'hazard'
+  estimated_cost_min: number | null
+  estimated_cost_max: number | null
+  box: { x: number; y: number; width: number; height: number }
+}
+
+export type RegulationText = { code: string; text: string }
+
+export async function analyzePropertyInspection(
+  base64Image: string,
+  mimeType: string,
+  propertyDescription: string,
+  jurisdiction: string | null,
+  propertyType: string | null,
+  regulationTexts: RegulationText[],
+  orientationHint?: OrientationHint | null
+): Promise<{ findings: InspectionFinding[]; usage: { input_tokens: number; output_tokens: number } | null }> {
+  const content: any[] = [
+    { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64Image } },
+  ]
+
+  const orientationText =
+    orientationHint && orientationHint.guess !== 'uncertain'
+      ? `Device orientation sensor at the moment of capture: the phone/tablet's tilt suggests this photo is most likely of a ${
+          orientationHint.guess === 'floor'
+            ? 'floor (camera pointed downward)'
+            : orientationHint.guess === 'ceiling'
+              ? 'ceiling (camera pointed upward)'
+              : 'wall or other roughly vertical surface (camera held level)'
+        }. Treat this as a supporting signal only - the photo's own visual evidence is primary.`
+      : ''
+
+  let referenceText = `Property: ${propertyDescription}
+${jurisdiction ? `Jurisdiction / applicable regulations: ${jurisdiction}` : 'Jurisdiction not specified - use general good-practice property condition standards.'}
+${propertyType ? `Property type: ${propertyType}` : ''}
+${orientationText}`
+
+  if (regulationTexts.length > 0) {
+    for (const reg of regulationTexts) {
+      referenceText += `\n\nExtracted requirements from regulation/standard ${reg.code}:\n${reg.text}`
+    }
+  }
+
+  const instructions = `You are a property inspector assessing a single photo taken during a property inspection, checking for regulatory compliance and condition issues.
+
+${referenceText}
+
+Your task, in order:
+1. Find every distinct condition or compliance issue visible in the photo - disrepair, damage, safety hazards, signs of damp/mould, missing or non-compliant fittings, anything that would fail a property condition or regulatory compliance check. There may be one, several, or none.
+2. For each issue, give a tight bounding box in percentages (0-100) of image width/height, x/y being the top-left corner, hugging just the defect itself with a small margin.
+3. Only cite a specific regulation/clause if it appears in the reference text above. If none applies, leave regulation_reference empty rather than inventing one. If you mention a regulation not present above, explicitly flag it as unverified in the description.
+4. Classify severity as one of: "minor" (cosmetic, no urgency), "moderate" (should be addressed but not urgent), "major" (significant defect, address soon), "hazard" (immediate health/safety risk - e.g. exposed wiring, active leak, structural concern, fire safety breach).
+5. Give a rough estimated repair cost range (estimated_cost_min, estimated_cost_max) in the absence of a real quote - base it on general knowledge of typical repair costs for this kind of issue. This is a ballpark indication only, not a quote - if you have no reasonable basis to estimate, set both to null rather than guessing wildly.
+
+Respond with ONLY a JSON array, no markdown, no other text:
+
+[
+  {
+    "description": "specific description of the issue",
+    "confidence": 0.0 to 1.0,
+    "regulation_reference": "full reference where available, or empty string if none applies",
+    "severity": "minor" | "moderate" | "major" | "hazard",
+    "estimated_cost_min": number or null,
+    "estimated_cost_max": number or null,
+    "box": { "x": 0-100, "y": 0-100, "width": 0-100, "height": 0-100 }
+  }
+]
+
+If no issues, respond with: []`
+
+  content.push({ type: 'text', text: instructions })
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': process.env.ANTHROPIC_API_KEY as string,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-5',
+      max_tokens: 1500,
+      messages: [{ role: 'user', content }],
+    }),
+  })
+
+  const data = await response.json()
+  const textBlock = data.content?.find((c: any) => c.type === 'text')
+  const raw = textBlock?.text || '[]'
+  const cleaned = raw.replace(/```json|```/g, '').trim()
+
+  const usage = data.usage
+    ? { input_tokens: data.usage.input_tokens || 0, output_tokens: data.usage.output_tokens || 0 }
+    : null
+
+  function clampBox(box: any) {
+    const x = Math.max(0, Math.min(100, box?.x ?? 0))
+    const y = Math.max(0, Math.min(100, box?.y ?? 0))
+    const width = Math.max(1, Math.min(100 - x, box?.width ?? 10))
+    const height = Math.max(1, Math.min(100 - y, box?.height ?? 10))
+    return { x, y, width, height }
+  }
+
+  try {
+    const parsed = JSON.parse(cleaned)
+    const findings = Array.isArray(parsed)
+      ? parsed.map((f: any) => ({
+          ...f,
+          severity: ['minor', 'moderate', 'major', 'hazard'].includes(f.severity) ? f.severity : 'moderate',
+          estimated_cost_min: typeof f.estimated_cost_min === 'number' ? f.estimated_cost_min : null,
+          estimated_cost_max: typeof f.estimated_cost_max === 'number' ? f.estimated_cost_max : null,
+          box: clampBox(f.box),
+        }))
+      : []
+    return { findings, usage }
+  } catch {
+    return { findings: [], usage }
+  }
+}
+
+export type FindingSummary = {
+  description: string
+  severity: string
+  regulation_reference: string | null
+  estimated_cost_min: number | null
+  estimated_cost_max: number | null
+}
+
+export async function generateComplianceReport(
+  propertyName: string,
+  propertyAddress: string | null,
+  inspectionDate: string,
+  findings: FindingSummary[]
+): Promise<string> {
+  const findingsText = findings.length
+    ? findings
+        .map(
+          (f, i) =>
+            `${i + 1}. [${f.severity.toUpperCase()}] ${f.description}${f.regulation_reference ? ` (Ref: ${f.regulation_reference})` : ''}${
+              f.estimated_cost_min !== null ? ` - Est. repair cost: ${f.estimated_cost_min}-${f.estimated_cost_max}` : ''
+            }`
+        )
+        .join('\n')
+    : 'No issues were found during this inspection.'
+
+  const prompt = `You are writing a formal property inspection compliance report for a client.
+
+Property: ${propertyName}${propertyAddress ? ` (${propertyAddress})` : ''}
+Inspection date: ${inspectionDate}
+
+Findings from this inspection:
+${findingsText}
+
+Write a clear, professional compliance report in plain text (markdown headings ok, no other formatting). Structure it as:
+1. Executive summary (2-3 sentences: overall condition, number of findings by severity, any hazards requiring immediate attention)
+2. Findings in detail, grouped by severity (hazard first, then major, moderate, minor)
+3. Total estimated repair cost range, summed across all findings that have an estimate, clearly caveated that these are rough AI-generated ballpark estimates, not quotes, and a qualified contractor should be engaged for accurate pricing before any work is commissioned
+4. Recommended next steps, prioritised by severity
+
+Be factual and measured - do not exaggerate or downplay findings. If there are no findings, say so plainly and note the property appeared to be in good order at the time of inspection.`
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': process.env.ANTHROPIC_API_KEY as string,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-5',
+      max_tokens: 2000,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  })
+
+  const data = await response.json()
+  const textBlock = data.content?.find((c: any) => c.type === 'text')
+  return textBlock?.text || 'Could not generate report.'
+}
+
+export type EconomicReportExcerpt = { title: string; category: string | null; text: string }
+
+export async function generateInvestmentReport(
+  propertyName: string,
+  propertyAddress: string | null,
+  propertyType: string | null,
+  findings: FindingSummary[],
+  pastInspectionSummaries: string[],
+  economicReports: EconomicReportExcerpt[]
+): Promise<string> {
+  const findingsText = findings.length
+    ? findings
+        .map((f) => `- [${f.severity}] ${f.description}${f.estimated_cost_min !== null ? ` (est. ${f.estimated_cost_min}-${f.estimated_cost_max})` : ''}`)
+        .join('\n')
+    : 'No outstanding findings on record.'
+
+  let economicText = ''
+  if (economicReports.length > 0) {
+    economicText = economicReports
+      .map((r) => `--- ${r.title}${r.category ? ` (${r.category})` : ''} ---\n${r.text}`)
+      .join('\n\n')
+  }
+
+  const prompt = `You are a property investment analyst producing an investment/return report for a property owner, estimating the potential return on investing in maintenance and improvements.
+
+Property: ${propertyName}${propertyAddress ? ` (${propertyAddress})` : ''}${propertyType ? `, type: ${propertyType}` : ''}
+
+Current outstanding condition findings for this property:
+${findingsText}
+
+${pastInspectionSummaries.length > 0 ? `Summary of past inspections on this property:\n${pastInspectionSummaries.join('\n')}\n` : ''}
+
+${economicText ? `Reference market/economic data (rental, commercial property, and construction industry reports):\n${economicText}` : 'No market/economic reference reports have been uploaded yet - base guidance on general industry knowledge and say so explicitly.'}
+
+Write a clear, professional investment return report in plain text (markdown headings ok). Structure it as:
+1. Executive summary
+2. Condition-driven risk: what happens to value/rentability if outstanding findings are left unaddressed
+3. Estimated return on investment if repairs/improvements are carried out - reference the market/economic data above where it's genuinely relevant, and be explicit when a figure is a rough estimate rather than sourced from the provided data
+4. Lease/rental potential: how addressing these findings (and any broader improvement opportunities you can reasonably infer for this property type) could affect achievable rent or lease terms
+5. Recommended priority order of investment, balancing cost against expected return
+
+Be honest about uncertainty - do not present speculative figures as precise or guaranteed. If the reference data doesn't cover this property's type/region, say so rather than inventing numbers that look authoritative.`
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': process.env.ANTHROPIC_API_KEY as string,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-5',
+      max_tokens: 2500,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  })
+
+  const data = await response.json()
+  const textBlock = data.content?.find((c: any) => c.type === 'text')
+  return textBlock?.text || 'Could not generate report.'
+}
