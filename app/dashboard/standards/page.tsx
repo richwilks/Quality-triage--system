@@ -218,81 +218,6 @@ export default function StandardsLibraryPage() {
           Upload standards your organisation holds a licensed copy of. Each is processed once, then reused instantly for every relevant analysis.
         </p>
 
-        <div className="mt-6">
-          {standards.length === 0 ? (
-            <p className="text-sm text-deck-dim">No standards uploaded yet.</p>
-          ) : (
-            <>
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by code, title, or category..."
-                className="w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text placeholder:text-deck-mute"
-              />
-
-              <div className="mt-2 space-y-2">
-                {grouped.length === 0 && (
-                  <p className="text-sm text-deck-dim">No standards match &ldquo;{search}&rdquo;.</p>
-                )}
-                {grouped.map((g) => {
-                  const isOpen = search.trim() ? true : !!openCategories[g.category]
-                  return (
-                    <div key={g.category} className="overflow-hidden rounded-lg border border-deck-border">
-                      <button
-                        type="button"
-                        onClick={() => toggleCategory(g.category)}
-                        className="flex w-full items-center justify-between bg-deck-surface px-3.5 py-2.5 text-sm"
-                      >
-                        <span className="font-medium text-deck-text">
-                          {g.category} ({g.items.length})
-                        </span>
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          className={`text-deck-dim transition-transform ${isOpen ? 'rotate-180' : ''}`}
-                        >
-                          <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </button>
-
-                      {isOpen && (
-                        <div className="space-y-2 border-t border-deck-border bg-deck-surface p-3">
-                          {g.items.map((s) => (
-                            <div key={s.id} className="rounded-lg border border-deck-border bg-deck-raised p-3">
-                              <p className="text-sm font-semibold text-deck-text">{s.code}</p>
-                              {s.title && <p className="text-xs text-deck-dim">{s.title}</p>}
-                              <p className="mt-1 text-xs">
-                                {s.extracted_text ? (
-                                  <span className="text-emerald-400">Ready for analysis</span>
-                                ) : (
-                                  <span className="text-amber-300">
-                                    Processing...{' '}
-                                    <button
-                                      onClick={() => handleRetry(s.id)}
-                                      className="ml-1 underline text-deck-accent"
-                                    >
-                                      Retry
-                                    </button>
-                                  </span>
-                                )}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </>
-          )}
-        </div>
-
         <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
           <p className="text-sm font-medium text-deck-body">Add standard(s)</p>
           <select
@@ -368,6 +293,81 @@ export default function StandardsLibraryPage() {
           <p className="mt-2 text-xs text-deck-dim">
             Only upload standards your organisation is properly licensed to hold - these are copyrighted documents.
           </p>
+        </div>
+
+        <div className="mt-6">
+          {standards.length === 0 ? (
+            <p className="text-sm text-deck-dim">No standards uploaded yet.</p>
+          ) : (
+            <>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by code, title, or category..."
+                className="w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text placeholder:text-deck-mute"
+              />
+
+              <div className="mt-2 space-y-2">
+                {grouped.length === 0 && (
+                  <p className="text-sm text-deck-dim">No standards match &ldquo;{search}&rdquo;.</p>
+                )}
+                {grouped.map((g) => {
+                  const isOpen = search.trim() ? true : !!openCategories[g.category]
+                  return (
+                    <div key={g.category} className="overflow-hidden rounded-lg border border-deck-border">
+                      <button
+                        type="button"
+                        onClick={() => toggleCategory(g.category)}
+                        className="flex w-full items-center justify-between bg-deck-surface px-3.5 py-2.5 text-sm"
+                      >
+                        <span className="font-medium text-deck-text">
+                          {g.category} ({g.items.length})
+                        </span>
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          className={`text-deck-dim transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                        >
+                          <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+
+                      {isOpen && (
+                        <div className="space-y-2 border-t border-deck-border bg-deck-surface p-3">
+                          {g.items.map((s) => (
+                            <div key={s.id} className="rounded-lg border border-deck-border bg-deck-raised p-3">
+                              <p className="text-sm font-semibold text-deck-text">{s.code}</p>
+                              {s.title && <p className="text-xs text-deck-dim">{s.title}</p>}
+                              <p className="mt-1 text-xs">
+                                {s.extracted_text ? (
+                                  <span className="text-emerald-400">Ready for analysis</span>
+                                ) : (
+                                  <span className="text-amber-300">
+                                    Processing...{' '}
+                                    <button
+                                      onClick={() => handleRetry(s.id)}
+                                      className="ml-1 underline text-deck-accent"
+                                    >
+                                      Retry
+                                    </button>
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
