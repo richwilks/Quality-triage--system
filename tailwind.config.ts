@@ -33,6 +33,9 @@ const config: Config = {
           accent: '#4FD1C5',
           success: '#4FAE7B',
         },
+        fmiq: {
+          accent: '#F5A623',
+        },
       },
       fontFamily: {
         sans: ['Inter', 'sans-serif'],

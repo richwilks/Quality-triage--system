@@ -26,6 +26,7 @@ export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [counts, setCounts] = useState<Record<string, StatusCounts>>({})
   const [loading, setLoading] = useState(true)
+  const [hasFmiqAccess, setHasFmiqAccess] = useState(false)
 
   useEffect(() => {
     load()
@@ -36,6 +37,13 @@ export default function DashboardPage() {
       data: { user },
     } = await supabase.auth.getUser()
     if (!user) return
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('has_fmiq_access')
+      .eq('id', user.id)
+      .single()
+    setHasFmiqAccess(!!profile?.has_fmiq_access)
 
     const { data: projectData } = await supabase
       .from('project_members')
@@ -88,9 +96,16 @@ export default function DashboardPage() {
               </p>
             </div>
           </div>
-          <Link href="/dashboard/account" className="font-mono text-xs text-deck-dim">
-            MY ACCOUNT
-          </Link>
+          <div className="flex flex-col items-end gap-1">
+            {hasFmiqAccess && (
+              <Link href="/choose" className="font-mono text-xs text-fmiq-accent">
+                SWITCH TO FMIQ
+              </Link>
+            )}
+            <Link href="/dashboard/account" className="font-mono text-xs text-deck-dim">
+              MY ACCOUNT
+            </Link>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 border-b border-deck-border">

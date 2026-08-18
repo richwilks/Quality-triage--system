@@ -32,7 +32,7 @@ export async function middleware(request: NextRequest) {
   if (user) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('is_blocked')
+      .select('is_blocked, has_fmiq_access')
       .eq('id', user.id)
       .single()
 
@@ -41,6 +41,13 @@ export async function middleware(request: NextRequest) {
       const url = request.nextUrl.clone()
       url.pathname = '/login'
       url.searchParams.set('blocked', '1')
+      return NextResponse.redirect(url)
+    }
+
+    if (request.nextUrl.pathname.startsWith('/fmiq') && !profile?.has_fmiq_access) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/dashboard'
+      url.search = ''
       return NextResponse.redirect(url)
     }
   }
@@ -63,7 +70,7 @@ export async function middleware(request: NextRequest) {
   if (user && isAuthPage) {
     const url = request.nextUrl.clone()
     const redirectTo = request.nextUrl.searchParams.get('redirect')
-    url.pathname = redirectTo || '/dashboard'
+    url.pathname = redirectTo || '/choose'
     url.search = ''
     return NextResponse.redirect(url)
   }

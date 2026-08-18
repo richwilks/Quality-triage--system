@@ -35,7 +35,7 @@ function LoginForm() {
     }
 await syncCompanyAccess(supabase)
     const redirectTo = searchParams.get('redirect')
-    router.push(redirectTo || '/dashboard')
+    router.push(redirectTo || '/choose')
     router.refresh()
   }
 
