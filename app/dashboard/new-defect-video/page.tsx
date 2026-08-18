@@ -34,6 +34,7 @@ type ReviewItem = DetectedDefect & {
   title: string
   included: boolean
   frameIndex: number
+  classification?: 'snag' | 'ncr'
 }
 
 const BOX_COLORS = ['#ef4444', '#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899']
@@ -289,6 +290,7 @@ export default function NewDefectVideoPage() {
           description: it.description,
           bounding_box: it.box,
           element_type: it.element_type || null,
+          classification: it.classification || 'snag',
           assigned_partner_id: assignedPartnerId || null,
           target_close_date: targetDate || null,
           status: 'draft',
@@ -460,6 +462,34 @@ export default function NewDefectVideoPage() {
                             </span>
                           </p>
                         )}
+
+                        <div className="mt-2 flex items-center gap-2">
+                          <label className="text-xs font-medium text-deck-body">Classification:</label>
+                          <div className="flex overflow-hidden rounded-md border border-deck-border">
+                            <button
+                              type="button"
+                              onClick={() => updateItem(it.localId, { classification: 'snag' })}
+                              className={`px-3 py-1 text-xs font-medium ${
+                                it.classification !== 'ncr'
+                                  ? 'bg-deck-accent text-deck-bg'
+                                  : 'bg-deck-surface text-deck-body'
+                              }`}
+                            >
+                              Snag
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updateItem(it.localId, { classification: 'ncr' })}
+                              className={`px-3 py-1 text-xs font-medium ${
+                                it.classification === 'ncr'
+                                  ? 'bg-red-600 text-white'
+                                  : 'bg-deck-surface text-deck-body'
+                              }`}
+                            >
+                              NCR
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     )
                   })}
