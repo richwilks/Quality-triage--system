@@ -19,6 +19,15 @@ export function guessFromBeta(beta: number): OrientationHint['guess'] {
   return 'wall'
 }
 
+const MIN_ZOOM = 1
+const MAX_ZOOM = 4
+
+function pinchDistance(touches: React.TouchList | TouchList) {
+  const dx = touches[0].clientX - touches[1].clientX
+  const dy = touches[0].clientY - touches[1].clientY
+  return Math.hypot(dx, dy)
+}
+
 export default function CameraCapture({
   onCapture,
   onClose,
@@ -29,8 +38,10 @@ export default function CameraCapture({
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const latestBetaRef = useRef<number | null>(null)
+  const pinchStartRef = useRef<{ distance: number; zoom: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
+  const [zoom, setZoom] = useState(1)
 
   useEffect(() => {
     let cancelled = false
@@ -83,6 +94,25 @@ export default function CameraCapture({
     }
   }, [])
 
+  function handleTouchStart(e: React.TouchEvent) {
+    if (e.touches.length === 2) {
+      pinchStartRef.current = { distance: pinchDistance(e.touches), zoom }
+    }
+  }
+
+  function handleTouchMove(e: React.TouchEvent) {
+    const start = pinchStartRef.current
+    if (!start || e.touches.length !== 2) return
+    e.preventDefault()
+    const distance = pinchDistance(e.touches)
+    const next = start.zoom * (distance / start.distance)
+    setZoom(Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, next)))
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (e.touches.length < 2) pinchStartRef.current = null
+  }
+
   function handleShutter() {
     const video = videoRef.current
     if (!video || !video.videoWidth) return
@@ -92,7 +122,15 @@ export default function CameraCapture({
     canvas.height = video.videoHeight
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-    ctx.drawImage(video, 0, 0)
+
+    // Crop to the same region the zoomed preview is showing (centred), then scale back up
+    // to full resolution - the capture has to match what's on screen, not the raw camera
+    // frame, otherwise zooming in visually would do nothing to the saved photo.
+    const sw = video.videoWidth / zoom
+    const sh = video.videoHeight / zoom
+    const sx = (video.videoWidth - sw) / 2
+    const sy = (video.videoHeight - sh) / 2
+    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height)
 
     const beta = latestBetaRef.current
     const orientation: OrientationHint | null =
@@ -110,7 +148,10 @@ export default function CameraCapture({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black">
+    <div
+      className="fixed inset-0 z-50 flex flex-col bg-black"
+      style={{ touchAction: 'none', overscrollBehavior: 'none' }}
+    >
       {error ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
           <p className="text-sm text-white">{error}</p>
@@ -123,7 +164,44 @@ export default function CameraCapture({
         </div>
       ) : (
         <>
-          <video ref={videoRef} playsInline muted className="w-full flex-1 object-cover" />
+          <div
+            className="relative flex-1 overflow-hidden"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
+            <video
+              ref={videoRef}
+              playsInline
+              muted
+              className="h-full w-full object-cover"
+              style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
+            />
+
+            {zoom > 1 && (
+              <span className="absolute right-3 top-3 rounded-full bg-black/60 px-2 py-1 text-xs font-semibold text-white">
+                {zoom.toFixed(1)}x
+              </span>
+            )}
+
+            <div className="absolute bottom-4 right-3 flex h-40 items-center">
+              <input
+                type="range"
+                min={MIN_ZOOM}
+                max={MAX_ZOOM}
+                step={0.1}
+                value={zoom}
+                onChange={(e) => setZoom(parseFloat(e.target.value))}
+                className="h-40 w-8"
+                style={{
+                  writingMode: 'vertical-lr' as any,
+                  direction: 'rtl',
+                  touchAction: 'none',
+                }}
+                aria-label="Zoom"
+              />
+            </div>
+          </div>
           <div className="flex items-center justify-between gap-4 bg-black p-4 pb-[env(safe-area-inset-bottom)]">
             <button
               onClick={onClose}
