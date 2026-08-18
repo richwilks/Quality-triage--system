@@ -14,6 +14,7 @@ type UserRow = {
   company_admin: boolean
   is_platform_admin: boolean
   is_blocked: boolean
+  has_fmiq_access: boolean
 }
 
 type ProjectRow = {
@@ -99,7 +100,7 @@ export default function PlatformAdminPage() {
 
     const { data: userData } = await supabase
       .from('profiles')
-      .select('id, full_name, email, company_name, account_type, role, company_admin, is_platform_admin, is_blocked')
+      .select('id, full_name, email, company_name, account_type, role, company_admin, is_platform_admin, is_blocked, has_fmiq_access')
       .order('company_name', { ascending: true })
     setUsers(userData || [])
 
@@ -370,6 +371,16 @@ export default function PlatformAdminPage() {
                         />
                         Platform admin
                       </label>
+                      <label className="flex items-center gap-1 text-xs text-deck-body">
+                        <input
+                          type="checkbox"
+                          checked={u.has_fmiq_access}
+                          onChange={(e) =>
+                            setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, has_fmiq_access: e.target.checked } : x)))
+                          }
+                        />
+                        FMIQ access
+                      </label>
                     </div>
 
                     <p className="pt-1 text-xs font-medium text-deck-body">Assigned projects</p>
@@ -396,6 +407,7 @@ export default function PlatformAdminPage() {
                             role: u.role,
                             company_admin: u.company_admin,
                             is_platform_admin: u.is_platform_admin,
+                            has_fmiq_access: u.has_fmiq_access,
                           })
                           setEditingUser(null)
                         }}
@@ -428,6 +440,11 @@ export default function PlatformAdminPage() {
                           {u.is_platform_admin && (
                             <span className="rounded-full bg-deck-mute/20 px-2 py-0.5 text-[10px] font-medium text-deck-text">
                               Platform admin
+                            </span>
+                          )}
+                          {u.has_fmiq_access && (
+                            <span className="rounded-full bg-fmiq-accent/15 px-2 py-0.5 text-[10px] font-medium text-fmiq-accent">
+                              FMIQ access
                             </span>
                           )}
                           {u.is_blocked && (
