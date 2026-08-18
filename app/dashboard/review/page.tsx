@@ -139,11 +139,32 @@ export default function ReviewDefectsPage() {
     return Array.isArray(d.projects) ? d.projects[0]?.name : d.projects.name
   }
 
+  // Guards any network call that could otherwise hang the confirm button forever with no
+  // feedback (e.g. a stuck Postgres lock on an RPC) - rejects after `ms` so it always
+  // resolves one way or another.
+  function withTimeout<T>(promise: Promise<T>, ms: number, timeoutMessage: string): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(timeoutMessage)), ms)
+      promise.then(
+        (value) => {
+          clearTimeout(timer)
+          resolve(value)
+        },
+        (err) => {
+          clearTimeout(timer)
+          reject(err)
+        }
+      )
+    })
+  }
+
   async function burnPolygonIntoPhoto(photoUrl: string, points: Point[]): Promise<Blob | null> {
     return new Promise((resolve) => {
+      const timer = setTimeout(() => resolve(null), 15000)
       const img = new Image()
       img.crossOrigin = 'anonymous'
       img.onload = () => {
+        clearTimeout(timer)
         try {
           const canvas = document.createElement('canvas')
           canvas.width = img.naturalWidth
@@ -172,21 +193,58 @@ export default function ReviewDefectsPage() {
           resolve(null)
         }
       }
-      img.onerror = () => resolve(null)
+      img.onerror = () => {
+        clearTimeout(timer)
+        resolve(null)
+      }
       img.src = photoUrl
     })
   }
 
+  // Falls back to scanning existing numbers for this project+classification and taking the
+  // max + 1 - the same approach used before the atomic RPC existed. Less safe against two
+  // defects being confirmed at the exact same instant, but only used when the RPC below
+  // fails or times out, so confirming a defect can never get permanently stuck.
+  async function generateReferenceNumberFallback(projectId: string, cls: string) {
+    const prefix = cls === 'ncr' ? 'NCR' : 'SNAG'
+    const { data } = await supabase
+      .from('defects')
+      .select('ncr_number')
+      .eq('project_id', projectId)
+      .eq('classification', cls)
+      .not('ncr_number', 'is', null)
+
+    let maxNumber = 0
+    ;(data || []).forEach((row: { ncr_number: string | null }) => {
+      const match = row.ncr_number?.match(/(\d+)$/)
+      if (match) maxNumber = Math.max(maxNumber, parseInt(match[1], 10))
+    })
+
+    return `${prefix}${String(maxNumber + 1).padStart(3, '0')}`
+  }
+
   // Assigns a project-scoped, classification-scoped reference code (SNAG001, SNAG002... /
   // NCR001, NCR002...) via a database-side atomic counter, so two defects confirmed at the
-  // same instant can never be handed the same number.
+  // same instant can never be handed the same number. Guarded with a timeout + fallback so a
+  // stuck database-side lock can never hang the confirm button forever.
   async function generateReferenceNumber(projectId: string, cls: string) {
-    const { data, error } = await supabase.rpc('generate_reference_number', {
-      p_project_id: projectId,
-      p_classification: cls,
-    })
-    if (error) throw error
-    return data as string
+    try {
+      const { data, error } = await withTimeout(
+        Promise.resolve(
+          supabase.rpc('generate_reference_number', {
+            p_project_id: projectId,
+            p_classification: cls,
+          })
+        ),
+        10000,
+        'Timed out generating a reference number'
+      )
+      if (error) throw error
+      if (!data) throw new Error('No reference number returned')
+      return data as string
+    } catch {
+      return generateReferenceNumberFallback(projectId, cls)
+    }
   }
 
   async function handleConfirm(defect: Defect) {
