@@ -15,8 +15,8 @@ const TABS = [
     ),
   },
   {
-    href: '/fmiq/work-orders/new',
-    label: 'New',
+    href: '/fmiq/inspections/new',
+    label: 'Inspect',
     icon: (active: boolean) => (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? '#F5A623' : '#9BA3AF'} strokeWidth="2">
         <circle cx="12" cy="12" r="9" />
