@@ -134,6 +134,13 @@ export default function FMIQHomePage() {
           <h2 className="mb-2.5 text-sm font-semibold uppercase tracking-wide text-deck-dim">Quick Access</h2>
           <div className="overflow-hidden rounded-md border border-deck-border">
             <Link
+              href="/fmiq/compliance"
+              className="flex items-center justify-between border-b border-deck-border bg-deck-surface px-3.5 py-3 text-[13.5px] font-medium text-deck-text"
+            >
+              <span>Compliance Tasks</span>
+              <span className="text-deck-mute">→</span>
+            </Link>
+            <Link
               href="/fmiq/regulations"
               className="flex items-center justify-between border-b border-deck-border bg-deck-surface px-3.5 py-3 text-[13.5px] font-medium text-deck-text"
             >
