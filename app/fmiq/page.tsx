@@ -141,6 +141,20 @@ export default function FMIQHomePage() {
               <span className="text-deck-mute">→</span>
             </Link>
             <Link
+              href="/fmiq/notifications"
+              className="flex items-center justify-between border-b border-deck-border bg-deck-surface px-3.5 py-3 text-[13.5px] font-medium text-deck-text"
+            >
+              <span>Notifications</span>
+              <span className="text-deck-mute">→</span>
+            </Link>
+            <Link
+              href="/fmiq/portfolio"
+              className="flex items-center justify-between border-b border-deck-border bg-deck-surface px-3.5 py-3 text-[13.5px] font-medium text-deck-text"
+            >
+              <span>Portfolio Compliance</span>
+              <span className="text-deck-mute">→</span>
+            </Link>
+            <Link
               href="/fmiq/regulations"
               className="flex items-center justify-between border-b border-deck-border bg-deck-surface px-3.5 py-3 text-[13.5px] font-medium text-deck-text"
             >

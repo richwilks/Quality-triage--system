@@ -249,7 +249,17 @@ export default function ComplianceCapturePage() {
         </p>
 
         {scheduled.status === 'completed' ? (
-          <p className="mt-6 text-sm text-emerald-700">This inspection has already been completed.</p>
+          <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
+            <p className="text-sm text-emerald-700">This inspection has already been completed.</p>
+            <a
+              href={`/fmiq/compliance/${scheduled.id}/certificate`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-block text-sm font-medium text-fmiq-accent underline"
+            >
+              View certificate
+            </a>
+          </div>
         ) : (
           <div className="mt-6 space-y-4 rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
             <div>

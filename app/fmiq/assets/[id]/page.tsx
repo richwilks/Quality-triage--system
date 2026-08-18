@@ -387,11 +387,18 @@ export default function AssetDetailPage() {
 
         <h2 className="mt-6 flex items-center justify-between text-sm font-semibold uppercase tracking-wide text-deck-dim">
           <span>Compliance</span>
-          {openDeficiencyCount > 0 && (
-            <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium normal-case text-red-700">
-              {openDeficiencyCount} open deficienc{openDeficiencyCount === 1 ? 'y' : 'ies'}
-            </span>
-          )}
+          <div className="flex items-center gap-2 normal-case">
+            {openDeficiencyCount > 0 && (
+              <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+                {openDeficiencyCount} open deficienc{openDeficiencyCount === 1 ? 'y' : 'ies'}
+              </span>
+            )}
+            {scheduledInspections.length > 0 && (
+              <Link href={`/fmiq/portfolio/${assetId}/summary`} className="text-xs font-medium text-fmiq-accent underline">
+                Summary
+              </Link>
+            )}
+          </div>
         </h2>
 
         {!asset.province && (
@@ -438,6 +445,14 @@ export default function AssetDetailPage() {
                   </div>
                   <p className="mt-0.5 text-xs text-deck-dim">
                     {framework?.reference_standard} · Due {s.due_date}
+                    {s.status === 'completed' && (
+                      <>
+                        {' · '}
+                        <Link href={`/fmiq/compliance/${s.id}/certificate`} className="font-medium text-fmiq-accent underline">
+                          Certificate
+                        </Link>
+                      </>
+                    )}
                   </p>
                   <select
                     value={s.assigned_contractor_org_id || ''}
