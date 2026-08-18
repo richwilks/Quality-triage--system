@@ -367,7 +367,7 @@ export default function ReviewDefectsPage() {
         </p>
 
         {confirmError && (
-          <p className="mt-3 rounded-md border border-red-500/30 bg-red-500/10 p-2 text-sm text-red-400">
+          <p className="mt-3 rounded-md border border-red-300 bg-red-50 p-2 text-sm text-red-600">
             {confirmError}
           </p>
         )}
@@ -456,7 +456,7 @@ export default function ReviewDefectsPage() {
                     </button>
                   </div>
                   {defect.ncr_number && (
-                    <span className={`text-xs font-medium ${isNcr ? 'text-red-400' : 'text-deck-accent'}`}>
+                    <span className={`text-xs font-medium ${isNcr ? 'text-red-600' : 'text-deck-accent'}`}>
                       {defect.ncr_number}
                     </span>
                   )}
@@ -475,8 +475,8 @@ export default function ReviewDefectsPage() {
                 />
 
                 {isNcr && (
-                  <div className="mt-3 rounded-md border border-red-500/30 bg-red-500/10 p-3">
-                    <p className="text-xs font-semibold text-red-400">
+                  <div className="mt-3 rounded-md border border-red-300 bg-red-50 p-3">
+                    <p className="text-xs font-semibold text-red-600">
                       Non-conformance - root cause and corrective action required for closure
                     </p>
                     <label className="mt-2 block text-xs font-medium text-deck-body">Root cause</label>

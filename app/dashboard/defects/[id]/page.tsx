@@ -176,13 +176,13 @@ export default function DefectDetailPage() {
         <div className="mt-2 flex items-center gap-2">
           <span
             className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-              isNcr ? 'bg-red-500/15 text-red-300' : 'bg-white/10 text-deck-dim'
+              isNcr ? 'bg-red-100 text-red-700' : 'bg-deck-raised text-deck-dim'
             }`}
           >
             {isNcr ? 'Non-Conformance (NCR)' : 'Snag'}
           </span>
           {defect.ncr_number && (
-            <span className={`text-xs font-medium ${isNcr ? 'text-red-400' : 'text-deck-accent'}`}>
+            <span className={`text-xs font-medium ${isNcr ? 'text-red-600' : 'text-deck-accent'}`}>
               {defect.ncr_number}
             </span>
           )}
@@ -218,8 +218,8 @@ export default function DefectDetailPage() {
           )}
 
           {isNcr && (
-            <div className="mt-3 rounded-md border border-red-500/30 bg-red-500/10 p-3">
-              <p className="text-xs font-semibold text-red-400">
+            <div className="mt-3 rounded-md border border-red-300 bg-red-50 p-3">
+              <p className="text-xs font-semibold text-red-600">
                 Non-conformance - root cause and corrective action required for closure
               </p>
               <label className="mt-2 block text-xs font-medium text-deck-body">Root cause</label>
@@ -289,7 +289,7 @@ export default function DefectDetailPage() {
           >
             {saving ? 'Saving...' : 'Save changes'}
           </button>
-          {saved && <p className="mt-2 text-sm text-emerald-400">Saved.</p>}
+          {saved && <p className="mt-2 text-sm text-emerald-700">Saved.</p>}
         </div>
       </div>
     </div>

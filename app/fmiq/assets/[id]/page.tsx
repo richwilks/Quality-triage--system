@@ -41,10 +41,10 @@ const STATUS_LABEL: Record<string, string> = {
   cancelled: 'Cancelled',
 }
 const STATUS_COLOR: Record<string, string> = {
-  open: 'bg-amber-500/15 text-amber-300',
-  in_progress: 'bg-blue-500/15 text-blue-300',
-  completed: 'bg-emerald-500/15 text-emerald-300',
-  cancelled: 'bg-white/10 text-deck-dim',
+  open: 'bg-amber-100 text-amber-700',
+  in_progress: 'bg-blue-100 text-blue-700',
+  completed: 'bg-emerald-100 text-emerald-700',
+  cancelled: 'bg-deck-raised text-deck-dim',
 }
 const PROPERTY_TYPE_LABEL: Record<string, string> = {
   residential: 'Residential',
@@ -175,7 +175,7 @@ export default function AssetDetailPage() {
             {generatingInvestment ? 'Generating...' : 'Investment report'}
           </button>
         </div>
-        {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
+        {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 
         <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-deck-dim">Inspections</h2>
         {inspections.length === 0 && (
@@ -191,7 +191,7 @@ export default function AssetDetailPage() {
               <p className="text-sm font-medium text-deck-text">{i.inspection_date}</p>
               <span
                 className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                  i.status === 'completed' ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'
+                  i.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
                 }`}
               >
                 {i.status === 'completed' ? 'Completed' : 'In progress'}

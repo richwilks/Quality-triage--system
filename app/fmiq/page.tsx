@@ -15,9 +15,9 @@ const STATUS_LABEL: Record<string, string> = {
   cancelled: 'Cancelled',
 }
 const STATUS_COLOR: Record<string, string> = {
-  open: 'text-amber-300',
-  in_progress: 'text-blue-400',
-  completed: 'text-emerald-400',
+  open: 'text-amber-700',
+  in_progress: 'text-blue-600',
+  completed: 'text-emerald-700',
   cancelled: 'text-deck-mute',
 }
 

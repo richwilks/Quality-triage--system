@@ -128,8 +128,8 @@ export default function DashboardPage() {
               <span
                 className="h-1.5 w-1.5 rounded-full"
                 style={{
-                  background: totalAcrossAll > 0 ? '#4FAE7B' : '#6B7280',
-                  boxShadow: totalAcrossAll > 0 ? '0 0 6px #4FAE7B' : 'none',
+                  background: totalAcrossAll > 0 ? '#1E7A46' : '#9C9686',
+                  boxShadow: totalAcrossAll > 0 ? '0 0 6px #1E7A46' : 'none',
                 }}
               />
             </div>

@@ -10,7 +10,7 @@ export default function PageHeader({ title }: { title: string }) {
       <button
         onClick={() => router.back()}
         aria-label="Back"
-        className="flex h-8 w-8 items-center justify-center rounded-md text-deck-dim hover:bg-white/5"
+        className="flex h-8 w-8 items-center justify-center rounded-md text-deck-dim hover:bg-deck-raised"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />

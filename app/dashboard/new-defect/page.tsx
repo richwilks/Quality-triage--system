@@ -565,11 +565,11 @@ function NewDefectPageInner() {
           {items.length > 0 && (
             <div className="space-y-3">
               {duplicateWarning && (
-                <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
-                  <p className="text-xs font-semibold text-amber-300">
+                <div className="rounded-md border border-amber-300 bg-amber-50 p-3">
+                  <p className="text-xs font-semibold text-amber-700">
                     Possible duplicate - {duplicateWarning}
                   </p>
-                  <p className="mt-1 text-xs text-amber-300">
+                  <p className="mt-1 text-xs text-amber-700">
                     Check whether this is already logged before saving again.
                   </p>
                 </div>
@@ -687,7 +687,7 @@ function NewDefectPageInner() {
             </div>
           </div>
 
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
           {!saved ? (
             <button
@@ -698,7 +698,7 @@ function NewDefectPageInner() {
               {saving ? 'Saving...' : 'Save selected defects'}
             </button>
           ) : (
-            <p className="text-sm font-medium text-emerald-400">
+            <p className="text-sm font-medium text-emerald-700">
               Saved. Ready for the next one.
             </p>
           )}

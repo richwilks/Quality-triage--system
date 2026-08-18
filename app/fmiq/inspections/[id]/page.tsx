@@ -28,10 +28,10 @@ type Finding = {
 }
 
 const SEVERITY_COLOR: Record<string, string> = {
-  minor: 'bg-white/10 text-deck-dim',
-  moderate: 'bg-amber-500/15 text-amber-300',
-  major: 'bg-orange-500/15 text-orange-300',
-  hazard: 'bg-red-500/15 text-red-300',
+  minor: 'bg-deck-raised text-deck-dim',
+  moderate: 'bg-amber-100 text-amber-700',
+  major: 'bg-orange-100 text-orange-700',
+  hazard: 'bg-red-100 text-red-700',
 }
 
 export default function InspectionDetailPage() {
@@ -155,7 +155,7 @@ export default function InspectionDetailPage() {
         <PageHeader title={getAssetName(inspection)} />
         <p className="mt-1 text-sm text-deck-dim">
           Inspected {inspection.inspection_date} ·{' '}
-          <span className={inspection.status === 'completed' ? 'text-emerald-400' : 'text-amber-300'}>
+          <span className={inspection.status === 'completed' ? 'text-emerald-700' : 'text-amber-700'}>
             {inspection.status === 'completed' ? 'Completed' : 'In progress'}
           </span>
         </p>
@@ -176,7 +176,7 @@ export default function InspectionDetailPage() {
             {generating ? 'Generating...' : 'Generate compliance report'}
           </button>
         </div>
-        {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
+        {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 
         <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-deck-dim">
           Findings ({findings.length})

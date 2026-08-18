@@ -487,7 +487,7 @@ export default function DrawingPinPage() {
         </div>
         {/* TEMPORARY DEBUG - remove once admin gating is confirmed working */}
         {adminDebug && (
-          <p className="mt-1 rounded bg-amber-500/10 p-2 text-xs text-amber-300">
+          <p className="mt-1 rounded bg-amber-50 p-2 text-xs text-amber-700">
             DEBUG — isAdmin: {String(isAdmin)} | {adminDebug}
           </p>
         )}
@@ -627,14 +627,14 @@ export default function DrawingPinPage() {
                 <button
                   onClick={() => handleDeleteRoom(selectedRoom.id)}
                   disabled={deletingRoom}
-                  className="text-xs font-medium text-red-400 disabled:opacity-50"
+                  className="text-xs font-medium text-red-600 disabled:opacity-50"
                 >
                   {deletingRoom ? 'Removing...' : 'Remove this markup'}
                 </button>
               </div>
             </div>
             {deleteError && (
-              <p className="mt-2 text-xs text-red-400">Could not remove: {deleteError}</p>
+              <p className="mt-2 text-xs text-red-600">Could not remove: {deleteError}</p>
             )}
           </div>
         )}
@@ -660,7 +660,7 @@ export default function DrawingPinPage() {
               </button>
             </div>
             {editError && (
-              <p className="mt-2 text-xs text-red-400">Could not save: {editError}</p>
+              <p className="mt-2 text-xs text-red-600">Could not save: {editError}</p>
             )}
           </div>
         )}
@@ -678,7 +678,7 @@ export default function DrawingPinPage() {
             )}
 
             {boundaryError && !detectingBoundary && (
-              <p className="text-sm text-amber-400">{boundaryError}</p>
+              <p className="text-sm text-amber-700">{boundaryError}</p>
             )}
 
             {!manualMode && !detectingBoundary && drawPoints.length === 0 && !boundaryError && (

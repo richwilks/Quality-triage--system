@@ -21,10 +21,10 @@ const STATUS_LABEL: Record<string, string> = {
   cancelled: 'Cancelled',
 }
 const STATUS_COLOR: Record<string, string> = {
-  open: 'bg-amber-500/15 text-amber-300',
-  in_progress: 'bg-blue-500/15 text-blue-300',
-  completed: 'bg-emerald-500/15 text-emerald-300',
-  cancelled: 'bg-white/10 text-deck-dim',
+  open: 'bg-amber-100 text-amber-700',
+  in_progress: 'bg-blue-100 text-blue-700',
+  completed: 'bg-emerald-100 text-emerald-700',
+  cancelled: 'bg-deck-raised text-deck-dim',
 }
 
 export default function MyTasksPage() {

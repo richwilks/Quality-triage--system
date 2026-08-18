@@ -156,15 +156,15 @@ export default function PlatformAnalyticsPage() {
                   <p className="text-[10px] text-deck-dim">Confirmed</p>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-amber-400">{c.assigned}</p>
+                  <p className="text-sm font-semibold text-amber-700">{c.assigned}</p>
                   <p className="text-[10px] text-deck-dim">Assigned</p>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-emerald-400">{c.closed}</p>
+                  <p className="text-sm font-semibold text-emerald-700">{c.closed}</p>
                   <p className="text-[10px] text-deck-dim">Closed</p>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-red-400">{c.rejected}</p>
+                  <p className="text-sm font-semibold text-red-600">{c.rejected}</p>
                   <p className="text-[10px] text-deck-dim">Rejected</p>
                 </div>
               </div>

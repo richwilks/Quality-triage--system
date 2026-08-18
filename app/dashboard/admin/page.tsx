@@ -307,7 +307,7 @@ export default function PlatformAdminPage() {
               <div
                 key={u.id}
                 className={`rounded-lg border p-3 ${
-                  u.is_blocked ? 'border-red-500/30 bg-red-500/10' : 'border-deck-border bg-deck-surface'
+                  u.is_blocked ? 'border-red-300 bg-red-50' : 'border-deck-border bg-deck-surface'
                 }`}
               >
                 {editingUser === u.id ? (
@@ -448,7 +448,7 @@ export default function PlatformAdminPage() {
                             </span>
                           )}
                           {u.is_blocked && (
-                            <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-medium text-red-300">
+                            <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700">
                               Blocked
                             </span>
                           )}
@@ -472,8 +472,8 @@ export default function PlatformAdminPage() {
                         onClick={() => toggleBlocked(u.id, u.is_blocked)}
                         className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
                           u.is_blocked
-                            ? 'bg-emerald-500/15 text-emerald-300'
-                            : 'border border-red-300 text-red-400'
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'border border-red-300 text-red-600'
                         }`}
                       >
                         {u.is_blocked ? 'Unblock login' : 'Block login'}
@@ -570,7 +570,7 @@ export default function PlatformAdminPage() {
                       <p className="text-xs text-deck-dim">{p.company_name || 'no company'}</p>
                       <span
                         className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                          p.status === 'closed' ? 'bg-white/10 text-deck-dim' : 'bg-emerald-500/15 text-emerald-300'
+                          p.status === 'closed' ? 'bg-deck-raised text-deck-dim' : 'bg-emerald-100 text-emerald-700'
                         }`}
                       >
                         {p.status}
@@ -595,7 +595,7 @@ export default function PlatformAdminPage() {
               <p className="text-sm text-deck-dim">No pending invites anywhere.</p>
             )}
             {invites.map((inv) => (
-              <div key={inv.id} className="flex items-center justify-between rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+              <div key={inv.id} className="flex items-center justify-between rounded-lg border border-amber-300 bg-amber-50 p-3">
                 <div>
                   <p className="text-sm font-medium text-deck-text">{inv.email}</p>
                   <p className="text-xs text-deck-dim">
@@ -604,7 +604,7 @@ export default function PlatformAdminPage() {
                 </div>
                 <button
                   onClick={() => cancelInvite(inv.id)}
-                  className="text-xs font-medium text-red-400"
+                  className="text-xs font-medium text-red-600"
                 >
                   Cancel
                 </button>
@@ -653,7 +653,7 @@ export default function PlatformAdminPage() {
                             disabled={brandingBusy === companyName}
                             className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium disabled:opacity-50 ${
                               enabled
-                                ? 'bg-emerald-500/15 text-emerald-300'
+                                ? 'bg-emerald-100 text-emerald-700'
                                 : 'border border-deck-border text-deck-body'
                             }`}
                           >
