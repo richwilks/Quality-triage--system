@@ -228,7 +228,7 @@ export default function ReviewDefectsPage() {
   // Assigns a project-scoped, classification-scoped reference code (SNAG001, SNAG002... /
   // NCR001, NCR002...) via a database-side atomic counter, so two defects confirmed at the
   // same instant can never be handed the same number.
-  async function generateReferenceNumber(projectId: string, cls: 'snag' | 'ncr') {
+  async function generateReferenceNumber(projectId: string, cls: string) {
     const { data, error } = await supabase.rpc('generate_reference_number', {
       p_project_id: projectId,
       p_classification: cls,
