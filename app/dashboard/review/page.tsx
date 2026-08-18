@@ -1,14 +1,18 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
 import ClauseViewer from '@/components/ClauseViewer'
+import PolygonBoxEditor, { Point } from '@/components/PolygonBoxEditor'
 
 
 type Partner = { id: string; full_name: string | null; company_name: string | null }
 
-type BoundingBox = { x: number; y: number; width: number; height: number }
+// bounding_box on existing defects may still be the old rectangle shape
+// ({x,y,width,height}) saved before polygons were introduced - normalizeToPolygon()
+// below converts either shape into a Point[] the editor can work with.
+type LegacyRect = { x: number; y: number; width: number; height: number }
 
 type Defect = {
   id: string
@@ -21,7 +25,7 @@ type Defect = {
   description: string | null
   assigned_partner_id: string | null
   target_close_date: string | null
-  bounding_box: BoundingBox | null
+  bounding_box: LegacyRect | Point[] | null
   classification: string | null
   ncr_number: string | null
   element_type: string | null
@@ -42,7 +46,25 @@ const ELEMENT_TYPE_LABELS: Record<string, string> = {
   other: 'Other',
 }
 
-const DEFAULT_BOX: BoundingBox = { x: 35, y: 35, width: 30, height: 30 }
+const DEFAULT_POLYGON: Point[] = [
+  { x: 35, y: 35 },
+  { x: 65, y: 35 },
+  { x: 65, y: 65 },
+  { x: 35, y: 65 },
+]
+
+function normalizeToPolygon(box: LegacyRect | Point[] | null): Point[] {
+  if (!box) return DEFAULT_POLYGON
+  if (Array.isArray(box)) {
+    return box.length >= 3 ? box : DEFAULT_POLYGON
+  }
+  return [
+    { x: box.x, y: box.y },
+    { x: box.x + box.width, y: box.y },
+    { x: box.x + box.width, y: box.y + box.height },
+    { x: box.x, y: box.y + box.height },
+  ]
+}
 
 export default function ReviewDefectsPage() {
   const supabase = createClient()
@@ -52,7 +74,7 @@ export default function ReviewDefectsPage() {
   const [editedText, setEditedText] = useState<Record<string, string>>({})
   const [assignedPartner, setAssignedPartner] = useState<Record<string, string>>({})
   const [targetDate, setTargetDate] = useState<Record<string, string>>({})
-  const [boxes, setBoxes] = useState<Record<string, BoundingBox>>({})
+  const [boxes, setBoxes] = useState<Record<string, Point[]>>({})
   const [classification, setClassification] = useState<Record<string, string>>({})
   const [rootCause, setRootCause] = useState<Record<string, string>>({})
   const [correctiveAction, setCorrectiveAction] = useState<Record<string, string>>({})
@@ -61,10 +83,6 @@ export default function ReviewDefectsPage() {
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [confirmError, setConfirmError] = useState<string | null>(null)
-
-  const containerRefs = useRef<Record<string, HTMLDivElement | null>>({})
-  const dragState = useRef<{ id: string; startX: number; startY: number; boxX: number; boxY: number } | null>(null)
-  const resizeState = useRef<{ id: string; startX: number; startY: number; boxW: number; boxH: number } | null>(null)
 
   useEffect(() => {
     loadDefects()
@@ -86,7 +104,7 @@ export default function ReviewDefectsPage() {
     const initialText: Record<string, string> = {}
     const initialPartner: Record<string, string> = {}
     const initialDate: Record<string, string> = {}
-    const initialBoxes: Record<string, BoundingBox> = {}
+    const initialBoxes: Record<string, Point[]> = {}
     const initialClass: Record<string, string> = {}
     const initialRootCause: Record<string, string> = {}
     const initialCorrective: Record<string, string> = {}
@@ -94,7 +112,7 @@ export default function ReviewDefectsPage() {
       initialText[d.id] = d.description || d.ai_description || ''
       initialPartner[d.id] = d.assigned_partner_id || ''
       initialDate[d.id] = d.target_close_date || ''
-      initialBoxes[d.id] = d.bounding_box || DEFAULT_BOX
+      initialBoxes[d.id] = normalizeToPolygon(d.bounding_box)
       initialClass[d.id] = d.classification || 'snag'
       initialRootCause[d.id] = d.root_cause || ''
       initialCorrective[d.id] = d.corrective_action || ''
@@ -121,76 +139,7 @@ export default function ReviewDefectsPage() {
     return Array.isArray(d.projects) ? d.projects[0]?.name : d.projects.name
   }
 
-  function handlePointerDown(e: React.PointerEvent, defectId: string) {
-    e.preventDefault()
-    const box = boxes[defectId] || DEFAULT_BOX
-    dragState.current = {
-      id: defectId,
-      startX: e.clientX,
-      startY: e.clientY,
-      boxX: box.x,
-      boxY: box.y,
-    }
-    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
-  }
-
-  function handlePointerMove(e: React.PointerEvent, defectId: string) {
-    const drag = dragState.current
-    if (!drag || drag.id !== defectId) return
-    const container = containerRefs.current[defectId]
-    if (!container) return
-
-    const rect = container.getBoundingClientRect()
-    const deltaXPercent = ((e.clientX - drag.startX) / rect.width) * 100
-    const deltaYPercent = ((e.clientY - drag.startY) / rect.height) * 100
-
-    setBoxes((prev) => {
-      const current = prev[defectId] || DEFAULT_BOX
-      const newX = Math.max(0, Math.min(100 - current.width, drag.boxX + deltaXPercent))
-      const newY = Math.max(0, Math.min(100 - current.height, drag.boxY + deltaYPercent))
-      return { ...prev, [defectId]: { ...current, x: newX, y: newY } }
-    })
-  }
-
-  function handlePointerUp() {
-    dragState.current = null
-    resizeState.current = null
-  }
-
-  function handleResizeStart(e: React.PointerEvent, defectId: string) {
-    e.preventDefault()
-    e.stopPropagation()
-    const box = boxes[defectId] || DEFAULT_BOX
-    resizeState.current = {
-      id: defectId,
-      startX: e.clientX,
-      startY: e.clientY,
-      boxW: box.width,
-      boxH: box.height,
-    }
-    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
-  }
-
-  function handleResizeMove(e: React.PointerEvent, defectId: string) {
-    e.stopPropagation()
-    const resize = resizeState.current
-    if (!resize || resize.id !== defectId) return
-    const container = containerRefs.current[defectId]
-    if (!container) return
-
-    const rect = container.getBoundingClientRect()
-    const deltaWPercent = ((e.clientX - resize.startX) / rect.width) * 100
-    const deltaHPercent = ((e.clientY - resize.startY) / rect.height) * 100
-
-    setBoxes((prev) => {
-      const current = prev[defectId] || DEFAULT_BOX
-      const newW = Math.max(3, Math.min(100 - current.x, resize.boxW + deltaWPercent))
-      const newH = Math.max(3, Math.min(100 - current.y, resize.boxH + deltaHPercent))
-      return { ...prev, [defectId]: { ...current, width: newW, height: newH } }
-    })
-  }
-
-  async function burnBoxIntoPhoto(photoUrl: string, box: BoundingBox): Promise<Blob | null> {
+  async function burnPolygonIntoPhoto(photoUrl: string, points: Point[]): Promise<Blob | null> {
     return new Promise((resolve) => {
       const img = new Image()
       img.crossOrigin = 'anonymous'
@@ -206,14 +155,17 @@ export default function ReviewDefectsPage() {
           }
           ctx.drawImage(img, 0, 0)
 
-          const boxX = (box.x / 100) * canvas.width
-          const boxY = (box.y / 100) * canvas.height
-          const boxW = (box.width / 100) * canvas.width
-          const boxH = (box.height / 100) * canvas.height
-
           ctx.strokeStyle = '#ef4444'
           ctx.lineWidth = Math.max(3, canvas.width * 0.004)
-          ctx.strokeRect(boxX, boxY, boxW, boxH)
+          ctx.beginPath()
+          points.forEach((p, i) => {
+            const px = (p.x / 100) * canvas.width
+            const py = (p.y / 100) * canvas.height
+            if (i === 0) ctx.moveTo(px, py)
+            else ctx.lineTo(px, py)
+          })
+          ctx.closePath()
+          ctx.stroke()
 
           canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.9)
         } catch {
@@ -248,12 +200,12 @@ export default function ReviewDefectsPage() {
 
       const partnerId = assignedPartner[defect.id] || null
       const newStatus = partnerId ? 'assigned' : 'confirmed'
-      const box = boxes[defect.id] || DEFAULT_BOX
+      const box = boxes[defect.id] || DEFAULT_POLYGON
       const finalClassification = classification[defect.id] || 'snag'
 
       let annotatedUrl: string | null = null
       if (defect.photo_url) {
-        const blob = await burnBoxIntoPhoto(defect.photo_url, box)
+        const blob = await burnPolygonIntoPhoto(defect.photo_url, box)
         if (blob) {
           const path = `${defect.project_id}/annotated-${Date.now()}-${defect.id}.jpg`
           const { error: uploadError } = await supabase.storage
@@ -353,7 +305,7 @@ export default function ReviewDefectsPage() {
       <div className="mx-auto max-w-md">
         <PageHeader title="Review Defects" />
         <p className="mt-1 text-sm text-deck-dim">
-          Confirm or reject each item. Drag the box to reposition, or drag the corner handle to resize - it'll be baked into the photo once confirmed.
+          Confirm or reject each item. Drag a point to reshape the outline, tap an edge to add a point, or double-tap a point to remove it - it'll be baked into the photo once confirmed.
         </p>
 
         {confirmError && (
@@ -370,7 +322,7 @@ export default function ReviewDefectsPage() {
 
         <div className="mt-6 space-y-4">
           {defects.map((defect) => {
-            const box = boxes[defect.id] || DEFAULT_BOX
+            const box = boxes[defect.id] || DEFAULT_POLYGON
             const isNcr = classification[defect.id] === 'ncr'
             return (
               <div
@@ -385,54 +337,17 @@ export default function ReviewDefectsPage() {
                 )}
 
                 {defect.photo_url && (
-                  <div
-                    ref={(el) => {
-                      containerRefs.current[defect.id] = el
-                    }}
-                    className="relative mt-2 w-full touch-none select-none"
-                  >
+                  <div className="relative mt-2 w-full select-none">
                     <img
                       src={defect.photo_url}
                       alt="Defect"
                       className="w-full rounded-md"
                       draggable={false}
                     />
-                    <div
-                      onPointerDown={(e) => handlePointerDown(e, defect.id)}
-                      onPointerMove={(e) => handlePointerMove(e, defect.id)}
-                      onPointerUp={handlePointerUp}
-                      style={{
-                        position: 'absolute',
-                        left: `${box.x}%`,
-                        top: `${box.y}%`,
-                        width: `${box.width}%`,
-                        height: `${box.height}%`,
-                        border: '3px solid #ef4444',
-                        cursor: 'grab',
-                        touchAction: 'none',
-                      }}
-                    >
-                      <span className="absolute -top-6 left-0 rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                        Drag to adjust
-                      </span>
-                      <div
-                        onPointerDown={(e) => handleResizeStart(e, defect.id)}
-                        onPointerMove={(e) => handleResizeMove(e, defect.id)}
-                        onPointerUp={handlePointerUp}
-                        style={{
-                          position: 'absolute',
-                          right: -8,
-                          bottom: -8,
-                          width: 20,
-                          height: 20,
-                          backgroundColor: '#ef4444',
-                          borderRadius: '50%',
-                          border: '2px solid white',
-                          cursor: 'nwse-resize',
-                          touchAction: 'none',
-                        }}
-                      />
-                    </div>
+                    <PolygonBoxEditor
+                      points={box}
+                      onChange={(next) => setBoxes((prev) => ({ ...prev, [defect.id]: next }))}
+                    />
                   </div>
                 )}
 
