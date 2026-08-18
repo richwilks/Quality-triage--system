@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { analyzeDefectImage, ExtraStandardText, FeedbackExample, KnowledgeEntry } from '@/lib/anthropic'
+import { analyzeDefectImage, ExtraStandardText, FeedbackExample, KnowledgeEntry, OrientationHint } from '@/lib/anthropic'
 
 export const maxDuration = 60
 const MAX_FEEDBACK_EXAMPLES = 12
@@ -9,13 +9,44 @@ const MAX_FEEDBACK_EXAMPLES = 12
 const INPUT_COST_PER_M = 2.0
 const OUTPUT_COST_PER_M = 10.0
 
+// Coarse keyword buckets used to soft-filter the knowledge base against a device orientation
+// guess: an entry is only ever dropped if its free-text element_type clearly names a *different*
+// bucket than the guess - anything ambiguous or unrelated to these keywords is kept (fail open).
+const ELEMENT_KEYWORDS: Record<'floor' | 'wall' | 'ceiling', string[]> = {
+  floor: ['floor', 'flooring', 'slab', 'screed'],
+  wall: ['wall', 'partition', 'cladding'],
+  ceiling: ['ceiling', 'soffit'],
+}
+
+function conflictsWithOrientation(entryElementType: string | null, guess: 'floor' | 'wall' | 'ceiling') {
+  if (!entryElementType) return false
+  const normalized = entryElementType.toLowerCase()
+  if (ELEMENT_KEYWORDS[guess].some((kw) => normalized.includes(kw))) return false
+  const otherGuesses = (['floor', 'wall', 'ceiling'] as const).filter((g) => g !== guess)
+  return otherGuesses.some((other) => ELEMENT_KEYWORDS[other].some((kw) => normalized.includes(kw)))
+}
+
 function normalizeCode(code: string) {
   return code.toLowerCase().replace(/[\s.\-_/]/g, '')
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const { imageBase64, mimeType, projectId, location, finishGrade } = await req.json()
+    const {
+      imageBase64,
+      mimeType,
+      projectId,
+      location,
+      finishGrade,
+      orientationHint,
+    }: {
+      imageBase64: string
+      mimeType: string
+      projectId: string
+      location?: string
+      finishGrade?: string
+      orientationHint?: OrientationHint | null
+    } = await req.json()
 
     const supabase = await createClient()
     const { data: project } = await supabase
@@ -70,6 +101,9 @@ export async function POST(req: NextRequest) {
       const projectCountry = (project?.country || 'UK').toLowerCase().trim()
       const projectStandardsNormalized = project?.standards ? normalizeCode(project.standards) : ''
 
+      const orientationGuess =
+        orientationHint && orientationHint.guess !== 'uncertain' ? orientationHint.guess : null
+
       const relevantEntries = knowledgeRows.filter((k) => {
         const countryMatches = !k.country || k.country.toLowerCase().trim() === projectCountry
         const standardsMatch =
@@ -77,7 +111,12 @@ export async function POST(req: NextRequest) {
           !projectStandardsNormalized ||
           projectStandardsNormalized.includes(normalizeCode(k.applicable_standards))
         // Include if country matches AND (no standards restriction OR standards match)
-        return countryMatches && (!k.applicable_standards || standardsMatch)
+        if (!countryMatches || (k.applicable_standards && !standardsMatch)) return false
+        // Drop entries that clearly target a different element type than the device's
+        // orientation at capture suggests (e.g. a flooring entry when the phone was tilted
+        // down at a wall) - anything ambiguous or unmatched stays in.
+        if (orientationGuess && conflictsWithOrientation(k.element_type, orientationGuess)) return false
+        return true
       })
 
       relevantEntries.forEach((k) =>
@@ -130,7 +169,8 @@ export async function POST(req: NextRequest) {
       extraStandards,
       feedbackExamples,
       finishGrade || null,
-      knowledgeEntries
+      knowledgeEntries,
+      orientationHint || null
     )
 
     if (usage) {

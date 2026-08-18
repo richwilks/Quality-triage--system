@@ -11,7 +11,20 @@ type DetectedDefect = {
   description: string
   confidence: number
   standard_reference: string
+  element_type: string
   box: { x: number; y: number; width: number; height: number }
+}
+
+const ELEMENT_TYPE_LABELS: Record<string, string> = {
+  floor: 'Floor',
+  wall: 'Wall',
+  ceiling: 'Ceiling',
+  structural_steel: 'Structural steel',
+  cladding_envelope: 'Cladding / envelope',
+  fire_penetration: 'Fire penetration / seal',
+  movement_joint: 'Movement joint',
+  mep: 'MEP',
+  other: 'Other',
 }
 
 type Frame = { time: number; dataUrl: string; blob: Blob }
@@ -438,6 +451,14 @@ export default function NewDefectVideoPage() {
                           Confidence: {Math.round(it.confidence * 100)}%
                           {it.standard_reference && ` · Standard: ${it.standard_reference}`}
                         </p>
+                        {it.element_type && (
+                          <p className="mt-1 text-xs text-deck-dim">
+                            AI identified element:{' '}
+                            <span className="font-medium text-deck-body">
+                              {ELEMENT_TYPE_LABELS[it.element_type] || it.element_type}
+                            </span>
+                          </p>
+                        )}
                       </div>
                     )
                   })}
