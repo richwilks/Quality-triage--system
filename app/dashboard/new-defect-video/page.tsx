@@ -532,7 +532,7 @@ export default function NewDefectVideoPage() {
             </>
           )}
 
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
           {items.length > 0 && !saved && !processing && (
             <button
@@ -544,7 +544,7 @@ export default function NewDefectVideoPage() {
             </button>
           )}
           {saved && (
-            <p className="text-sm font-medium text-emerald-400">
+            <p className="text-sm font-medium text-emerald-700">
               Saved. You can review them on the dashboard.
             </p>
           )}

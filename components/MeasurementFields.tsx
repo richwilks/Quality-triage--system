@@ -14,8 +14,8 @@ export default function MeasurementFields({
   onChange: (patch: Partial<MeasurementData>) => void
 }) {
   return (
-    <div className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
-      <p className="text-xs font-semibold text-amber-300">
+    <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 p-3">
+      <p className="text-xs font-semibold text-amber-700">
         Manual measurement required - this cannot be measured from a photo
       </p>
       <label className="mt-2 block text-xs font-medium text-deck-body">Measured gap (mm)</label>

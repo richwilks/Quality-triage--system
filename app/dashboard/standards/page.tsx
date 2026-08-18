@@ -256,7 +256,7 @@ export default function StandardsLibraryPage() {
               {files.map((f, i) => (
                 <div key={i} className="flex items-center justify-between rounded-md bg-deck-raised px-2 py-1 text-xs text-deck-body">
                   <span className="truncate">{f.name}</span>
-                  <button onClick={() => removeSelectedFile(i)} className="ml-2 text-red-400">✕</button>
+                  <button onClick={() => removeSelectedFile(i)} className="ml-2 text-red-600">✕</button>
                 </div>
               ))}
               {files.length > 1 && (
@@ -273,15 +273,15 @@ export default function StandardsLibraryPage() {
                 <div key={i} className="text-xs">
                   <span className="font-medium text-deck-body">{p.fileName}</span>{' '}
                   {p.status === 'uploading' && <span className="text-deck-dim">Uploading...</span>}
-                  {p.status === 'processing' && <span className="text-amber-300">Processing...</span>}
-                  {p.status === 'done' && <span className="text-emerald-400">Ready</span>}
-                  {p.status === 'error' && <span className="text-red-400">Failed: {p.error}</span>}
+                  {p.status === 'processing' && <span className="text-amber-700">Processing...</span>}
+                  {p.status === 'done' && <span className="text-emerald-700">Ready</span>}
+                  {p.status === 'error' && <span className="text-red-600">Failed: {p.error}</span>}
                 </div>
               ))}
             </div>
           )}
 
-          {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
+          {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 
           <button
             onClick={handleUpload}
@@ -345,9 +345,9 @@ export default function StandardsLibraryPage() {
                               {s.title && <p className="text-xs text-deck-dim">{s.title}</p>}
                               <p className="mt-1 text-xs">
                                 {s.extracted_text ? (
-                                  <span className="text-emerald-400">Ready for analysis</span>
+                                  <span className="text-emerald-700">Ready for analysis</span>
                                 ) : (
-                                  <span className="text-amber-300">
+                                  <span className="text-amber-700">
                                     Processing...{' '}
                                     <button
                                       onClick={() => handleRetry(s.id)}

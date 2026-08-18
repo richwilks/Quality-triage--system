@@ -21,10 +21,10 @@ type Finding = {
 }
 
 const SEVERITY_COLOR: Record<string, string> = {
-  minor: 'bg-white/10 text-deck-dim',
-  moderate: 'bg-amber-500/15 text-amber-300',
-  major: 'bg-orange-500/15 text-orange-300',
-  hazard: 'bg-red-500/15 text-red-300',
+  minor: 'bg-deck-raised text-deck-dim',
+  moderate: 'bg-amber-100 text-amber-700',
+  major: 'bg-orange-100 text-orange-700',
+  hazard: 'bg-red-100 text-red-700',
 }
 
 const BOX_COLORS = ['#ef4444', '#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899']
@@ -314,7 +314,7 @@ function NewInspectionInner() {
                 </select>
               </div>
             )}
-            {error && <p className="text-sm text-red-400">{error}</p>}
+            {error && <p className="text-sm text-red-600">{error}</p>}
             <button
               onClick={handleStart}
               disabled={starting || assets.length === 0}
@@ -326,7 +326,7 @@ function NewInspectionInner() {
         ) : (
           <div className="mt-6 space-y-4 rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
             {savedCount > 0 && (
-              <p className="text-xs text-emerald-400">{savedCount} finding{savedCount === 1 ? '' : 's'} saved so far.</p>
+              <p className="text-xs text-emerald-700">{savedCount} finding{savedCount === 1 ? '' : 's'} saved so far.</p>
             )}
 
             <div>
@@ -449,7 +449,7 @@ function NewInspectionInner() {
               </div>
             )}
 
-            {error && <p className="text-sm text-red-400">{error}</p>}
+            {error && <p className="text-sm text-red-600">{error}</p>}
 
             <button
               onClick={handleComplete}

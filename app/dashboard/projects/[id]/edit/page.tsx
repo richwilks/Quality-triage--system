@@ -212,7 +212,7 @@ export default function EditProjectPage() {
                           disabled={included}
                           className={`rounded-full border px-2.5 py-1 text-xs font-medium ${
                             included
-                              ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
+                              ? 'border-emerald-300 bg-emerald-100 text-emerald-700'
                               : 'border-deck-border text-deck-body'
                           }`}
                         >
@@ -237,7 +237,7 @@ export default function EditProjectPage() {
             />
           </div>
 
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
           <button
             onClick={handleSave}
@@ -246,7 +246,7 @@ export default function EditProjectPage() {
           >
             {saving ? 'Saving...' : 'Save changes'}
           </button>
-          {saved && <p className="text-sm font-medium text-emerald-400">Saved.</p>}
+          {saved && <p className="text-sm font-medium text-emerald-700">Saved.</p>}
         </div>
       </div>
     </div>

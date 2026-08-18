@@ -116,7 +116,7 @@ const [isCompanyAdmin, setIsCompanyAdmin] = useState(false)
           >
             {saving ? 'Saving...' : 'Save changes'}
           </button>
-          {saved && <p className="mt-2 text-sm text-emerald-400">Saved.</p>}
+          {saved && <p className="mt-2 text-sm text-emerald-700">Saved.</p>}
         </div>
         {isCompanyAdmin && (
           <a
@@ -137,7 +137,7 @@ const [isCompanyAdmin, setIsCompanyAdmin] = useState(false)
 
         <button
           onClick={handleLogout}
-          className="mt-4 w-full rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-400"
+          className="mt-4 w-full rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-600"
         >
           Log out
         </button>

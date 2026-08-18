@@ -252,7 +252,7 @@ export default function DefectKnowledgeAdminPage() {
   if (!authorized) {
     return (
       <div className="min-h-screen p-8">
-        <p className="text-sm text-red-400">You don't have access to this page.</p>
+        <p className="text-sm text-red-600">You don't have access to this page.</p>
       </div>
     )
   }
@@ -316,7 +316,7 @@ export default function DefectKnowledgeAdminPage() {
                   {importResults
                     .filter((r) => r.status === 'error')
                     .map((r, i) => (
-                      <p key={i} className="text-xs text-red-400">
+                      <p key={i} className="text-xs text-red-600">
                         Row {r.row} ({r.title}): {r.error}
                       </p>
                     ))}
@@ -339,7 +339,7 @@ export default function DefectKnowledgeAdminPage() {
                     {[e.element_type, e.country, e.applicable_standards].filter(Boolean).join(' · ') || 'General'}
                   </p>
                 </div>
-                <span className={`text-xs font-medium ${e.active ? 'text-emerald-400' : 'text-deck-dim'}`}>
+                <span className={`text-xs font-medium ${e.active ? 'text-emerald-700' : 'text-deck-dim'}`}>
                   {e.active ? 'Active' : 'Inactive'}
                 </span>
               </div>
@@ -356,7 +356,7 @@ export default function DefectKnowledgeAdminPage() {
                 </button>
                 <button
                   onClick={() => handleDelete(e.id)}
-                  className="text-xs font-medium text-red-400"
+                  className="text-xs font-medium text-red-600"
                 >
                   Delete
                 </button>
@@ -419,7 +419,7 @@ export default function DefectKnowledgeAdminPage() {
             <option value="snag">Snag</option>
           </select>
 
-          {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
+          {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 
           <button
             onClick={handleAdd}

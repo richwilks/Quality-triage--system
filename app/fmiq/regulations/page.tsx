@@ -215,8 +215,8 @@ export default function RegulationsLibraryPage() {
             className="mt-2 w-full text-sm text-deck-dim"
           />
 
-          {status && <p className="mt-2 text-xs text-amber-300">{status}</p>}
-          {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
+          {status && <p className="mt-2 text-xs text-amber-700">{status}</p>}
+          {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 
           <button
             onClick={handleUpload}
@@ -276,9 +276,9 @@ export default function RegulationsLibraryPage() {
                               {r.jurisdiction && <p className="text-xs text-deck-mute">{r.jurisdiction}</p>}
                               <p className="mt-1 text-xs">
                                 {r.extracted_text ? (
-                                  <span className="text-emerald-400">Ready for analysis</span>
+                                  <span className="text-emerald-700">Ready for analysis</span>
                                 ) : (
-                                  <span className="text-amber-300">
+                                  <span className="text-amber-700">
                                     Processing...{' '}
                                     <button onClick={() => handleRetry(r.id)} className="ml-1 underline text-fmiq-accent">
                                       Retry

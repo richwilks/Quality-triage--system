@@ -15,9 +15,9 @@ const STATUS_LABEL: Record<string, string> = {
   cancelled: 'Cancelled',
 }
 const STATUS_COLOR: Record<string, string> = {
-  open: 'text-amber-300',
-  in_progress: 'text-blue-400',
-  completed: 'text-emerald-400',
+  open: 'text-amber-700',
+  in_progress: 'text-blue-600',
+  completed: 'text-emerald-700',
   cancelled: 'text-deck-mute',
 }
 
@@ -133,6 +133,27 @@ export default function FMIQHomePage() {
         <div className="mt-5">
           <h2 className="mb-2.5 text-sm font-semibold uppercase tracking-wide text-deck-dim">Quick Access</h2>
           <div className="overflow-hidden rounded-md border border-deck-border">
+            <Link
+              href="/fmiq/compliance"
+              className="flex items-center justify-between border-b border-deck-border bg-deck-surface px-3.5 py-3 text-[13.5px] font-medium text-deck-text"
+            >
+              <span>Compliance Tasks</span>
+              <span className="text-deck-mute">→</span>
+            </Link>
+            <Link
+              href="/fmiq/notifications"
+              className="flex items-center justify-between border-b border-deck-border bg-deck-surface px-3.5 py-3 text-[13.5px] font-medium text-deck-text"
+            >
+              <span>Notifications</span>
+              <span className="text-deck-mute">→</span>
+            </Link>
+            <Link
+              href="/fmiq/portfolio"
+              className="flex items-center justify-between border-b border-deck-border bg-deck-surface px-3.5 py-3 text-[13.5px] font-medium text-deck-text"
+            >
+              <span>Portfolio Compliance</span>
+              <span className="text-deck-mute">→</span>
+            </Link>
             <Link
               href="/fmiq/regulations"
               className="flex items-center justify-between border-b border-deck-border bg-deck-surface px-3.5 py-3 text-[13.5px] font-medium text-deck-text"

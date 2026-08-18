@@ -143,7 +143,7 @@ export default function WorkOrderDetailPage() {
           >
             {saving ? 'Saving...' : 'Save changes'}
           </button>
-          {saved && <p className="mt-2 text-sm text-emerald-400">Saved.</p>}
+          {saved && <p className="mt-2 text-sm text-emerald-700">Saved.</p>}
         </div>
       </div>
     </div>

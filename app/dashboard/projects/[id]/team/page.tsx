@@ -157,15 +157,15 @@ export default function ProjectTeamPage() {
           {invites.map((inv) => (
             <div
               key={inv.id}
-              className="flex items-center justify-between rounded-lg border border-dashed border-amber-500/30 bg-amber-500/10 p-3"
+              className="flex items-center justify-between rounded-lg border border-dashed border-amber-300 bg-amber-50 p-3"
             >
               <div>
                 <p className="text-sm font-medium text-deck-text">{inv.email}</p>
-                <p className="text-xs text-amber-400">Invited - pending ({inv.project_role})</p>
+                <p className="text-xs text-amber-700">Invited - pending ({inv.project_role})</p>
               </div>
               <button
                 onClick={() => cancelInvite(inv.id)}
-                className="text-xs font-medium text-red-400 underline"
+                className="text-xs font-medium text-red-600 underline"
               >
                 Cancel
               </button>
@@ -190,8 +190,8 @@ export default function ProjectTeamPage() {
             <option value="member">Member</option>
             <option value="owner">Owner</option>
           </select>
-          {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
-          {message && <p className="mt-2 text-sm text-emerald-400">{message}</p>}
+          {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+          {message && <p className="mt-2 text-sm text-emerald-700">{message}</p>}
           <button
             onClick={handleInvite}
             disabled={adding || !email}

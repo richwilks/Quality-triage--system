@@ -219,7 +219,7 @@ export default function CompanyAdminPage() {
               <button
                 onClick={() => toggleProjectStatus(p.id, p.status)}
                 className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                  p.status === 'closed' ? 'bg-white/10 text-deck-dim' : 'bg-emerald-500/15 text-emerald-300'
+                  p.status === 'closed' ? 'bg-deck-raised text-deck-dim' : 'bg-emerald-100 text-emerald-700'
                 }`}
               >
                 {p.status === 'closed' ? 'Closed - reopen' : 'Active - close'}
@@ -267,7 +267,7 @@ export default function CompanyAdminPage() {
               <option key={t} value={t}>{t.replace('_', ' ')}</option>
             ))}
           </select>
-          {message && <p className="mt-2 text-sm text-emerald-400">{message}</p>}
+          {message && <p className="mt-2 text-sm text-emerald-700">{message}</p>}
           <button
             onClick={handleInvite}
             disabled={inviting || !inviteEmail}

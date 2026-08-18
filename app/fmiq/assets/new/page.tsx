@@ -11,6 +11,11 @@ const PROPERTY_TYPES = [
   { value: 'mixed_use', label: 'Mixed use' },
 ]
 
+const PROVINCES = [
+  { value: '', label: 'Not set' },
+  { value: 'British Columbia', label: 'British Columbia' },
+]
+
 export default function NewAssetPage() {
   const supabase = createClient()
   const router = useRouter()
@@ -19,6 +24,7 @@ export default function NewAssetPage() {
   const [location, setLocation] = useState('')
   const [propertyType, setPropertyType] = useState('residential')
   const [jurisdiction, setJurisdiction] = useState('')
+  const [province, setProvince] = useState('')
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -56,6 +62,7 @@ export default function NewAssetPage() {
         location: location.trim() || null,
         property_type: propertyType,
         jurisdiction: jurisdiction.trim() || null,
+        province: province || null,
         notes: notes.trim() || null,
         created_by: user.id,
       })
@@ -129,6 +136,24 @@ export default function NewAssetPage() {
           </div>
 
           <div>
+            <label className="block text-sm font-medium text-deck-body">Province</label>
+            <select
+              value={province}
+              onChange={(e) => setProvince(e.target.value)}
+              className="mt-1 w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text"
+            >
+              {PROVINCES.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-deck-dim">
+              Used to apply the right recurring compliance framework (fire alarm, sprinkler, etc.) to this property.
+            </p>
+          </div>
+
+          <div>
             <label className="block text-sm font-medium text-deck-body">Notes</label>
             <textarea
               value={notes}
@@ -139,7 +164,7 @@ export default function NewAssetPage() {
             />
           </div>
 
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
           <button
             onClick={handleCreate}
