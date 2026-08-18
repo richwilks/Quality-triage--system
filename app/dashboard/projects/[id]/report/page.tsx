@@ -17,6 +17,7 @@ type Defect = {
   target_close_date: string | null
   closure_notes: string | null
   created_at: string
+  ncr_number: string | null
 }
 type Branding = {
   feature_branded_reports: boolean
@@ -58,7 +59,7 @@ export default function ProjectReportPage() {
 
     const { data: defectData } = await supabase
       .from('defects')
-      .select('id, title, location, photo_url, annotated_photo_url, description, standard_reference, status, target_close_date, closure_notes, created_at')
+      .select('id, title, location, photo_url, annotated_photo_url, description, standard_reference, status, target_close_date, closure_notes, created_at, ncr_number')
       .eq('project_id', projectId)
       .order('created_at', { ascending: true })
     setDefects(defectData || [])
@@ -174,7 +175,10 @@ export default function ProjectReportPage() {
                 <div key={d.id} className="break-inside-avoid border-b border-slate-100 pb-6">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-xs font-medium text-slate-400">Item {i + 1}</p>
+                      <p className="text-xs font-medium text-slate-400">
+                        Item {i + 1}
+                        {d.ncr_number && ` · ${d.ncr_number}`}
+                      </p>
                       <p className="text-base font-semibold text-slate-900">{d.title || 'Untitled'}</p>
                       {d.location && <p className="text-sm text-slate-500">{d.location}</p>}
                     </div>

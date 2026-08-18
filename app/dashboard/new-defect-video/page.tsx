@@ -11,7 +11,20 @@ type DetectedDefect = {
   description: string
   confidence: number
   standard_reference: string
+  element_type: string
   box: { x: number; y: number; width: number; height: number }
+}
+
+const ELEMENT_TYPE_LABELS: Record<string, string> = {
+  floor: 'Floor',
+  wall: 'Wall',
+  ceiling: 'Ceiling',
+  structural_steel: 'Structural steel',
+  cladding_envelope: 'Cladding / envelope',
+  fire_penetration: 'Fire penetration / seal',
+  movement_joint: 'Movement joint',
+  mep: 'MEP',
+  other: 'Other',
 }
 
 type Frame = { time: number; dataUrl: string; blob: Blob }
@@ -21,6 +34,7 @@ type ReviewItem = DetectedDefect & {
   title: string
   included: boolean
   frameIndex: number
+  classification?: 'snag' | 'ncr'
 }
 
 const BOX_COLORS = ['#ef4444', '#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899']
@@ -148,6 +162,11 @@ export default function NewDefectVideoPage() {
       const extracted = await extractFrames(videoFile, FRAME_COUNT)
       setFrames(extracted)
 
+      const { count: existingCount } = await supabase
+        .from('defects')
+        .select('id', { count: 'exact', head: true })
+        .eq('project_id', projectId)
+
       const allItems: ReviewItem[] = []
       let frameErrors = 0
       let lastErrorMessage = ''
@@ -177,7 +196,7 @@ export default function NewDefectVideoPage() {
               allItems.push({
                 ...d,
                 localId: `${i}-${j}`,
-                title: `Defect ${allItems.length + 1}`,
+                title: `Defect ${(existingCount || 0) + allItems.length + 1}`,
                 included: true,
                 frameIndex: i,
               })
@@ -270,6 +289,8 @@ export default function NewDefectVideoPage() {
           standard_reference: it.standard_reference,
           description: it.description,
           bounding_box: it.box,
+          element_type: it.element_type || null,
+          classification: it.classification || 'snag',
           assigned_partner_id: assignedPartnerId || null,
           target_close_date: targetDate || null,
           status: 'draft',
@@ -433,6 +454,42 @@ export default function NewDefectVideoPage() {
                           Confidence: {Math.round(it.confidence * 100)}%
                           {it.standard_reference && ` · Standard: ${it.standard_reference}`}
                         </p>
+                        {it.element_type && (
+                          <p className="mt-1 text-xs text-deck-dim">
+                            AI identified element:{' '}
+                            <span className="font-medium text-deck-body">
+                              {ELEMENT_TYPE_LABELS[it.element_type] || it.element_type}
+                            </span>
+                          </p>
+                        )}
+
+                        <div className="mt-2 flex items-center gap-2">
+                          <label className="text-xs font-medium text-deck-body">Classification:</label>
+                          <div className="flex overflow-hidden rounded-md border border-deck-border">
+                            <button
+                              type="button"
+                              onClick={() => updateItem(it.localId, { classification: 'snag' })}
+                              className={`px-3 py-1 text-xs font-medium ${
+                                it.classification !== 'ncr'
+                                  ? 'bg-deck-accent text-deck-bg'
+                                  : 'bg-deck-surface text-deck-body'
+                              }`}
+                            >
+                              Snag
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updateItem(it.localId, { classification: 'ncr' })}
+                              className={`px-3 py-1 text-xs font-medium ${
+                                it.classification === 'ncr'
+                                  ? 'bg-red-600 text-white'
+                                  : 'bg-deck-surface text-deck-body'
+                              }`}
+                            >
+                              NCR
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     )
                   })}

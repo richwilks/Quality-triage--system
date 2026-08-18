@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
 import MeasurementFields, { MeasurementData } from '@/components/MeasurementFields'
 import ClauseViewer from '@/components/ClauseViewer'
+import CameraCapture, { OrientationHint } from '@/components/CameraCapture'
 
 type Project = { id: string; name: string }
 type Partner = { id: string; full_name: string | null; company_name: string | null }
@@ -18,7 +19,20 @@ type DetectedDefect = {
   requires_measurement: boolean
   classification: 'snag' | 'ncr'
   classification_reason: string
+  element_type: string
   box: { x: number; y: number; width: number; height: number }
+}
+
+const ELEMENT_TYPE_LABELS: Record<string, string> = {
+  floor: 'Floor',
+  wall: 'Wall',
+  ceiling: 'Ceiling',
+  structural_steel: 'Structural steel',
+  cladding_envelope: 'Cladding / envelope',
+  fire_penetration: 'Fire penetration / seal',
+  movement_joint: 'Movement joint',
+  mep: 'MEP',
+  other: 'Other',
 }
 
 type ReviewItem = DetectedDefect & {
@@ -55,6 +69,8 @@ function NewDefectPageInner() {
 
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
+  const [showCamera, setShowCamera] = useState(false)
+  const [orientationHint, setOrientationHint] = useState<OrientationHint | null>(null)
   const [analyzing, setAnalyzing] = useState(false)
   const [analyzeProgress, setAnalyzeProgress] = useState(0)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
@@ -139,15 +155,26 @@ function NewDefectPageInner() {
     }
   }
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const selected = e.target.files?.[0]
-    if (!selected) return
+  function applySelectedFile(selected: File, orientation: OrientationHint | null) {
     setFile(selected)
+    setOrientationHint(orientation)
     setItems([])
     setSaved(false)
     setError(null)
     setDuplicateWarning(null)
     setPreview(URL.createObjectURL(selected))
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = e.target.files?.[0]
+    if (!selected) return
+    // Photo picked from the gallery rather than taken live - no orientation-at-capture signal available.
+    applySelectedFile(selected, null)
+  }
+
+  function handleCameraCapture(captured: File, orientation: OrientationHint | null) {
+    setShowCamera(false)
+    applySelectedFile(captured, orientation)
   }
 
   function fileToBase64(f: File): Promise<string> {
@@ -230,6 +257,7 @@ function NewDefectPageInner() {
             projectId,
             location,
             finishGrade,
+            orientationHint,
           }),
         })
       } catch (err: any) {
@@ -260,10 +288,15 @@ function NewDefectPageInner() {
         return
       }
 
+      const { count: existingCount } = await supabase
+        .from('defects')
+        .select('id', { count: 'exact', head: true })
+        .eq('project_id', projectId)
+
       const mapped: ReviewItem[] = result.defects.map((d: DetectedDefect, i: number) => ({
         ...d,
         localId: `${Date.now()}-${i}`,
-        title: `Defect ${i + 1}`,
+        title: `Defect ${(existingCount || 0) + i + 1}`,
         included: true,
         measurement: { ...EMPTY_MEASUREMENT },
       }))
@@ -348,6 +381,7 @@ function NewDefectPageInner() {
         bounding_box: it.box,
         requires_measurement: it.requires_measurement,
         classification: it.classification,
+        element_type: it.element_type || null,
         measured_gap_mm: it.measurement.measuredGapMm ? parseFloat(it.measurement.measuredGapMm) : null,
         tested_detail_reference: it.measurement.testedDetailReference || null,
         manufacturer_system: it.measurement.manufacturerSystem || null,
@@ -368,6 +402,7 @@ function NewDefectPageInner() {
       setTimeout(() => {
         setFile(null)
         setPreview(null)
+        setOrientationHint(null)
         setItems([])
         setLocation('')
         setFinishGrade('')
@@ -385,6 +420,9 @@ function NewDefectPageInner() {
 
   return (
     <div className="min-h-screen px-4 py-8">
+      {showCamera && (
+        <CameraCapture onCapture={handleCameraCapture} onClose={() => setShowCamera(false)} />
+      )}
       <div className="mx-auto max-w-md">
         <PageHeader title="New Defect" />
         <p className="mt-1 text-sm text-deck-dim">
@@ -447,12 +485,29 @@ function NewDefectPageInner() {
 
           <div>
             <label className="block text-sm font-medium text-deck-body">Photo</label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              className="mt-1 w-full text-sm"
-            />
+            <div className="mt-1 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowCamera(true)}
+                className="flex-1 rounded-md border border-deck-border px-3 py-2 text-sm font-medium text-deck-text"
+              >
+                Take photo
+              </button>
+              <label className="flex-1 cursor-pointer rounded-md border border-deck-border px-3 py-2 text-center text-sm font-medium text-deck-text">
+                Choose from library
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+              </label>
+            </div>
+            {orientationHint && (
+              <p className="mt-1 text-xs text-deck-dim">
+                Camera orientation captured - will be used as a supporting signal for analysis.
+              </p>
+            )}
           </div>
 
           {preview && (
@@ -550,10 +605,19 @@ function NewDefectPageInner() {
                     rows={2}
                     className="mt-2 w-full rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                   />
-                                  <p className="mt-1 text-xs text-deck-dim">
+                  <p className="mt-1 text-xs text-deck-dim">
                     Confidence: {Math.round(it.confidence * 100)}%
                     {it.standard_reference && ` · Standard: ${it.standard_reference}`}
                   </p>
+                  {it.element_type && (
+                    <p className="mt-1 text-xs text-deck-dim">
+                      AI identified element:{' '}
+                      <span className="font-medium text-deck-body">
+                        {ELEMENT_TYPE_LABELS[it.element_type] || it.element_type}
+                      </span>
+                      {' '}- check this matches the photo
+                    </p>
+                  )}
                   {it.standard_reference && (
                     <ClauseViewer projectId={projectId} standardReference={it.standard_reference} />
                   )}

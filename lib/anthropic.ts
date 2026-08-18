@@ -3,8 +3,11 @@ export type DetectedDefect = {
   confidence: number
   standard_reference: string
   requires_measurement: boolean
+  element_type: string
   box: { x: number; y: number; width: number; height: number }
 }
+
+export type OrientationHint = { betaDeg: number; guess: 'floor' | 'wall' | 'ceiling' | 'uncertain' }
 
 export type ExtraStandardText = { code: string; text: string }
 export type FeedbackExample = { description: string; wasValid: boolean; reason?: string | null }
@@ -65,17 +68,30 @@ export async function analyzeDefectImage(
   extraStandards?: ExtraStandardText[],
   feedbackExamples?: FeedbackExample[],
   finishGrade?: string | null,
-  knowledgeEntries?: KnowledgeEntry[]
+  knowledgeEntries?: KnowledgeEntry[],
+  orientationHint?: OrientationHint | null
 ): Promise<{ defects: DetectedDefect[]; usage: { input_tokens: number; output_tokens: number } | null }> {
 
   const content: any[] = [
     { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64Image } },
   ]
 
+  const orientationText =
+    orientationHint && orientationHint.guess !== 'uncertain'
+      ? `Device orientation sensor at the moment of capture: the phone/tablet's tilt suggests this photo is most likely of a ${
+          orientationHint.guess === 'floor'
+            ? 'floor (camera pointed downward)'
+            : orientationHint.guess === 'ceiling'
+              ? 'ceiling (camera pointed upward)'
+              : 'wall or other roughly vertical surface (camera held level)'
+        }. This is a physical sensor reading, not a content guess - treat it as a supporting signal for step 1 below, but the photo's own visual evidence is still primary if it ever conflicts with this reading.`
+      : ''
+
   let referenceText = `Project: ${projectDescription}
 Applicable standards (summary): ${standards}
 ${location ? `Location as recorded by the inspector: ${location}` : ''}
-${finishGrade ? `Specified finish/quality grade for this location: ${finishGrade}` : ''}`
+${finishGrade ? `Specified finish/quality grade for this location: ${finishGrade}` : ''}
+${orientationText}`
 
   if (specText) {
     referenceText += `\n\nExtracted project specification requirements:\n${specText}`
@@ -110,7 +126,7 @@ ${finishGrade ? `Specified finish/quality grade for this location: ${finishGrade
 ${referenceText}
 
 Your task, in order:
-1. Identify what element this is (floor, wall, ceiling, steel, cladding, penetration/firestopping seal, movement joint, etc) using visual evidence in the photo - camera angle, gravity cues (pooling vs streaking), junction details (skirting, coving), and surrounding context. Only use the location text above as a tiebreaker if it agrees with what you see; if it conflicts, trust the photo.
+1. Identify what element this is using visual evidence in the photo - camera angle, gravity cues (pooling vs streaking), junction details (skirting, coving), and surrounding context. Classify it into exactly one of: "floor", "wall", "ceiling", "structural_steel", "cladding_envelope", "fire_penetration", "movement_joint", "mep", "other" - this becomes the element_type field below. Only use the location text or device orientation sensor reading above as a tiebreaker if either agrees with what you see; if either conflicts with the photo, trust the photo.
 2. Finish/quality grade only applies to surface finishes where a decorative or exposure grade is meaningful - concrete floor/wall finishes, plaster, render, coatings, and similar. It does NOT apply to structural steel, grating, fixings, penetrations, MEP components, or other fabricated/installed items - never mention a missing finish grade for these, since the concept simply isn't relevant to them. Where it IS relevant: if a specified finish/quality grade is given above, calibrate strictly to that grade - many surface imperfections (minor blowholes, colour variation, light trowel marks) are entirely normal and acceptable on a lower or utility-grade finish, and only become defects against a higher exposed/decorative grade. Do not flag something as a defect just because it's visible - flag it only if it would fail the stated grade's tolerance. If a finish-relevant surface has no grade given, you may note that finish tolerance wasn't specified so the reviewer can apply judgement - but only for genuinely finish-relevant elements, never for structural/fabricated items like this grating.
 3. Find every distinct defect visible in the photo - there may be one, several, or none, after applying the tolerance check above.
 4. For each defect, give a tight bounding box in percentages (0-100) of image width/height, x/y being the top-left corner. Before finalising each box: mentally trace the actual boundary of the defect itself (crack line, stain edge, void perimeter), then set the box to hug just that boundary with a small margin - not the surrounding clean surface. A box covering more than roughly a third of the image width or height is almost always too loose unless the defect genuinely is that large (e.g. a long crack) - reconsider it. Never default to a box centred on the whole photo.
@@ -129,6 +145,7 @@ Respond with ONLY a JSON array, no markdown, no other text:
     "confidence": 0.0 to 1.0,
     "standard_reference": "full reference including standard, part, and section/clause where available - e.g. 'BS 8204-1, Section 10.3' - or empty string if none applies",
     "requires_measurement": true or false,
+    "element_type": "one of: floor, wall, ceiling, structural_steel, cladding_envelope, fire_penetration, movement_joint, mep, other - from step 1",
     "box": { "x": 0-100, "y": 0-100, "width": 0-100, "height": 0-100 }
   }
 ]
@@ -171,7 +188,12 @@ If no defects, respond with: []`
   try {
     const parsed = JSON.parse(cleaned)
     const defects = Array.isArray(parsed)
-      ? parsed.map((d: any) => ({ ...d, requires_measurement: !!d.requires_measurement, box: clampBox(d.box) }))
+      ? parsed.map((d: any) => ({
+          ...d,
+          requires_measurement: !!d.requires_measurement,
+          element_type: typeof d.element_type === 'string' ? d.element_type : 'other',
+          box: clampBox(d.box),
+        }))
       : []
     return { defects, usage }
   } catch {

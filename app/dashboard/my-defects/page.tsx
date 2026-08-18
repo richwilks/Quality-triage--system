@@ -13,6 +13,7 @@ type Defect = {
   photo_url: string | null
   status: string
   target_close_date: string | null
+  ncr_number: string | null
   projects: { name: string } | { name: string }[] | null
 }
 
@@ -59,7 +60,7 @@ export default function MyDefectsPage() {
 
     const { data } = await supabase
       .from('defects')
-      .select('id, title, location, photo_url, status, target_close_date, projects(name)')
+      .select('id, title, location, photo_url, status, target_close_date, ncr_number, projects(name)')
       .in('assigned_partner_id', colleagueIds)
       .order('target_close_date', { ascending: true })
 
@@ -102,6 +103,11 @@ export default function MyDefectsPage() {
               className="block rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm"
             >
               <p className="text-xs font-medium text-deck-dim">{getProjectName(d)}</p>
+              {d.ncr_number && (
+                <p className="mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-deck-mute">
+                  {d.ncr_number}
+                </p>
+              )}
               <div className="mt-1 flex items-center justify-between">
                 <p className="text-sm font-semibold text-deck-text">{d.title}</p>
                 <StatusBadge status={d.status} />

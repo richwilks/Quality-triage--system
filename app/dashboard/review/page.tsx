@@ -24,9 +24,22 @@ type Defect = {
   bounding_box: BoundingBox | null
   classification: string | null
   ncr_number: string | null
+  element_type: string | null
   root_cause: string | null
   corrective_action: string | null
   projects: { name: string } | { name: string }[] | null
+}
+
+const ELEMENT_TYPE_LABELS: Record<string, string> = {
+  floor: 'Floor',
+  wall: 'Wall',
+  ceiling: 'Ceiling',
+  structural_steel: 'Structural steel',
+  cladding_envelope: 'Cladding / envelope',
+  fire_penetration: 'Fire penetration / seal',
+  movement_joint: 'Movement joint',
+  mep: 'MEP',
+  other: 'Other',
 }
 
 const DEFAULT_BOX: BoundingBox = { x: 35, y: 35, width: 30, height: 30 }
@@ -47,6 +60,7 @@ export default function ReviewDefectsPage() {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState('')
+  const [confirmError, setConfirmError] = useState<string | null>(null)
 
   const containerRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const dragState = useRef<{ id: string; startX: number; startY: number; boxX: number; boxY: number } | null>(null)
@@ -61,7 +75,7 @@ export default function ReviewDefectsPage() {
     const { data } = await supabase
       .from('defects')
       .select(
-        'id, project_id, title, photo_url, ai_description, ai_confidence, standard_reference, description, assigned_partner_id, target_close_date, bounding_box, classification, ncr_number, root_cause, corrective_action, projects(name)'
+        'id, project_id, title, photo_url, ai_description, ai_confidence, standard_reference, description, assigned_partner_id, target_close_date, bounding_box, classification, ncr_number, element_type, root_cause, corrective_action, projects(name)'
       )
       .eq('status', 'draft')
       .order('created_at', { ascending: false })
@@ -211,77 +225,94 @@ export default function ReviewDefectsPage() {
     })
   }
 
+  // Assigns a project-scoped, classification-scoped reference code (SNAG001, SNAG002... /
+  // NCR001, NCR002...) via a database-side atomic counter, so two defects confirmed at the
+  // same instant can never be handed the same number.
+  async function generateReferenceNumber(projectId: string, cls: string) {
+    const { data, error } = await supabase.rpc('generate_reference_number', {
+      p_project_id: projectId,
+      p_classification: cls,
+    })
+    if (error) throw error
+    return data as string
+  }
+
   async function handleConfirm(defect: Defect) {
     setBusyId(defect.id)
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    setConfirmError(null)
 
-    const partnerId = assignedPartner[defect.id] || null
-    const newStatus = partnerId ? 'assigned' : 'confirmed'
-    const box = boxes[defect.id] || DEFAULT_BOX
-    const finalClassification = classification[defect.id] || 'snag'
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
 
-    let annotatedUrl: string | null = null
-    if (defect.photo_url) {
-      const blob = await burnBoxIntoPhoto(defect.photo_url, box)
-      if (blob) {
-        const path = `${defect.project_id}/annotated-${Date.now()}-${defect.id}.jpg`
-        const { error: uploadError } = await supabase.storage
-          .from('defect-photos')
-          .upload(path, blob)
-        if (!uploadError) {
-          const {
-            data: { publicUrl },
-          } = supabase.storage.from('defect-photos').getPublicUrl(path)
-          annotatedUrl = publicUrl
+      const partnerId = assignedPartner[defect.id] || null
+      const newStatus = partnerId ? 'assigned' : 'confirmed'
+      const box = boxes[defect.id] || DEFAULT_BOX
+      const finalClassification = classification[defect.id] || 'snag'
+
+      let annotatedUrl: string | null = null
+      if (defect.photo_url) {
+        const blob = await burnBoxIntoPhoto(defect.photo_url, box)
+        if (blob) {
+          const path = `${defect.project_id}/annotated-${Date.now()}-${defect.id}.jpg`
+          const { error: uploadError } = await supabase.storage
+            .from('defect-photos')
+            .upload(path, blob)
+          if (!uploadError) {
+            const {
+              data: { publicUrl },
+            } = supabase.storage.from('defect-photos').getPublicUrl(path)
+            annotatedUrl = publicUrl
+          }
         }
       }
-    }
 
-    let ncrNumber = defect.ncr_number
-    if (finalClassification === 'ncr' && !ncrNumber) {
-      const { data: generated } = await supabase.rpc('generate_ncr_number', { pid: defect.project_id })
-      ncrNumber = generated || null
-    }
+      const referenceNumber =
+        defect.ncr_number || (await generateReferenceNumber(defect.project_id, finalClassification))
 
-    await supabase
-      .from('defects')
-      .update({
-        status: newStatus,
-        description: editedText[defect.id],
-        assigned_partner_id: partnerId,
-        target_close_date: targetDate[defect.id] || null,
-        confirmed_at: new Date().toISOString(),
-        bounding_box: box,
-        annotated_photo_url: annotatedUrl,
-        classification: finalClassification,
-        ncr_number: ncrNumber,
-        root_cause: finalClassification === 'ncr' ? rootCause[defect.id] || null : null,
-        corrective_action: finalClassification === 'ncr' ? correctiveAction[defect.id] || null : null,
-      })
-      .eq('id', defect.id)
+      const { error: updateError } = await supabase
+        .from('defects')
+        .update({
+          status: newStatus,
+          description: editedText[defect.id],
+          assigned_partner_id: partnerId,
+          target_close_date: targetDate[defect.id] || null,
+          confirmed_at: new Date().toISOString(),
+          bounding_box: box,
+          annotated_photo_url: annotatedUrl,
+          classification: finalClassification,
+          ncr_number: referenceNumber,
+          root_cause: finalClassification === 'ncr' ? rootCause[defect.id] || null : null,
+          corrective_action: finalClassification === 'ncr' ? correctiveAction[defect.id] || null : null,
+        })
+        .eq('id', defect.id)
+      if (updateError) throw updateError
 
-    await supabase.from('defect_history').insert({
-      defect_id: defect.id,
-      changed_by: user?.id,
-      old_status: 'draft',
-      new_status: newStatus,
-    })
-
-    if (partnerId) {
-      await supabase.from('notifications').insert({
-        user_id: partnerId,
+      await supabase.from('defect_history').insert({
         defect_id: defect.id,
-        is_read: false,
-        message: `You've been assigned a ${finalClassification === 'ncr' ? 'non-conformance (NCR)' : 'defect'}: ${defect.title || editedText[defect.id]}${
-          targetDate[defect.id] ? ` (due ${targetDate[defect.id]})` : ''
-        }`,
+        changed_by: user?.id,
+        old_status: 'draft',
+        new_status: newStatus,
       })
-    }
 
-    setDefects((prev) => prev.filter((d) => d.id !== defect.id))
-    setBusyId(null)
+      if (partnerId) {
+        await supabase.from('notifications').insert({
+          user_id: partnerId,
+          defect_id: defect.id,
+          is_read: false,
+          message: `You've been assigned a ${finalClassification === 'ncr' ? 'non-conformance (NCR)' : 'defect'}: ${defect.title || editedText[defect.id]}${
+            targetDate[defect.id] ? ` (due ${targetDate[defect.id]})` : ''
+          }`,
+        })
+      }
+
+      setDefects((prev) => prev.filter((d) => d.id !== defect.id))
+    } catch (err: any) {
+      setConfirmError(err?.message || 'Could not confirm this defect - please try again.')
+    } finally {
+      setBusyId(null)
+    }
   }
 
   async function handleReject(defect: Defect) {
@@ -324,6 +355,12 @@ export default function ReviewDefectsPage() {
         <p className="mt-1 text-sm text-deck-dim">
           Confirm or reject each item. Drag the box to reposition, or drag the corner handle to resize - it'll be baked into the photo once confirmed.
         </p>
+
+        {confirmError && (
+          <p className="mt-3 rounded-md border border-red-500/30 bg-red-500/10 p-2 text-sm text-red-400">
+            {confirmError}
+          </p>
+        )}
 
         {defects.length === 0 && (
           <p className="mt-6 text-sm text-deck-dim">
@@ -413,6 +450,15 @@ export default function ReviewDefectsPage() {
                     AI confidence: {Math.round((defect.ai_confidence || 0) * 100)}%
                   </p>
                 )}
+                {defect.element_type && (
+                  <p className="text-xs text-deck-dim">
+                    AI identified element:{' '}
+                    <span className="font-medium text-deck-body">
+                      {ELEMENT_TYPE_LABELS[defect.element_type] || defect.element_type}
+                    </span>
+                    {' '}- check this matches the photo
+                  </p>
+                )}
 
                 <div className="mt-3 flex items-center gap-2">
                   <label className="text-xs font-medium text-deck-body">Classification:</label>
@@ -437,7 +483,9 @@ export default function ReviewDefectsPage() {
                     </button>
                   </div>
                   {defect.ncr_number && (
-                    <span className="text-xs font-medium text-red-400">{defect.ncr_number}</span>
+                    <span className={`text-xs font-medium ${isNcr ? 'text-red-400' : 'text-deck-accent'}`}>
+                      {defect.ncr_number}
+                    </span>
                   )}
                 </div>
 

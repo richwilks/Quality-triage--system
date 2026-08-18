@@ -27,11 +27,24 @@ type Defect = {
   manufacturer_system: string | null
   classification: string | null
   ncr_number: string | null
+  element_type: string | null
   root_cause: string | null
   corrective_action: string | null
 }
 
 const STATUS_OPTIONS = ['draft', 'confirmed', 'assigned', 'closed', 'rejected']
+
+const ELEMENT_TYPE_LABELS: Record<string, string> = {
+  floor: 'Floor',
+  wall: 'Wall',
+  ceiling: 'Ceiling',
+  structural_steel: 'Structural steel',
+  cladding_envelope: 'Cladding / envelope',
+  fire_penetration: 'Fire penetration / seal',
+  movement_joint: 'Movement joint',
+  mep: 'MEP',
+  other: 'Other',
+}
 
 export default function DefectDetailPage() {
   const supabase = createClient()
@@ -61,7 +74,7 @@ export default function DefectDetailPage() {
     const { data } = await supabase
       .from('defects')
       .select(
-        'id, project_id, title, location, photo_url, annotated_photo_url, description, standard_reference, status, target_close_date, closure_notes, closure_photo_url, requires_measurement, measured_gap_mm, tested_detail_reference, manufacturer_system, classification, ncr_number, root_cause, corrective_action'
+        'id, project_id, title, location, photo_url, annotated_photo_url, description, standard_reference, status, target_close_date, closure_notes, closure_photo_url, requires_measurement, measured_gap_mm, tested_detail_reference, manufacturer_system, classification, ncr_number, element_type, root_cause, corrective_action'
       )
       .eq('id', defectId)
       .single()
@@ -169,7 +182,9 @@ export default function DefectDetailPage() {
             {isNcr ? 'Non-Conformance (NCR)' : 'Snag'}
           </span>
           {defect.ncr_number && (
-            <span className="text-xs font-medium text-red-400">{defect.ncr_number}</span>
+            <span className={`text-xs font-medium ${isNcr ? 'text-red-400' : 'text-deck-accent'}`}>
+              {defect.ncr_number}
+            </span>
           )}
         </div>
 
@@ -183,6 +198,11 @@ export default function DefectDetailPage() {
           )}
 
           <p className="mt-3 text-sm text-deck-body">{defect.description}</p>
+          {defect.element_type && (
+            <p className="mt-1 text-xs text-deck-dim">
+              Element: <span className="font-medium text-deck-body">{ELEMENT_TYPE_LABELS[defect.element_type] || defect.element_type}</span>
+            </p>
+          )}
           {defect.standard_reference && (
             <>
               <p className="mt-1 text-xs text-deck-dim">Standard: {defect.standard_reference}</p>
