@@ -288,6 +288,7 @@ export default function NewDefectVideoPage() {
           standard_reference: it.standard_reference,
           description: it.description,
           bounding_box: it.box,
+          element_type: it.element_type || null,
           assigned_partner_id: assignedPartnerId || null,
           target_close_date: targetDate || null,
           status: 'draft',

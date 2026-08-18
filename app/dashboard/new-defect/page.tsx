@@ -381,6 +381,7 @@ function NewDefectPageInner() {
         bounding_box: it.box,
         requires_measurement: it.requires_measurement,
         classification: it.classification,
+        element_type: it.element_type || null,
         measured_gap_mm: it.measurement.measuredGapMm ? parseFloat(it.measurement.measuredGapMm) : null,
         tested_detail_reference: it.measurement.testedDetailReference || null,
         manufacturer_system: it.measurement.manufacturerSystem || null,
