@@ -64,6 +64,11 @@ export default function CopsefieldReportPage() {
     return Array.isArray(r.copsefield_buildings) ? r.copsefield_buildings[0] : r.copsefield_buildings
   }
 
+  function reportTypeLabel(type: string) {
+    if (type === 'strata_due_diligence') return 'Strata Due Diligence Report'
+    return 'Investment Return Report'
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 p-8 text-slate-900">
@@ -108,7 +113,7 @@ export default function CopsefieldReportPage() {
         <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm print:rounded-none print:border-0 print:shadow-none">
           <div className="border-b border-slate-200 pb-4">
             <div className="flex items-center gap-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">Investment Return Report</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">{reportTypeLabel(report.report_type)}</p>
               {isStaff && (
                 <span
                   className={`rounded-full px-2 py-0.5 text-[10px] font-medium print:hidden ${
