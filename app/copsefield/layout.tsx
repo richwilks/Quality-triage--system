@@ -1,5 +1,14 @@
+import type { Metadata } from 'next'
 import CopsefieldBottomNav from '@/components/CopsefieldBottomNav'
 import CopsefieldSidebar from '@/components/CopsefieldSidebar'
+
+export const metadata: Metadata = {
+  title: 'Copsefield Group',
+  icons: {
+    icon: '/branding/copsefield/shield-icon.png',
+    apple: '/branding/copsefield/shield-icon.png',
+  },
+}
 
 export default function CopsefieldLayout({
   children,

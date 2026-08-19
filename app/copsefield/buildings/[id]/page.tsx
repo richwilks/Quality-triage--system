@@ -18,6 +18,7 @@ type Building = {
   country: string | null
   property_manager_name: string | null
   property_manager_email: string | null
+  strata_report_url: string | null
 }
 
 type Ticket = {
@@ -64,7 +65,7 @@ export default function BuildingDetailPage() {
   async function load() {
     const { data: buildingData } = await supabase
       .from('copsefield_buildings')
-      .select('id, building_code, building_type, name, address, city, region, country, property_manager_name, property_manager_email')
+      .select('id, building_code, building_type, name, address, city, region, country, property_manager_name, property_manager_email, strata_report_url')
       .eq('id', buildingId)
       .single()
     setBuilding(buildingData)
@@ -177,6 +178,11 @@ export default function BuildingDetailPage() {
             Managed by {building.property_manager_name}
             {building.property_manager_email ? ` (${building.property_manager_email})` : ''}
           </p>
+        )}
+        {building.strata_report_url && (
+          <a href={building.strata_report_url} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs text-copsefield-accent underline">
+            View strata report
+          </a>
         )}
 
         <div className="mt-4 flex gap-2">
