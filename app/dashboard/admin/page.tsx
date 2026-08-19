@@ -45,6 +45,9 @@ type CompanyBranding = {
   feature_custom_terminology: boolean
   feature_private_knowledge_base: boolean
   feature_custom_email_sender: boolean
+  fmiq_white_label_enabled: boolean
+  fmiq_logo_url: string | null
+  fmiq_accent_color: string | null
 }
 
 type FeatureKey =
@@ -129,7 +132,7 @@ export default function PlatformAdminPage() {
 
     const { data: brandingData } = await supabase
       .from('company_settings')
-      .select('company_name, white_label_enabled, logo_url, accent_color, feature_branded_reports, feature_hide_inspectiq_brand, feature_custom_terminology, feature_private_knowledge_base, feature_custom_email_sender')
+      .select('company_name, white_label_enabled, logo_url, accent_color, feature_branded_reports, feature_hide_inspectiq_brand, feature_custom_terminology, feature_private_knowledge_base, feature_custom_email_sender, fmiq_white_label_enabled, fmiq_logo_url, fmiq_accent_color')
     const brandingMap: Record<string, CompanyBranding> = {}
     ;(brandingData || []).forEach((b: any) => {
       brandingMap[b.company_name] = b
@@ -230,8 +233,42 @@ export default function PlatformAdminPage() {
             feature_custom_terminology: false,
             feature_private_knowledge_base: false,
             feature_custom_email_sender: false,
+            fmiq_white_label_enabled: false,
+            fmiq_logo_url: null,
+            fmiq_accent_color: null,
           }),
           [featureKey]: !currentlyEnabled,
+        } as CompanyBranding,
+      }))
+    }
+    setBrandingBusy(null)
+  }
+
+  async function toggleFmiqWhiteLabel(companyName: string, currentlyEnabled: boolean) {
+    setBrandingBusy(companyName)
+    const { error } = await supabase.rpc('set_fmiq_white_label', {
+      target_company: companyName,
+      enabled: !currentlyEnabled,
+    })
+    if (!error) {
+      setCompanyBrandings((prev) => ({
+        ...prev,
+        [companyName]: {
+          ...(prev[companyName] || {
+            company_name: companyName,
+            white_label_enabled: false,
+            logo_url: null,
+            accent_color: null,
+            feature_branded_reports: false,
+            feature_hide_inspectiq_brand: false,
+            feature_custom_terminology: false,
+            feature_private_knowledge_base: false,
+            feature_custom_email_sender: false,
+            fmiq_white_label_enabled: false,
+            fmiq_logo_url: null,
+            fmiq_accent_color: null,
+          }),
+          fmiq_white_label_enabled: !currentlyEnabled,
         } as CompanyBranding,
       }))
     }
@@ -630,9 +667,12 @@ export default function PlatformAdminPage() {
                 { key: 'feature_private_knowledge_base', label: 'Private defect knowledge base' },
                 { key: 'feature_custom_email_sender', label: 'Custom email sender name' },
               ]
+              const fmiqEnabled = Boolean(b?.fmiq_white_label_enabled)
               return (
                 <div key={companyName} className="rounded-lg border border-deck-border bg-deck-surface p-3">
                   <p className="text-sm font-medium text-deck-text">{companyName}</p>
+
+                  <p className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-deck-mute">InspectIQ</p>
                   {b?.accent_color && (
                     <div className="mt-1 flex items-center gap-2">
                       <span
@@ -662,6 +702,31 @@ export default function PlatformAdminPage() {
                         </div>
                       )
                     })}
+                  </div>
+
+                  <p className="mt-3 text-[10px] font-semibold uppercase tracking-wide text-deck-mute">FMIQ</p>
+                  {b?.fmiq_accent_color && (
+                    <div className="mt-1 flex items-center gap-2">
+                      <span
+                        className="h-3 w-3 rounded-full border border-deck-border"
+                        style={{ backgroundColor: b.fmiq_accent_color }}
+                      />
+                      <span className="text-xs text-deck-dim">{b.fmiq_accent_color}</span>
+                    </div>
+                  )}
+                  <div className="mt-2 flex items-center justify-between">
+                    <span className="text-xs text-deck-body">FMIQ white-label branding</span>
+                    <button
+                      onClick={() => toggleFmiqWhiteLabel(companyName, fmiqEnabled)}
+                      disabled={brandingBusy === companyName}
+                      className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium disabled:opacity-50 ${
+                        fmiqEnabled
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'border border-deck-border text-deck-body'
+                      }`}
+                    >
+                      {fmiqEnabled ? 'On' : 'Off'}
+                    </button>
                   </div>
                 </div>
               )

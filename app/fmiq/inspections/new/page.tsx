@@ -5,8 +5,11 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
 import CameraCapture, { OrientationHint } from '@/components/CameraCapture'
+import PolygonBoxEditor, { Point } from '@/components/PolygonBoxEditor'
 
 type Asset = { id: string; name: string }
+
+type RectBox = { x: number; y: number; width: number; height: number }
 
 type Finding = {
   localId: string
@@ -16,9 +19,19 @@ type Finding = {
   severity: 'minor' | 'moderate' | 'major' | 'hazard'
   estimated_cost_min: number | null
   estimated_cost_max: number | null
-  box: { x: number; y: number; width: number; height: number }
+  box: RectBox | Point[]
   included: boolean
+  isManual: boolean
 }
+
+const DEFAULT_POLYGON: Point[] = [
+  { x: 35, y: 35 },
+  { x: 65, y: 35 },
+  { x: 65, y: 65 },
+  { x: 35, y: 65 },
+]
+
+const SEVERITY_OPTIONS: Finding['severity'][] = ['minor', 'moderate', 'major', 'hazard']
 
 const SEVERITY_COLOR: Record<string, string> = {
   minor: 'bg-deck-raised text-deck-dim',
@@ -207,6 +220,7 @@ function NewInspectionInner() {
         ...f,
         localId: `${Date.now()}-${i}`,
         included: true,
+        isManual: false,
       }))
       setFindings(mapped)
     } catch (err: any) {
@@ -214,6 +228,24 @@ function NewInspectionInner() {
     } finally {
       setAnalyzing(false)
     }
+  }
+
+  function handleAddManual() {
+    setError(null)
+    setFindings([
+      {
+        localId: `${Date.now()}-manual`,
+        description: '',
+        confidence: 1,
+        regulation_reference: '',
+        severity: 'moderate',
+        estimated_cost_min: null,
+        estimated_cost_max: null,
+        box: DEFAULT_POLYGON,
+        included: true,
+        isManual: true,
+      },
+    ])
   }
 
   function updateFinding(localId: string, patch: Partial<Finding>) {
@@ -224,6 +256,10 @@ function NewInspectionInner() {
     const included = findings.filter((f) => f.included)
     if (!file || !inspectionId || included.length === 0) {
       setError('No findings selected to save.')
+      return
+    }
+    if (included.some((f) => !f.description.trim())) {
+      setError('Add a description before saving.')
       return
     }
     setSaving(true)
@@ -256,7 +292,7 @@ function NewInspectionInner() {
       photo_url: publicUrl,
       bounding_box: f.box,
       description: f.description,
-      ai_description: f.description,
+      ai_description: f.isManual ? null : f.description,
       regulation_reference: f.regulation_reference || null,
       severity: f.severity,
       estimated_cost_min: f.estimated_cost_min,
@@ -349,37 +385,53 @@ function NewInspectionInner() {
             {preview && (
               <div className="relative w-full">
                 <img src={preview} alt="Preview" className="w-full rounded-md" />
-                {findings.map((f, i) => (
-                  <div
-                    key={f.localId}
-                    style={{
-                      position: 'absolute',
-                      left: `${f.box.x}%`,
-                      top: `${f.box.y}%`,
-                      width: `${f.box.width}%`,
-                      height: `${f.box.height}%`,
-                      border: `2px solid ${BOX_COLORS[i % BOX_COLORS.length]}`,
-                      opacity: f.included ? 1 : 0.3,
-                    }}
-                  >
-                    <span
-                      style={{ backgroundColor: BOX_COLORS[i % BOX_COLORS.length] }}
-                      className="absolute -top-5 left-0 rounded px-1 text-[10px] font-semibold text-white"
+                {findings.map((f, i) =>
+                  Array.isArray(f.box) ? (
+                    <PolygonBoxEditor
+                      key={f.localId}
+                      points={f.box}
+                      onChange={(points) => updateFinding(f.localId, { box: points })}
+                    />
+                  ) : (
+                    <div
+                      key={f.localId}
+                      style={{
+                        position: 'absolute',
+                        left: `${f.box.x}%`,
+                        top: `${f.box.y}%`,
+                        width: `${f.box.width}%`,
+                        height: `${f.box.height}%`,
+                        border: `2px solid ${BOX_COLORS[i % BOX_COLORS.length]}`,
+                        opacity: f.included ? 1 : 0.3,
+                      }}
                     >
-                      {i + 1}
-                    </span>
-                  </div>
-                ))}
+                      <span
+                        style={{ backgroundColor: BOX_COLORS[i % BOX_COLORS.length] }}
+                        className="absolute -top-5 left-0 rounded px-1 text-[10px] font-semibold text-white"
+                      >
+                        {i + 1}
+                      </span>
+                    </div>
+                  )
+                )}
               </div>
             )}
 
             {file && findings.length === 0 && !analyzing && (
-              <button
-                onClick={handleAnalyze}
-                className="w-full rounded-md bg-fmiq-accent px-3 py-2 text-sm font-medium text-deck-bg"
-              >
-                Analyze photo
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleAnalyze}
+                  className="flex-1 rounded-md bg-fmiq-accent px-3 py-2 text-sm font-medium text-deck-bg"
+                >
+                  Analyze with AI
+                </button>
+                <button
+                  onClick={handleAddManual}
+                  className="flex-1 rounded-md border border-deck-border px-3 py-2 text-sm font-medium text-deck-text"
+                >
+                  Add without analysis
+                </button>
+              </div>
             )}
 
             {analyzing && <p className="text-sm text-deck-dim">Analyzing photo...</p>}
@@ -387,7 +439,9 @@ function NewInspectionInner() {
             {findings.length > 0 && (
               <div className="space-y-3">
                 <p className="text-sm font-medium text-deck-body">
-                  {findings.length} issue{findings.length > 1 ? 's' : ''} found - review below
+                  {findings[0]?.isManual
+                    ? 'Drag the outline onto the issue, then describe it below'
+                    : `${findings.length} issue${findings.length > 1 ? 's' : ''} found - review below`}
                 </p>
                 {findings.map((f, i) => (
                   <div
@@ -396,9 +450,17 @@ function NewInspectionInner() {
                     style={{ borderLeftWidth: 4, borderLeftColor: BOX_COLORS[i % BOX_COLORS.length] }}
                   >
                     <div className="flex items-center justify-between">
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${SEVERITY_COLOR[f.severity]}`}>
-                        {f.severity}
-                      </span>
+                      <select
+                        value={f.severity}
+                        onChange={(e) => updateFinding(f.localId, { severity: e.target.value as Finding['severity'] })}
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${SEVERITY_COLOR[f.severity]}`}
+                      >
+                        {SEVERITY_OPTIONS.map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </select>
                       <label className="flex items-center gap-1 text-xs text-deck-body">
                         <input
                           type="checkbox"
@@ -412,7 +474,8 @@ function NewInspectionInner() {
                       value={f.description}
                       onChange={(e) => updateFinding(f.localId, { description: e.target.value })}
                       rows={2}
-                      className="mt-2 w-full rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text"
+                      placeholder={f.isManual ? 'Describe what you found' : undefined}
+                      className="mt-2 w-full rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                     />
                     {f.regulation_reference && (
                       <p className="mt-1 text-xs text-deck-dim">Ref: {f.regulation_reference}</p>

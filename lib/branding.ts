@@ -8,10 +8,13 @@ const EMPTY: { branding: Branding; accentColor: string | null } = {
   accentColor: null,
 }
 
-// Loaded once per layout render (server-side, before paint) so white-label
-// branding - logo, company name, accent colour - applies from first paint
-// with no flash of default InspectIQ/FMIQ branding.
-export async function loadBranding(): Promise<{ branding: Branding; accentColor: string | null }> {
+// InspectIQ and FMIQ are two separate products sharing only the same login
+// and the defect knowledge base - a company can be approved for white-label
+// on one without the other, with its own logo/colour, so each product's
+// layout loads its own branding independently rather than sharing one gate.
+export async function loadBranding(
+  product: 'inspectiq' | 'fmiq'
+): Promise<{ branding: Branding; accentColor: string | null }> {
   const supabase = await createClient()
   const {
     data: { user },
@@ -28,19 +31,27 @@ export async function loadBranding(): Promise<{ branding: Branding; accentColor:
 
   const { data: settings } = await supabase
     .from('company_settings')
-    .select('white_label_enabled, logo_url, accent_color, feature_hide_inspectiq_brand')
+    .select(
+      'feature_branded_reports, logo_url, accent_color, feature_hide_inspectiq_brand, fmiq_white_label_enabled, fmiq_logo_url, fmiq_accent_color'
+    )
     .eq('company_name', profile.company_name)
     .maybeSingle()
 
-  const whiteLabelEnabled = !!settings?.white_label_enabled
-  const accentColor = whiteLabelEnabled && settings?.accent_color && HEX_COLOR.test(settings.accent_color)
-    ? settings.accent_color
-    : null
+  // feature_branded_reports is the platform admin's actual on/off approval for
+  // InspectIQ white-label (toggled on the Platform Admin > Branding tab);
+  // fmiq_white_label_enabled is the equivalent, independent approval for FMIQ.
+  const whiteLabelEnabled =
+    product === 'inspectiq' ? !!settings?.feature_branded_reports : !!settings?.fmiq_white_label_enabled
+
+  const rawLogo = product === 'inspectiq' ? settings?.logo_url : settings?.fmiq_logo_url
+  const rawColor = product === 'inspectiq' ? settings?.accent_color : settings?.fmiq_accent_color
+
+  const accentColor = whiteLabelEnabled && rawColor && HEX_COLOR.test(rawColor) ? rawColor : null
 
   return {
     branding: {
       whiteLabelEnabled,
-      logoUrl: whiteLabelEnabled ? settings?.logo_url || null : null,
+      logoUrl: whiteLabelEnabled ? rawLogo || null : null,
       companyName: profile.company_name,
       hideDefaultBrand: whiteLabelEnabled && !!settings?.feature_hide_inspectiq_brand,
     },
