@@ -133,6 +133,13 @@ export default function CopsefieldHomePage() {
                   <span className="text-deck-mute">→</span>
                 </Link>
                 <Link
+                  href="/copsefield/reports"
+                  className="flex items-center justify-between border-b border-deck-border bg-deck-surface px-3.5 py-3 text-[13.5px] font-medium text-deck-text"
+                >
+                  <span>Reports</span>
+                  <span className="text-deck-mute">→</span>
+                </Link>
+                <Link
                   href="/copsefield/economic-reports"
                   className="flex items-center justify-between border-b border-deck-border bg-deck-surface px-3.5 py-3 text-[13.5px] font-medium text-deck-text"
                 >
@@ -203,12 +210,20 @@ export default function CopsefieldHomePage() {
         </div>
 
         {!isStaff && (
-          <Link
-            href="/copsefield/tickets/new"
-            className="mt-5 block w-full rounded-md bg-copsefield-accent px-4 py-2 text-center text-sm font-medium text-deck-bg"
-          >
-            Raise a ticket
-          </Link>
+          <>
+            <Link
+              href="/copsefield/tickets/new"
+              className="mt-5 block w-full rounded-md bg-copsefield-accent px-4 py-2 text-center text-sm font-medium text-deck-bg"
+            >
+              Raise a ticket
+            </Link>
+            <Link
+              href="/copsefield/reports"
+              className="mt-3 block w-full rounded-md border border-copsefield-accent px-4 py-2 text-center text-sm font-medium text-copsefield-accent"
+            >
+              View your reports
+            </Link>
+          </>
         )}
       </div>
     </div>

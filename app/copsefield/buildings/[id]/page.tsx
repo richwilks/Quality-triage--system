@@ -34,6 +34,13 @@ type AccessRow = {
   profiles: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null
 }
 
+type Report = {
+  id: string
+  title: string
+  published: boolean
+  created_at: string
+}
+
 export default function BuildingDetailPage() {
   const supabase = createClient()
   const params = useParams()
@@ -42,6 +49,7 @@ export default function BuildingDetailPage() {
 
   const [building, setBuilding] = useState<Building | null>(null)
   const [tickets, setTickets] = useState<Ticket[]>([])
+  const [reports, setReports] = useState<Report[]>([])
   const [access, setAccess] = useState<AccessRow[]>([])
   const [loading, setLoading] = useState(true)
   const [grantEmail, setGrantEmail] = useState('')
@@ -73,6 +81,13 @@ export default function BuildingDetailPage() {
       .select('id, user_id, profiles(full_name, email)')
       .eq('building_id', buildingId)
     setAccess((accessData || []) as unknown as AccessRow[])
+
+    const { data: reportData } = await supabase
+      .from('copsefield_property_reports')
+      .select('id, title, published, created_at')
+      .eq('building_id', buildingId)
+      .order('created_at', { ascending: false })
+    setReports(reportData || [])
 
     setLoading(false)
   }
@@ -178,6 +193,30 @@ export default function BuildingDetailPage() {
           >
             {generatingReport ? 'Generating...' : 'Investment report'}
           </button>
+        </div>
+
+        <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-deck-dim">Reports ({reports.length})</h2>
+        {reports.length === 0 && <p className="mt-2 text-sm text-deck-dim">No reports generated for this building yet.</p>}
+        <div className="mt-2 space-y-1.5">
+          {reports.map((r) => (
+            <Link
+              key={r.id}
+              href={`/copsefield/reports/${r.id}`}
+              className="flex items-center justify-between rounded-md border border-deck-border bg-deck-surface px-3 py-2"
+            >
+              <div>
+                <p className="text-sm text-deck-text">{r.title}</p>
+                <p className="text-xs text-deck-dim">{new Date(r.created_at).toLocaleDateString()}</p>
+              </div>
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                  r.published ? 'bg-emerald-100 text-emerald-700' : 'bg-deck-raised text-deck-dim'
+                }`}
+              >
+                {r.published ? 'Published' : 'Draft'}
+              </span>
+            </Link>
+          ))}
         </div>
 
         <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-deck-dim">Tickets ({tickets.length})</h2>

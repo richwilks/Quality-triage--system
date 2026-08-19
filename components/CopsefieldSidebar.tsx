@@ -103,6 +103,16 @@ const ITEMS: NavItem[] = [
     ),
   },
   {
+    href: '/copsefield/reports',
+    label: 'Reports',
+    icon: (active) => (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={active ? ACTIVE_STROKE : ICON_STROKE} strokeWidth="2">
+        <path d="M6 3h9l4 4v14a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1z" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M9 12h6M9 16h6M9 8h2" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
     href: '/copsefield/account',
     label: 'Account',
     icon: (active) => (

@@ -43,6 +43,16 @@ const TABS: Tab[] = [
     ),
   },
   {
+    href: '/copsefield/reports',
+    label: 'Reports',
+    icon: (active) => (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? ACTIVE : INACTIVE} strokeWidth="2">
+        <path d="M6 3h9l4 4v14a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1z" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M9 12h6M9 16h6M9 8h2" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
     href: '/copsefield/account',
     label: 'Account',
     icon: (active) => (
