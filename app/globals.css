@@ -5,7 +5,17 @@
 @tailwind utilities;
 @media (min-width: 1024px) {
   .max-w-md {
-    max-width: 56rem;
+    max-width: 48rem;
+  }
+}
+@media (min-width: 1280px) {
+  .max-w-md {
+    max-width: 64rem;
+  }
+}
+@media (min-width: 1536px) {
+  .max-w-md {
+    max-width: 76rem;
   }
 }
 
