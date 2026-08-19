@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { useBranding } from '@/components/BrandingContext'
 
 type Asset = { id: string; name: string; location: string | null; status: string }
 type StatusCounts = Record<string, number>
@@ -23,6 +24,7 @@ const STATUS_COLOR: Record<string, string> = {
 
 export default function FMIQHomePage() {
   const supabase = createClient()
+  const branding = useBranding()
   const [assets, setAssets] = useState<Asset[]>([])
   const [counts, setCounts] = useState<Record<string, StatusCounts>>({})
   const [loading, setLoading] = useState(true)
@@ -93,10 +95,16 @@ export default function FMIQHomePage() {
       <div className="mx-auto max-w-md">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-fmiq-accent font-mono text-xs font-bold text-deck-bg">
-              FM
+            <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-md bg-fmiq-accent font-mono text-xs font-bold text-deck-bg">
+              {branding.logoUrl ? (
+                <img src={branding.logoUrl} alt={branding.companyName || 'Logo'} className="h-full w-full object-contain" />
+              ) : (
+                'FM'
+              )}
             </div>
-            <h1 className="text-xl font-semibold text-deck-text">FMIQ</h1>
+            <h1 className="text-xl font-semibold text-deck-text">
+              {branding.hideDefaultBrand && branding.companyName ? branding.companyName : 'FMIQ'}
+            </h1>
           </div>
           <Link href="/choose" className="text-xs font-medium text-deck-dim underline">
             Switch system

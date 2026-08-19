@@ -30,11 +30,11 @@ const config: Config = {
           body: '#4A473F',
           dim: '#767162',
           mute: '#9C9686',
-          accent: '#2A6F77',
+          accent: 'var(--deck-accent-color, #2A6F77)',
           success: '#1E7A46',
         },
         fmiq: {
-          accent: '#B45309',
+          accent: 'var(--fmiq-accent-color, #B45309)',
         },
       },
       fontFamily: {

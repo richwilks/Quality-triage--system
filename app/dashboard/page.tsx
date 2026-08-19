@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import StatusBadge from '@/components/StatusBadge'
+import { useBranding } from '@/components/BrandingContext'
 
 type Project = { id: string; name: string }
 type StatusCounts = Record<string, number>
@@ -23,6 +24,7 @@ const QUICK_LINKS = [
 
 export default function DashboardPage() {
   const supabase = createClient()
+  const branding = useBranding()
   const [projects, setProjects] = useState<Project[]>([])
   const [counts, setCounts] = useState<Record<string, StatusCounts>>({})
   const [loading, setLoading] = useState(true)
@@ -86,13 +88,17 @@ export default function DashboardPage() {
       <div className="mx-auto max-w-md pb-10">
         <div className="flex items-center justify-between border-b border-deck-border px-4 py-4">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-deck-accent font-mono text-xs font-bold text-deck-bg">
-              IQ
+            <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-md bg-deck-accent font-mono text-xs font-bold text-deck-bg">
+              {branding.logoUrl ? (
+                <img src={branding.logoUrl} alt={branding.companyName || 'Logo'} className="h-full w-full object-contain" />
+              ) : (
+                'IQ'
+              )}
             </div>
             <div>
               <h1 className="text-base font-bold leading-none">Dashboard</h1>
               <p className="mt-0.5 font-mono text-[9px] uppercase tracking-wide text-deck-mute">
-                inspectiq.co
+                {branding.hideDefaultBrand && branding.companyName ? branding.companyName : 'inspectiq.co'}
               </p>
             </div>
           </div>
