@@ -27,11 +27,32 @@ type Finding = {
   work_order_id: string | null
 }
 
+type ChecklistResponse = {
+  id: string
+  category: string | null
+  item_text: string
+  mandatory: boolean
+  status: 'pending' | 'ok' | 'issue' | 'not_applicable'
+  notes: string | null
+  photo_url: string | null
+  ai_analysis: string | null
+  ai_severity: string | null
+  analysis_status: 'none' | 'pending' | 'done'
+  work_order_id: string | null
+}
+
 const SEVERITY_COLOR: Record<string, string> = {
   minor: 'bg-deck-raised text-deck-dim',
   moderate: 'bg-amber-100 text-amber-700',
   major: 'bg-orange-100 text-orange-700',
   hazard: 'bg-red-100 text-red-700',
+}
+
+const CHECKLIST_STATUS_COLOR: Record<string, string> = {
+  pending: 'bg-deck-raised text-deck-dim',
+  ok: 'bg-emerald-100 text-emerald-700',
+  issue: 'bg-red-100 text-red-700',
+  not_applicable: 'bg-deck-raised text-deck-dim',
 }
 
 export default function InspectionDetailPage() {
@@ -42,10 +63,12 @@ export default function InspectionDetailPage() {
 
   const [inspection, setInspection] = useState<Inspection | null>(null)
   const [findings, setFindings] = useState<Finding[]>([])
+  const [checklist, setChecklist] = useState<ChecklistResponse[]>([])
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [creatingWorkOrderFor, setCreatingWorkOrderFor] = useState<string | null>(null)
+  const [analyzingAll, setAnalyzingAll] = useState(false)
 
   useEffect(() => {
     load()
@@ -66,7 +89,78 @@ export default function InspectionDetailPage() {
       .order('created_at', { ascending: false })
     setFindings(findingsData || [])
 
+    const { data: checklistData } = await supabase
+      .from('fmiq_inspection_checklist_responses')
+      .select('id, category, item_text, mandatory, status, notes, photo_url, ai_analysis, ai_severity, analysis_status, work_order_id')
+      .eq('inspection_id', inspectionId)
+      .order('sort_order', { ascending: true })
+    setChecklist(checklistData || [])
+
     setLoading(false)
+  }
+
+  async function handleAnalyzeAllPending() {
+    setAnalyzingAll(true)
+    setError(null)
+    const pending = checklist.filter((c) => c.photo_url && c.analysis_status === 'pending')
+    for (const item of pending) {
+      try {
+        const res = await fetch('/api/fmiq/analyze-checklist-item', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ responseId: item.id }),
+        })
+        const result = await res.json()
+        if (res.ok) {
+          setChecklist((prev) =>
+            prev.map((c) =>
+              c.id === item.id
+                ? { ...c, ai_analysis: result.analysis, ai_severity: result.severity, analysis_status: 'done', status: result.status }
+                : c
+            )
+          )
+        }
+      } catch {
+        // Continue with the rest even if one fails
+      }
+    }
+    setAnalyzingAll(false)
+  }
+
+  async function handleCreateChecklistWorkOrder(item: ChecklistResponse) {
+    if (!inspection) return
+    setCreatingWorkOrderFor(item.id)
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('company_name')
+      .eq('id', user?.id)
+      .single()
+
+    const description = [item.item_text, item.notes, item.ai_analysis].filter(Boolean).join(' - ')
+    const severity = item.ai_severity || 'moderate'
+
+    const { data: workOrder, error: insertError } = await supabase
+      .from('fmiq_work_orders')
+      .insert({
+        asset_id: inspection.asset_id,
+        company_name: profile?.company_name,
+        title: item.item_text.slice(0, 100),
+        description,
+        priority: severity === 'hazard' ? 'urgent' : severity === 'major' ? 'high' : 'medium',
+        created_by: user?.id,
+      })
+      .select()
+      .single()
+
+    if (!insertError && workOrder) {
+      await supabase.from('fmiq_inspection_checklist_responses').update({ work_order_id: workOrder.id }).eq('id', item.id)
+      load()
+    }
+    setCreatingWorkOrderFor(null)
   }
 
   function getAssetName(i: Inspection) {
@@ -149,6 +243,14 @@ export default function InspectionDetailPage() {
   const totalMax = findings.reduce((sum, f) => sum + (f.estimated_cost_max || 0), 0)
   const hasEstimates = findings.some((f) => f.estimated_cost_min !== null)
 
+  const pendingAnalysisCount = checklist.filter((c) => c.photo_url && c.analysis_status === 'pending').length
+  const checklistByCategory = checklist.reduce<Record<string, ChecklistResponse[]>>((acc, item) => {
+    const key = item.category || 'General'
+    acc[key] = acc[key] || []
+    acc[key].push(item)
+    return acc
+  }, {})
+
   return (
     <div className="min-h-screen px-4 py-8">
       <div className="mx-auto max-w-md">
@@ -178,13 +280,96 @@ export default function InspectionDetailPage() {
         </div>
         {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 
+        {checklist.length > 0 && (
+          <>
+            <div className="mt-6 flex items-center justify-between">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-deck-dim">
+                Checklist ({checklist.length})
+              </h2>
+              {pendingAnalysisCount > 0 && (
+                <button
+                  onClick={handleAnalyzeAllPending}
+                  disabled={analyzingAll}
+                  className="text-xs font-medium text-fmiq-accent underline disabled:opacity-50"
+                >
+                  {analyzingAll ? 'Analyzing...' : `Analyze all pending (${pendingAnalysisCount})`}
+                </button>
+              )}
+            </div>
+
+            <div className="mt-2 space-y-4">
+              {Object.entries(checklistByCategory).map(([category, items]) => (
+                <div key={category}>
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-deck-mute">{category}</h3>
+                  <div className="mt-1 space-y-2">
+                    {items.map((item) => (
+                      <div key={item.id} className="rounded-lg border border-deck-border bg-deck-surface p-3">
+                        {item.photo_url && (
+                          <img src={item.photo_url} alt={item.item_text} className="mb-2 w-full rounded-md" />
+                        )}
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm text-deck-text">
+                            {item.item_text}
+                            {item.mandatory && <span className="ml-1 text-xs text-deck-mute">(mandatory)</span>}
+                          </p>
+                          <span
+                            className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+                              CHECKLIST_STATUS_COLOR[item.status] || CHECKLIST_STATUS_COLOR.pending
+                            }`}
+                          >
+                            {item.status.replace('_', ' ')}
+                          </span>
+                        </div>
+                        {item.notes && <p className="mt-1 text-xs text-deck-dim">{item.notes}</p>}
+                        {item.analysis_status === 'pending' && (
+                          <p className="mt-1 text-xs text-amber-700">Photo attached, not analyzed yet</p>
+                        )}
+                        {item.ai_analysis && (
+                          <div className="mt-1 flex items-start gap-2">
+                            {item.ai_severity && (
+                              <span
+                                className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+                                  SEVERITY_COLOR[item.ai_severity] || SEVERITY_COLOR.moderate
+                                }`}
+                              >
+                                {item.ai_severity}
+                              </span>
+                            )}
+                            <p className="text-xs text-deck-dim">{item.ai_analysis}</p>
+                          </div>
+                        )}
+                        {item.status === 'issue' && (
+                          item.work_order_id ? (
+                            <Link
+                              href={`/fmiq/work-orders/${item.work_order_id}`}
+                              className="mt-2 inline-block text-xs font-medium text-fmiq-accent underline"
+                            >
+                              View work order
+                            </Link>
+                          ) : (
+                            <button
+                              onClick={() => handleCreateChecklistWorkOrder(item)}
+                              disabled={creatingWorkOrderFor === item.id}
+                              className="mt-2 text-xs font-medium text-fmiq-accent underline disabled:opacity-50"
+                            >
+                              {creatingWorkOrderFor === item.id ? 'Creating...' : 'Create work order for this'}
+                            </button>
+                          )
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {findings.length > 0 && (
+          <>
         <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-deck-dim">
           Findings ({findings.length})
         </h2>
-
-        {findings.length === 0 && (
-          <p className="mt-2 text-sm text-deck-dim">No findings recorded.</p>
-        )}
 
         <div className="mt-2 space-y-2">
           {findings.map((f) => (
@@ -225,6 +410,8 @@ export default function InspectionDetailPage() {
             </div>
           ))}
         </div>
+          </>
+        )}
       </div>
     </div>
   )
