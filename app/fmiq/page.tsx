@@ -184,6 +184,13 @@ export default function FMIQHomePage() {
               <span className="text-deck-mute">→</span>
             </Link>
             <Link
+              href="/fmiq/checklists"
+              className="flex items-center justify-between border-b border-deck-border bg-deck-surface px-3.5 py-3 text-[13.5px] font-medium text-deck-text"
+            >
+              <span>Checklist Templates</span>
+              <span className="text-deck-mute">→</span>
+            </Link>
+            <Link
               href="/fmiq/settings"
               className="flex items-center justify-between bg-deck-surface px-3.5 py-3 text-[13.5px] font-medium text-deck-text"
             >

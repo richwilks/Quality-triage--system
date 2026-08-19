@@ -623,3 +623,153 @@ Be honest about uncertainty - do not present speculative figures as precise or g
   const textBlock = data.content?.find((c: any) => c.type === 'text')
   return textBlock?.text || 'Could not generate report.'
 }
+
+
+// --- FMIQ guided checklist inspections ---
+
+export type ChecklistItem = {
+  category: string
+  item_text: string
+  mandatory: boolean
+  source: 'regulation' | 'general_practice'
+}
+
+// Drafts a checklist template for a jurisdiction + property type - a human
+// reviews/edits it afterward (fmiq_checklist_templates.source stays 'ai'
+// until someone edits it). Items grounded in uploaded regulation text are
+// marked mandatory/regulation; anything else is marked general_practice so
+// reviewers know what to double-check against the real local requirements.
+export async function generateChecklistTemplate(
+  jurisdiction: string,
+  propertyType: string,
+  regulationTexts: RegulationText[]
+): Promise<{ items: ChecklistItem[]; usage: { input_tokens: number; output_tokens: number } | null }> {
+  let referenceText = `Jurisdiction: ${jurisdiction}\nProperty type: ${propertyType}`
+
+  if (regulationTexts.length > 0) {
+    for (const reg of regulationTexts) {
+      referenceText += `\n\nExtracted requirements from regulation/standard ${reg.code}:\n${reg.text}`
+    }
+  } else {
+    referenceText += `\n\nNo regulation documents have been uploaded for this jurisdiction yet - base items on general, widely-applicable property inspection good practice, and mark every item "general_practice" rather than inventing specific regulatory citations.`
+  }
+
+  const prompt = `You are drafting a property inspection checklist template that a human will review and correct before it's used in the field.
+
+${referenceText}
+
+Produce a checklist of discrete, checkable items a property inspector should walk through on-site for this jurisdiction and property type. Group items under short category headings (e.g. "Fire Safety", "Structural", "Electrical", "Plumbing", "Accessibility", "Exterior/Envelope", "Common Areas" - use whatever categories fit what's actually being checked).
+
+For each item:
+- item_text: one specific, checkable thing to inspect (e.g. "Smoke alarms present and tested in every bedroom and hallway", not vague like "check fire safety").
+- mandatory: true only if this is a genuine mandatory legal/regulatory requirement you can support from the reference text above; false for a good-practice item that isn't itself a hard legal requirement.
+- source: "regulation" only if grounded in the extracted requirement text above (mandatory must be true in this case); otherwise "general_practice".
+
+Be thorough but not padded - real, distinct, checkable items only, not duplicates or vague restatements of the same point. This is a first draft for a human reviewer, so it is fine and expected to be imperfect - do not fabricate specific clause numbers or regulation names that aren't in the reference text above.
+
+Respond with ONLY a JSON array, no markdown, no other text:
+
+[
+  { "category": "string", "item_text": "string", "mandatory": true or false, "source": "regulation" | "general_practice" }
+]`
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': process.env.ANTHROPIC_API_KEY as string,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-5',
+      max_tokens: 4000,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  })
+
+  const data = await response.json()
+  const textBlock = data.content?.find((c: any) => c.type === 'text')
+  const raw = textBlock?.text || '[]'
+  const cleaned = raw.replace(/```json|```/g, '').trim()
+
+  const usage = data.usage
+    ? { input_tokens: data.usage.input_tokens || 0, output_tokens: data.usage.output_tokens || 0 }
+    : null
+
+  try {
+    const parsed = JSON.parse(cleaned)
+    const items: ChecklistItem[] = Array.isArray(parsed)
+      ? parsed.map((i: any): ChecklistItem => ({
+          category: i.category || 'General',
+          item_text: i.item_text || '',
+          mandatory: !!i.mandatory && i.source === 'regulation' ? true : !!i.mandatory,
+          source: i.source === 'regulation' ? 'regulation' : 'general_practice',
+        })).filter((i: ChecklistItem) => i.item_text.trim().length > 0)
+      : []
+    return { items, usage }
+  } catch {
+    return { items: [], usage }
+  }
+}
+
+// Assesses a single photo attached to one checklist item - narrower than
+// analyzePropertyInspection: no bounding box, since the whole photo is the
+// evidence for this one specific item rather than a general room scan.
+export async function analyzeChecklistItemPhoto(
+  base64Image: string,
+  mimeType: string,
+  itemText: string,
+  jurisdiction: string | null
+): Promise<{
+  analysis: string
+  severity: 'minor' | 'moderate' | 'major' | 'hazard' | null
+  usage: { input_tokens: number; output_tokens: number } | null
+}> {
+  const content: any[] = [
+    { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64Image } },
+    {
+      type: 'text',
+      text: `You are a property inspector. This photo was taken as evidence for the following checklist item${jurisdiction ? ` (jurisdiction: ${jurisdiction})` : ''}:
+
+"${itemText}"
+
+Assess whether the photo shows this item passing or failing, and describe specifically what you can see that supports your assessment. If the photo doesn't clearly show enough to judge the item, say so plainly rather than guessing.
+
+If there is a genuine issue, classify severity as one of: "minor" (cosmetic, no urgency), "moderate" (should be addressed but not urgent), "major" (significant defect, address soon), "hazard" (immediate health/safety risk). If there's no issue, or the photo is inconclusive, set severity to null.
+
+Respond with ONLY this JSON object, no markdown, no other text:
+{ "analysis": "string", "severity": "minor" | "moderate" | "major" | "hazard" | null }`,
+    },
+  ]
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': process.env.ANTHROPIC_API_KEY as string,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-5',
+      max_tokens: 500,
+      messages: [{ role: 'user', content }],
+    }),
+  })
+
+  const data = await response.json()
+  const textBlock = data.content?.find((c: any) => c.type === 'text')
+  const raw = textBlock?.text || '{}'
+  const cleaned = raw.replace(/```json|```/g, '').trim()
+
+  const usage = data.usage
+    ? { input_tokens: data.usage.input_tokens || 0, output_tokens: data.usage.output_tokens || 0 }
+    : null
+
+  try {
+    const parsed = JSON.parse(cleaned)
+    const severity = ['minor', 'moderate', 'major', 'hazard'].includes(parsed.severity) ? parsed.severity : null
+    return { analysis: parsed.analysis || '', severity, usage }
+  } catch {
+    return { analysis: '', severity: null, usage }
+  }
+}
