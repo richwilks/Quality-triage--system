@@ -5,10 +5,9 @@ import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
 
 type BrandingRow = {
-  white_label_enabled: boolean
-  logo_url: string | null
-  accent_color: string | null
-  feature_branded_reports: boolean
+  fmiq_white_label_enabled: boolean
+  fmiq_logo_url: string | null
+  fmiq_accent_color: string | null
 }
 
 export default function FMIQSettingsPage() {
@@ -49,13 +48,13 @@ export default function FMIQSettingsPage() {
 
     const { data: brandingData } = await supabase
       .from('company_settings')
-      .select('white_label_enabled, logo_url, accent_color, feature_branded_reports')
+      .select('fmiq_white_label_enabled, fmiq_logo_url, fmiq_accent_color')
       .ilike('company_name', profile.company_name)
       .maybeSingle()
 
     if (brandingData) {
       setBranding(brandingData)
-      if (brandingData.accent_color) setAccentColor(brandingData.accent_color)
+      if (brandingData.fmiq_accent_color) setAccentColor(brandingData.fmiq_accent_color)
     }
 
     setLoading(false)
@@ -65,7 +64,7 @@ export default function FMIQSettingsPage() {
     setSavingBranding(true)
     setBrandingMessage(null)
 
-    let logoUrl = branding?.logo_url || null
+    let logoUrl = branding?.fmiq_logo_url || null
 
     if (logoFile) {
       const path = `${companyName}/${Date.now()}-${logoFile.name}`
@@ -83,7 +82,7 @@ export default function FMIQSettingsPage() {
       logoUrl = publicUrl
     }
 
-    const { error } = await supabase.rpc('update_company_branding', {
+    const { error } = await supabase.rpc('update_fmiq_branding', {
       target_company: companyName,
       logo: logoUrl,
       color: accentColor,
@@ -94,10 +93,9 @@ export default function FMIQSettingsPage() {
     } else {
       setBrandingMessage('Branding saved.')
       setBranding((prev) => ({
-        white_label_enabled: prev?.white_label_enabled || false,
-        feature_branded_reports: prev?.feature_branded_reports || false,
-        logo_url: logoUrl,
-        accent_color: accentColor,
+        fmiq_white_label_enabled: prev?.fmiq_white_label_enabled || false,
+        fmiq_logo_url: logoUrl,
+        fmiq_accent_color: accentColor,
       }))
       setLogoFile(null)
     }
@@ -121,21 +119,22 @@ export default function FMIQSettingsPage() {
     )
   }
 
-  const brandingUnlocked = branding?.feature_branded_reports || branding?.white_label_enabled
+  const brandingUnlocked = branding?.fmiq_white_label_enabled
 
   return (
     <div className="min-h-screen px-4 py-8">
       <div className="mx-auto max-w-md">
         <PageHeader title="FMIQ Settings" />
-        <p className="mt-1 text-sm text-deck-dim">{companyName} - white-label branding.</p>
+        <p className="mt-1 text-sm text-deck-dim">{companyName} - FMIQ white-label branding.</p>
 
         {!brandingUnlocked && (
           <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
-            <p className="text-sm font-medium text-deck-body">White-label branding isn't enabled yet</p>
+            <p className="text-sm font-medium text-deck-body">FMIQ white-label branding isn't enabled yet</p>
             <p className="mt-1 text-xs text-deck-dim">
-              This is a platform-level setting turned on per company, separate from being a company admin.
-              Ask whoever manages your InspectIQ/FMIQ platform account to enable it, then this page will let
-              you set your logo and accent colour.
+              This is a chargeable platform feature approved per company, separate from being a company admin
+              and separate from InspectIQ's white-label setting - a company can have one enabled without the
+              other. Ask whoever manages your platform account to enable FMIQ white-label, then this page will
+              let you set FMIQ's own logo and accent colour.
             </p>
           </div>
         )}
@@ -144,12 +143,13 @@ export default function FMIQSettingsPage() {
           <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
             <p className="text-sm font-medium text-deck-body">Branding</p>
             <p className="mt-1 text-xs text-deck-dim">
-              This logo and colour apply across both InspectIQ and FMIQ.
+              This logo and colour apply to FMIQ only - InspectIQ has its own, set separately from InspectIQ's
+              Company Admin page.
             </p>
 
-            {branding?.logo_url && (
+            {branding?.fmiq_logo_url && (
               <img
-                src={branding.logo_url}
+                src={branding.fmiq_logo_url}
                 alt="Current logo"
                 className="mt-3 h-12 w-auto rounded-md border border-deck-border object-contain p-2"
               />
