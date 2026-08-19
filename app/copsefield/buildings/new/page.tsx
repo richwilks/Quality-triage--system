@@ -1,0 +1,165 @@
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import PageHeader from '@/components/PageHeader'
+import { BUILDING_TYPES, BuildingType, buildingCode } from '@/lib/copsefieldTaxonomy'
+
+export default function NewBuildingPage() {
+  const supabase = createClient()
+  const router = useRouter()
+
+  const [buildingType, setBuildingType] = useState<BuildingType>(BUILDING_TYPES[0].value)
+  const [name, setName] = useState('')
+  const [address, setAddress] = useState('')
+  const [city, setCity] = useState('')
+  const [region, setRegion] = useState('')
+  const [country, setCountry] = useState('')
+  const [propertyManagerName, setPropertyManagerName] = useState('')
+  const [propertyManagerEmail, setPropertyManagerEmail] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleSave() {
+    if (!name.trim()) return
+    setSaving(true)
+    setError(null)
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    // Building numbers are shared across all building types (100-114 are
+    // reserved for Copsefield's own assets, so the register starts at 115).
+    const { data: maxRow } = await supabase
+      .from('copsefield_buildings')
+      .select('building_number')
+      .order('building_number', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const nextNumber = Math.max(115, (maxRow?.building_number || 0) + 1)
+    const code = buildingCode(buildingType, nextNumber)
+
+    const { data: building, error: insertError } = await supabase
+      .from('copsefield_buildings')
+      .insert({
+        building_type: buildingType,
+        building_number: nextNumber,
+        building_code: code,
+        name: name.trim(),
+        address: address.trim() || null,
+        city: city.trim() || null,
+        region: region.trim() || null,
+        country: country.trim() || null,
+        property_manager_name: propertyManagerName.trim() || null,
+        property_manager_email: propertyManagerEmail.trim() || null,
+        created_by: user?.id,
+      })
+      .select()
+      .single()
+
+    if (insertError || !building) {
+      setError(insertError?.message || 'Could not save building')
+      setSaving(false)
+      return
+    }
+
+    router.push(`/copsefield/buildings/${building.id}`)
+  }
+
+  return (
+    <div className="min-h-screen px-4 py-8">
+      <div className="mx-auto max-w-md">
+        <PageHeader title="Add a building" />
+
+        <label className="mt-4 block text-sm font-medium text-deck-body">Building type</label>
+        <select
+          value={buildingType}
+          onChange={(e) => setBuildingType(e.target.value as BuildingType)}
+          className="mt-1 w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text"
+        >
+          {BUILDING_TYPES.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.label} ({t.prefix})
+            </option>
+          ))}
+        </select>
+
+        <label className="mt-3 block text-sm font-medium text-deck-body">Name</label>
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. Harbourview Strata"
+          className="mt-1 w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text placeholder:text-deck-mute"
+        />
+
+        <label className="mt-3 block text-sm font-medium text-deck-body">Address</label>
+        <input
+          type="text"
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          className="mt-1 w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text"
+        />
+
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-sm font-medium text-deck-body">City</label>
+            <input
+              type="text"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              className="mt-1 w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-deck-body">Region</label>
+            <input
+              type="text"
+              value={region}
+              onChange={(e) => setRegion(e.target.value)}
+              placeholder="e.g. British Columbia"
+              className="mt-1 w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text placeholder:text-deck-mute"
+            />
+          </div>
+        </div>
+
+        <label className="mt-3 block text-sm font-medium text-deck-body">Country</label>
+        <input
+          type="text"
+          value={country}
+          onChange={(e) => setCountry(e.target.value)}
+          className="mt-1 w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text"
+        />
+
+        <label className="mt-3 block text-sm font-medium text-deck-body">Property manager name</label>
+        <input
+          type="text"
+          value={propertyManagerName}
+          onChange={(e) => setPropertyManagerName(e.target.value)}
+          className="mt-1 w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text"
+        />
+
+        <label className="mt-3 block text-sm font-medium text-deck-body">Property manager email</label>
+        <input
+          type="email"
+          value={propertyManagerEmail}
+          onChange={(e) => setPropertyManagerEmail(e.target.value)}
+          className="mt-1 w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text"
+        />
+
+        {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+
+        <button
+          onClick={handleSave}
+          disabled={saving || !name.trim()}
+          className="mt-5 w-full rounded-md bg-copsefield-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
+        >
+          {saving ? 'Saving...' : 'Save building'}
+        </button>
+      </div>
+    </div>
+  )
+}
