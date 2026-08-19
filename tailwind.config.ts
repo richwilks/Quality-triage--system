@@ -33,8 +33,9 @@ const config: Config = {
           accent: 'var(--deck-accent-color, #2A6F77)',
           success: '#1E7A46',
         },
-        fmiq: {
-          accent: 'var(--fmiq-accent-color, #B45309)',
+        copsefield: {
+          dark: '#2A3D39',
+          accent: '#A67C52',
         },
       },
       fontFamily: {

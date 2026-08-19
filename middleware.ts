@@ -32,7 +32,7 @@ export async function middleware(request: NextRequest) {
   if (user) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('is_blocked, has_fmiq_access')
+      .select('is_blocked, has_copsefield_access')
       .eq('id', user.id)
       .single()
 
@@ -44,7 +44,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    if (request.nextUrl.pathname.startsWith('/fmiq') && !profile?.has_fmiq_access) {
+    if (request.nextUrl.pathname.startsWith('/copsefield') && !profile?.has_copsefield_access) {
       const url = request.nextUrl.clone()
       url.pathname = '/dashboard'
       url.search = ''

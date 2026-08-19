@@ -28,7 +28,7 @@ export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [counts, setCounts] = useState<Record<string, StatusCounts>>({})
   const [loading, setLoading] = useState(true)
-  const [hasFmiqAccess, setHasFmiqAccess] = useState(false)
+  const [hasCopsefieldAccess, setHasCopsefieldAccess] = useState(false)
 
   useEffect(() => {
     load()
@@ -42,10 +42,10 @@ export default function DashboardPage() {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('has_fmiq_access')
+      .select('has_copsefield_access')
       .eq('id', user.id)
       .single()
-    setHasFmiqAccess(!!profile?.has_fmiq_access)
+    setHasCopsefieldAccess(!!profile?.has_copsefield_access)
 
     const { data: projectData } = await supabase
       .from('project_members')
@@ -103,9 +103,9 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="flex flex-col items-end gap-1">
-            {hasFmiqAccess && (
-              <Link href="/choose" className="font-mono text-xs text-fmiq-accent">
-                SWITCH TO FMIQ
+            {hasCopsefieldAccess && (
+              <Link href="/choose" className="font-mono text-xs text-copsefield-accent">
+                SWITCH TO COPSEFIELD
               </Link>
             )}
             <Link href="/dashboard/account" className="font-mono text-xs text-deck-dim">

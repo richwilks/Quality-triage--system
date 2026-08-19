@@ -8,7 +8,7 @@ export default function ChooseProductPage() {
   const router = useRouter()
   const supabase = createClient()
   const [checking, setChecking] = useState(true)
-  const [hasFmiqAccess, setHasFmiqAccess] = useState(false)
+  const [hasCopsefieldAccess, setHasCopsefieldAccess] = useState(false)
 
   useEffect(() => {
     check()
@@ -25,18 +25,18 @@ export default function ChooseProductPage() {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('has_fmiq_access')
+      .select('has_copsefield_access')
       .eq('id', user.id)
       .single()
 
     // Most accounts only ever have InspectIQ - skip straight there rather than
     // showing a chooser with one real option.
-    if (!profile?.has_fmiq_access) {
+    if (!profile?.has_copsefield_access) {
       router.replace('/dashboard')
       return
     }
 
-    setHasFmiqAccess(true)
+    setHasCopsefieldAccess(true)
     setChecking(false)
   }
 
@@ -48,7 +48,7 @@ export default function ChooseProductPage() {
     )
   }
 
-  if (!hasFmiqAccess) return null
+  if (!hasCopsefieldAccess) return null
 
   return (
     <div className="dashboard-shell flex min-h-screen flex-col items-center justify-center px-4">
@@ -73,15 +73,17 @@ export default function ChooseProductPage() {
           </button>
 
           <button
-            onClick={() => router.push('/fmiq')}
+            onClick={() => router.push('/copsefield')}
             className="flex w-full items-center gap-3 rounded-xl border border-deck-border bg-deck-surface p-4 text-left"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-md bg-fmiq-accent font-mono text-xs font-bold text-deck-bg">
-              FM
-            </div>
+            <img
+              src="/branding/copsefield/shield-icon.png"
+              alt="Copsefield Group"
+              className="h-10 w-10 rounded-md object-contain"
+            />
             <div>
-              <p className="text-sm font-semibold text-deck-text">FMIQ</p>
-              <p className="text-xs text-deck-dim">Facilities management &amp; maintenance</p>
+              <p className="text-sm font-semibold text-deck-text">Copsefield Group</p>
+              <p className="text-xs text-deck-dim">Property inspections &amp; ticket management</p>
             </div>
           </button>
         </div>
