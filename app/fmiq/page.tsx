@@ -171,9 +171,23 @@ export default function FMIQHomePage() {
             </Link>
             <Link
               href="/fmiq/economic-reports"
-              className="flex items-center justify-between bg-deck-surface px-3.5 py-3 text-[13.5px] font-medium text-deck-text"
+              className="flex items-center justify-between border-b border-deck-border bg-deck-surface px-3.5 py-3 text-[13.5px] font-medium text-deck-text"
             >
               <span>Economic Reports</span>
+              <span className="text-deck-mute">→</span>
+            </Link>
+            <Link
+              href="/fmiq/reports/asset-condition-example"
+              className="flex items-center justify-between border-b border-deck-border bg-deck-surface px-3.5 py-3 text-[13.5px] font-medium text-deck-text"
+            >
+              <span>Asset Condition Report (example)</span>
+              <span className="text-deck-mute">→</span>
+            </Link>
+            <Link
+              href="/fmiq/settings"
+              className="flex items-center justify-between bg-deck-surface px-3.5 py-3 text-[13.5px] font-medium text-deck-text"
+            >
+              <span>Settings &amp; Branding</span>
               <span className="text-deck-mute">→</span>
             </Link>
           </div>
