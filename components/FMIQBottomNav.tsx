@@ -35,6 +35,16 @@ const TABS = [
     ),
   },
   {
+    href: '/fmiq/account',
+    label: 'Account',
+    icon: (active: boolean) => (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? 'var(--fmiq-accent-color, #B45309)' : '#9C9686'} strokeWidth="2">
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4 21c0-4 4-6 8-6s8 2 8 6" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
     href: '/choose',
     label: 'Switch',
     icon: (active: boolean) => (

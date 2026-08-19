@@ -1,0 +1,149 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import PageHeader from '@/components/PageHeader'
+
+export default function FMIQAccountPage() {
+  const supabase = createClient()
+  const [fullName, setFullName] = useState('')
+  const [companyName, setCompanyName] = useState('')
+  const [role, setRole] = useState('')
+  const [email, setEmail] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
+  const [isCompanyAdmin, setIsCompanyAdmin] = useState(false)
+
+  useEffect(() => {
+    load()
+  }, [])
+
+  async function load() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return
+
+    const { data } = await supabase
+      .from('profiles')
+      .select('full_name, company_name, role, email, is_platform_admin, company_admin')
+      .eq('id', user.id)
+      .single()
+
+    if (data) {
+      setFullName(data.full_name || '')
+      setCompanyName(data.company_name || '')
+      setRole(data.role || '')
+      setIsPlatformAdmin(data.is_platform_admin || false)
+      setIsCompanyAdmin(data.company_admin || false)
+      setEmail(data.email || '')
+    }
+    setLoading(false)
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    window.location.href = '/login'
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return
+
+    await supabase
+      .from('profiles')
+      .update({ full_name: fullName, company_name: companyName })
+      .eq('id', user.id)
+
+    setSaved(true)
+    setSaving(false)
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen p-8">
+        <p className="text-sm text-deck-dim">Loading...</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen px-4 py-8">
+      <div className="mx-auto max-w-md">
+        <PageHeader title="Account" />
+        <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
+          <p className="text-xs font-medium uppercase tracking-wide text-deck-dim">
+            Account type
+          </p>
+          <p className="mt-1 text-sm font-semibold text-deck-text">
+            {role === 'internal' ? 'Internal' : role === 'partner' ? 'Supply chain partner' : role}
+          </p>
+
+          <label className="mt-4 block text-sm font-medium text-deck-body">Email</label>
+          <p className="mt-1 rounded-md bg-deck-raised px-3 py-2 text-sm text-deck-dim">{email}</p>
+
+          <label className="mt-4 block text-sm font-medium text-deck-body">Full name</label>
+          <input
+            type="text"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
+          />
+
+          <label className="mt-4 block text-sm font-medium text-deck-body">Company</label>
+          <input
+            type="text"
+            value={companyName}
+            onChange={(e) => setCompanyName(e.target.value)}
+            placeholder="e.g. ABC Construction"
+            className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
+          />
+
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="mt-5 w-full rounded-md bg-fmiq-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
+          >
+            {saving ? 'Saving...' : 'Save changes'}
+          </button>
+          {saved && <p className="mt-2 text-sm text-emerald-700">Saved.</p>}
+        </div>
+
+        <a
+          href="/fmiq/settings"
+          className="mt-4 block w-full rounded-md border border-fmiq-accent px-3 py-2 text-center text-sm font-medium text-fmiq-accent"
+        >
+          FMIQ Settings
+        </a>
+        {isCompanyAdmin && (
+          <a
+            href="/dashboard/admin/company"
+            className="mt-4 block w-full rounded-md border border-deck-border px-3 py-2 text-center text-sm font-medium text-deck-text"
+          >
+            Company Admin
+          </a>
+        )}
+        {isPlatformAdmin && (
+          <a
+            href="/dashboard/admin"
+            className="mt-4 block w-full rounded-md border border-deck-border px-3 py-2 text-center text-sm font-medium text-deck-text"
+          >
+            Platform Admin
+          </a>
+        )}
+
+        <button
+          onClick={handleLogout}
+          className="mt-4 w-full rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-600"
+        >
+          Log out
+        </button>
+      </div>
+    </div>
+  )
+}
