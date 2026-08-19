@@ -1,9 +1,11 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { useBranding } from '@/components/BrandingContext'
 
 export default function PageHeader({ title }: { title: string }) {
   const router = useRouter()
+  const branding = useBranding()
 
   return (
     <div className="mb-2 flex items-center gap-3">
@@ -16,7 +18,11 @@ export default function PageHeader({ title }: { title: string }) {
           <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
-      <img src="/icon-192.png" alt="InspectIQ" className="h-7 w-7 rounded-md" />
+      <img
+        src={branding.logoUrl || '/icon-192.png'}
+        alt={branding.logoUrl ? branding.companyName || 'Company logo' : 'InspectIQ'}
+        className="h-7 w-7 rounded-md object-contain"
+      />
       <h1 className="text-xl font-semibold text-deck-text">{title}</h1>
     </div>
   )

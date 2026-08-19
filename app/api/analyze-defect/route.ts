@@ -4,6 +4,7 @@ import { analyzeDefectImage, ExtraStandardText, FeedbackExample, KnowledgeEntry,
 
 export const maxDuration = 60
 const MAX_FEEDBACK_EXAMPLES = 12
+const MAX_KNOWLEDGE_PHOTOS = 6
 
 // Sonnet 5 pricing per 1M tokens (adjust if pricing changes)
 const INPUT_COST_PER_M = 2.0
@@ -94,7 +95,7 @@ export async function POST(req: NextRequest) {
     const knowledgeEntries: KnowledgeEntry[] = []
     const { data: knowledgeRows } = await supabase
       .from('defect_knowledge_base')
-      .select('title, element_type, country, applicable_standards, defect_description, correct_reference')
+      .select('title, element_type, country, applicable_standards, defect_description, correct_reference, photo_url')
       .eq('active', true)
 
     if (knowledgeRows) {
@@ -119,14 +120,34 @@ export async function POST(req: NextRequest) {
         return true
       })
 
-      relevantEntries.forEach((k) =>
+      let photosFetched = 0
+      for (const k of relevantEntries) {
+        let photoBase64: string | null = null
+        let photoMimeType: string | null = null
+
+        if (k.photo_url && photosFetched < MAX_KNOWLEDGE_PHOTOS) {
+          try {
+            const photoRes = await fetch(k.photo_url)
+            if (photoRes.ok) {
+              const buffer = await photoRes.arrayBuffer()
+              photoBase64 = Buffer.from(buffer).toString('base64')
+              photoMimeType = photoRes.headers.get('content-type') || 'image/jpeg'
+              photosFetched++
+            }
+          } catch {
+            // Reference photo fetch failed - fall back to text-only for this entry.
+          }
+        }
+
         knowledgeEntries.push({
           title: k.title,
           elementType: k.element_type,
           defectDescription: k.defect_description,
           correctReference: k.correct_reference,
+          photoBase64,
+          photoMimeType,
         })
-      )
+      }
     }
 
     console.log('Combined spec length:', combinedSpecText?.length || 0)

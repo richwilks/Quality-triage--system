@@ -16,6 +16,8 @@ export type KnowledgeEntry = {
   elementType: string | null
   defectDescription: string
   correctReference: string | null
+  photoBase64?: string | null
+  photoMimeType?: string | null
 }
 export type BoundaryPoint = { x: number; y: number }
 
@@ -73,6 +75,7 @@ export async function analyzeDefectImage(
 ): Promise<{ defects: DetectedDefect[]; usage: { input_tokens: number; output_tokens: number } | null }> {
 
   const content: any[] = [
+    { type: 'text', text: 'Photo under review:' },
     { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64Image } },
   ]
 
@@ -106,7 +109,7 @@ ${orientationText}`
   if (knowledgeEntries && knowledgeEntries.length > 0) {
     referenceText += `\n\nOrganisational defect knowledge base (known defect patterns from past inspections across all projects - treat these as authoritative, specific checks to apply where relevant to what's visible in this photo):`
     for (const k of knowledgeEntries) {
-      referenceText += `\n\n- ${k.title}${k.elementType ? ` [${k.elementType}]` : ''}\n  What wrong looks like: ${k.defectDescription}${k.correctReference ? `\n  What correct looks like: ${k.correctReference}` : ''}`
+      referenceText += `\n\n- ${k.title}${k.elementType ? ` [${k.elementType}]` : ''}\n  What wrong looks like: ${k.defectDescription}${k.correctReference ? `\n  What correct looks like: ${k.correctReference}` : ''}${k.photoBase64 ? '\n  A reference photo for this entry follows below, with the exact defect area outlined in red - use it to visually calibrate what this pattern actually looks like, not just the text description.' : ''}`
     }
   }
 
@@ -153,6 +156,21 @@ Respond with ONLY a JSON array, no markdown, no other text:
 If no defects, respond with: []`
 
   content.push({ type: 'text', text: instructions })
+
+  const entriesWithPhotos = (knowledgeEntries || []).filter((k) => k.photoBase64 && k.photoMimeType)
+  for (const k of entriesWithPhotos) {
+    content.push({
+      type: 'text',
+      text: `Reference photo for knowledge base entry "${k.title}" - the exact defect area is outlined in red:`,
+    })
+    content.push({ type: 'image', source: { type: 'base64', media_type: k.photoMimeType, data: k.photoBase64 } })
+  }
+  if (entriesWithPhotos.length > 0) {
+    content.push({
+      type: 'text',
+      text: 'That was the last reference photo. Now analyse the photo under review (the first image above) and respond with ONLY the JSON array described above - nothing else.',
+    })
+  }
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
