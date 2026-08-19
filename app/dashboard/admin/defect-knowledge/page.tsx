@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
 import CameraCapture from '@/components/CameraCapture'
@@ -17,6 +18,9 @@ type KnowledgeRow = {
   severity_default: string | null
   active: boolean
   photo_url: string | null
+  source: 'manual' | 'project'
+  company_name: string | null
+  source_defect_id: string | null
 }
 
 const DEFAULT_POLYGON: Point[] = [
@@ -88,6 +92,8 @@ function parseCSV(text: string): ImportRow[] {
 export default function DefectKnowledgeAdminPage() {
   const supabase = createClient()
   const [entries, setEntries] = useState<KnowledgeRow[]>([])
+  const [search, setSearch] = useState('')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [authorized, setAuthorized] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -332,6 +338,16 @@ export default function DefectKnowledgeAdminPage() {
     load()
   }
 
+  const filteredEntries = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return entries
+    return entries.filter((e) =>
+      [e.title, e.element_type, e.country, e.applicable_standards, e.defect_description, e.company_name]
+        .filter(Boolean)
+        .some((v) => (v as string).toLowerCase().includes(q))
+    )
+  }, [entries, search])
+
   if (loading) {
     return (
       <div className="min-h-screen p-8">
@@ -426,50 +442,111 @@ export default function DefectKnowledgeAdminPage() {
           )}
         </div>
 
-        <div className="mt-4 space-y-2">
+        <div className="mt-4">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by title, element type, country, standard, or company..."
+            className="w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text placeholder:text-deck-mute"
+          />
+
           {entries.length === 0 && (
-            <p className="text-sm text-deck-dim">No knowledge base entries yet.</p>
+            <p className="mt-3 text-sm text-deck-dim">No knowledge base entries yet.</p>
           )}
-          {entries.map((e) => (
-            <div key={e.id} className="rounded-lg border border-deck-border bg-deck-surface p-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-deck-text">{e.title}</p>
-                  <p className="text-xs text-deck-dim">
-                    {[e.element_type, e.country, e.applicable_standards].filter(Boolean).join(' · ') || 'General'}
-                  </p>
-                </div>
-                <span className={`text-xs font-medium ${e.active ? 'text-emerald-700' : 'text-deck-dim'}`}>
-                  {e.active ? 'Active' : 'Inactive'}
-                </span>
-              </div>
-              {e.photo_url && (
-                <img
-                  src={e.photo_url}
-                  alt={`Reference for ${e.title}`}
-                  className="mt-2 w-full rounded-md border border-deck-border"
-                />
-              )}
-              <p className="mt-2 text-xs text-deck-body"><strong>Wrong:</strong> {e.defect_description}</p>
-              {e.correct_reference && (
-                <p className="mt-1 text-xs text-deck-body"><strong>Correct:</strong> {e.correct_reference}</p>
-              )}
-              <div className="mt-2 flex gap-3">
-                <button
-                  onClick={() => handleToggleActive(e.id, e.active)}
-                  className="text-xs font-medium text-deck-accent underline"
-                >
-                  {e.active ? 'Deactivate' : 'Activate'}
-                </button>
-                <button
-                  onClick={() => handleDelete(e.id)}
-                  className="text-xs font-medium text-red-600"
-                >
-                  Delete
-                </button>
-              </div>
+          {entries.length > 0 && filteredEntries.length === 0 && (
+            <p className="mt-3 text-sm text-deck-dim">No entries match &quot;{search}&quot;.</p>
+          )}
+
+          {filteredEntries.length > 0 && (
+            <div className="mt-3 overflow-x-auto rounded-lg border border-deck-border">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-deck-border bg-deck-raised text-xs uppercase tracking-wide text-deck-mute">
+                    <th className="px-3 py-2 font-medium">Title</th>
+                    <th className="px-3 py-2 font-medium">Element / country</th>
+                    <th className="px-3 py-2 font-medium">Source</th>
+                    <th className="px-3 py-2 font-medium">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredEntries.map((e) => (
+                    <Fragment key={e.id}>
+                      <tr
+                        onClick={() => setExpandedId(expandedId === e.id ? null : e.id)}
+                        className="cursor-pointer border-b border-deck-border bg-deck-surface last:border-b-0 hover:bg-deck-raised"
+                      >
+                        <td className="px-3 py-2 font-medium text-deck-text">{e.title}</td>
+                        <td className="px-3 py-2 text-xs text-deck-dim">
+                          {[e.element_type, e.country].filter(Boolean).join(' · ') || 'General'}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-deck-dim">
+                          {e.source === 'project' ? `Project${e.company_name ? ` · ${e.company_name}` : ''}` : 'Manual'}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className={`text-xs font-medium ${e.active ? 'text-emerald-700' : 'text-deck-dim'}`}>
+                            {e.active ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                      </tr>
+                      {expandedId === e.id && (
+                        <tr className="border-b border-deck-border bg-deck-raised last:border-b-0">
+                          <td colSpan={4} className="px-3 py-3">
+                            {e.source === 'project' && (
+                              <p className="text-xs text-deck-mute">
+                                From a confirmed project defect
+                                {e.company_name ? ` · ${e.company_name}` : ''}
+                                {e.source_defect_id && (
+                                  <>
+                                    {' · '}
+                                    <Link href={`/dashboard/defects/${e.source_defect_id}`} className="text-deck-accent underline">
+                                      View original defect
+                                    </Link>
+                                  </>
+                                )}
+                              </p>
+                            )}
+                            {e.applicable_standards && (
+                              <p className="text-xs text-deck-mute">Standard: {e.applicable_standards}</p>
+                            )}
+                            {e.photo_url && (
+                              <img
+                                src={e.photo_url}
+                                alt={`Reference for ${e.title}`}
+                                className="mt-2 w-full rounded-md border border-deck-border"
+                              />
+                            )}
+                            <p className="mt-2 text-xs text-deck-body">
+                              <strong>Wrong:</strong> {e.defect_description}
+                            </p>
+                            {e.correct_reference && (
+                              <p className="mt-1 text-xs text-deck-body">
+                                <strong>Correct:</strong> {e.correct_reference}
+                              </p>
+                            )}
+                            <div className="mt-2 flex gap-3">
+                              <button
+                                onClick={() => handleToggleActive(e.id, e.active)}
+                                className="text-xs font-medium text-deck-accent underline"
+                              >
+                                {e.active ? 'Deactivate' : 'Activate'}
+                              </button>
+                              <button
+                                onClick={() => handleDelete(e.id)}
+                                className="text-xs font-medium text-red-600"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          ))}
+          )}
         </div>
 
         <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">

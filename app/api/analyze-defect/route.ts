@@ -5,6 +5,10 @@ import { analyzeDefectImage, ExtraStandardText, FeedbackExample, KnowledgeEntry,
 export const maxDuration = 60
 const MAX_FEEDBACK_EXAMPLES = 12
 const MAX_KNOWLEDGE_PHOTOS = 6
+// Entries can now grow automatically (every confirmed defect adds one), so
+// this bounds prompt size/cost/latency - most recent entries first, since
+// they best reflect current work.
+const MAX_KNOWLEDGE_ENTRIES = 50
 
 // Sonnet 5 pricing per 1M tokens (adjust if pricing changes)
 const INPUT_COST_PER_M = 2.0
@@ -97,6 +101,8 @@ export async function POST(req: NextRequest) {
       .from('defect_knowledge_base')
       .select('title, element_type, country, applicable_standards, defect_description, correct_reference, photo_url')
       .eq('active', true)
+      .order('created_at', { ascending: false })
+      .limit(MAX_KNOWLEDGE_ENTRIES)
 
     if (knowledgeRows) {
       const projectCountry = (project?.country || 'UK').toLowerCase().trim()
