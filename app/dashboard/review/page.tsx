@@ -31,7 +31,10 @@ type Defect = {
   element_type: string | null
   root_cause: string | null
   corrective_action: string | null
-  projects: { name: string } | { name: string }[] | null
+  projects:
+    | { name: string; company_name: string | null; country: string | null }
+    | { name: string; company_name: string | null; country: string | null }[]
+    | null
 }
 
 const ELEMENT_TYPE_LABELS: Record<string, string> = {
@@ -93,7 +96,7 @@ export default function ReviewDefectsPage() {
     const { data } = await supabase
       .from('defects')
       .select(
-        'id, project_id, title, photo_url, ai_description, ai_confidence, standard_reference, description, assigned_partner_id, target_close_date, bounding_box, classification, ncr_number, element_type, root_cause, corrective_action, projects(name)'
+        'id, project_id, title, photo_url, ai_description, ai_confidence, standard_reference, description, assigned_partner_id, target_close_date, bounding_box, classification, ncr_number, element_type, root_cause, corrective_action, projects(name, company_name, country)'
       )
       .eq('status', 'draft')
       .order('created_at', { ascending: false })
@@ -137,6 +140,48 @@ export default function ReviewDefectsPage() {
   function getProjectName(d: Defect) {
     if (!d.projects) return ''
     return Array.isArray(d.projects) ? d.projects[0]?.name : d.projects.name
+  }
+
+  function getProject(d: Defect) {
+    if (!d.projects) return null
+    return Array.isArray(d.projects) ? d.projects[0] : d.projects
+  }
+
+  // Best-effort: a confirmed defect is real, validated evidence of what a
+  // defect looks like, so every confirm feeds it straight into the shared
+  // knowledge base used to calibrate future AI analysis - private to this
+  // defect's own company by default (see defect_knowledge_base RLS). Never
+  // throws - failing to log this shouldn't block or fail the confirm itself.
+  async function addConfirmedDefectToKnowledgeBase(
+    defect: Defect,
+    description: string,
+    classification: string,
+    photoUrl: string | null,
+    correctiveActionText: string | null,
+    userId: string | undefined
+  ) {
+    try {
+      const project = getProject(defect)
+      if (!description.trim()) return
+
+      await supabase.from('defect_knowledge_base').insert({
+        title: description.slice(0, 100),
+        element_type: defect.element_type,
+        country: project?.country || null,
+        applicable_standards: null,
+        defect_description: description,
+        correct_reference: correctiveActionText || null,
+        severity_default: classification,
+        active: true,
+        photo_url: photoUrl,
+        created_by: userId || null,
+        source: 'project',
+        source_defect_id: defect.id,
+        company_name: project?.company_name || null,
+      })
+    } catch {
+      // Non-critical - the defect is already confirmed either way.
+    }
   }
 
   // Guards any network call that could otherwise hang the confirm button forever with no
@@ -305,6 +350,15 @@ export default function ReviewDefectsPage() {
         old_status: 'draft',
         new_status: newStatus,
       })
+
+      await addConfirmedDefectToKnowledgeBase(
+        defect,
+        editedText[defect.id] || defect.ai_description || '',
+        finalClassification,
+        annotatedUrl || defect.photo_url,
+        finalClassification === 'ncr' ? correctiveAction[defect.id] || null : null,
+        user?.id
+      )
 
       if (partnerId) {
         await supabase.from('notifications').insert({

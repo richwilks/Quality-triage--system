@@ -1,6 +1,7 @@
 'use client'
 
 import { Fragment, useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
 import CameraCapture from '@/components/CameraCapture'
@@ -17,6 +18,9 @@ type KnowledgeRow = {
   severity_default: string | null
   active: boolean
   photo_url: string | null
+  source: 'manual' | 'project'
+  company_name: string | null
+  source_defect_id: string | null
 }
 
 const DEFAULT_POLYGON: Point[] = [
@@ -338,7 +342,7 @@ export default function DefectKnowledgeAdminPage() {
     const q = search.trim().toLowerCase()
     if (!q) return entries
     return entries.filter((e) =>
-      [e.title, e.element_type, e.country, e.applicable_standards, e.defect_description]
+      [e.title, e.element_type, e.country, e.applicable_standards, e.defect_description, e.company_name]
         .filter(Boolean)
         .some((v) => (v as string).toLowerCase().includes(q))
     )
@@ -443,7 +447,7 @@ export default function DefectKnowledgeAdminPage() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by title, element type, country, or standard..."
+            placeholder="Search by title, element type, country, standard, or company..."
             className="w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text placeholder:text-deck-mute"
           />
 
@@ -461,6 +465,7 @@ export default function DefectKnowledgeAdminPage() {
                   <tr className="border-b border-deck-border bg-deck-raised text-xs uppercase tracking-wide text-deck-mute">
                     <th className="px-3 py-2 font-medium">Title</th>
                     <th className="px-3 py-2 font-medium">Element / country</th>
+                    <th className="px-3 py-2 font-medium">Source</th>
                     <th className="px-3 py-2 font-medium">Status</th>
                   </tr>
                 </thead>
@@ -475,6 +480,9 @@ export default function DefectKnowledgeAdminPage() {
                         <td className="px-3 py-2 text-xs text-deck-dim">
                           {[e.element_type, e.country].filter(Boolean).join(' · ') || 'General'}
                         </td>
+                        <td className="px-3 py-2 text-xs text-deck-dim">
+                          {e.source === 'project' ? `Project${e.company_name ? ` · ${e.company_name}` : ''}` : 'Manual'}
+                        </td>
                         <td className="px-3 py-2">
                           <span className={`text-xs font-medium ${e.active ? 'text-emerald-700' : 'text-deck-dim'}`}>
                             {e.active ? 'Active' : 'Inactive'}
@@ -483,7 +491,21 @@ export default function DefectKnowledgeAdminPage() {
                       </tr>
                       {expandedId === e.id && (
                         <tr className="border-b border-deck-border bg-deck-raised last:border-b-0">
-                          <td colSpan={3} className="px-3 py-3">
+                          <td colSpan={4} className="px-3 py-3">
+                            {e.source === 'project' && (
+                              <p className="text-xs text-deck-mute">
+                                From a confirmed project defect
+                                {e.company_name ? ` · ${e.company_name}` : ''}
+                                {e.source_defect_id && (
+                                  <>
+                                    {' · '}
+                                    <Link href={`/dashboard/defects/${e.source_defect_id}`} className="text-deck-accent underline">
+                                      View original defect
+                                    </Link>
+                                  </>
+                                )}
+                              </p>
+                            )}
                             {e.applicable_standards && (
                               <p className="text-xs text-deck-mute">Standard: {e.applicable_standards}</p>
                             )}
