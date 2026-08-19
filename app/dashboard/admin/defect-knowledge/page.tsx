@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
+import CameraCapture from '@/components/CameraCapture'
+import PolygonBoxEditor, { Point } from '@/components/PolygonBoxEditor'
 
 type KnowledgeRow = {
   id: string
@@ -14,7 +16,15 @@ type KnowledgeRow = {
   correct_reference: string | null
   severity_default: string | null
   active: boolean
+  photo_url: string | null
 }
+
+const DEFAULT_POLYGON: Point[] = [
+  { x: 35, y: 35 },
+  { x: 65, y: 35 },
+  { x: 65, y: 65 },
+  { x: 35, y: 65 },
+]
 
 type ImportRow = {
   title: string
@@ -91,6 +101,11 @@ export default function DefectKnowledgeAdminPage() {
   const [correctReference, setCorrectReference] = useState('')
   const [severityDefault, setSeverityDefault] = useState('ncr')
 
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [polygonPoints, setPolygonPoints] = useState<Point[]>(DEFAULT_POLYGON)
+  const [showCamera, setShowCamera] = useState(false)
+
   const [csvFile, setCsvFile] = useState<File | null>(null)
   const [importPreview, setImportPreview] = useState<ImportRow[]>([])
   const [importing, setImporting] = useState(false)
@@ -131,6 +146,49 @@ export default function DefectKnowledgeAdminPage() {
     setEntries(data || [])
   }
 
+  async function burnPolygonIntoPhoto(imageUrl: string, points: Point[]): Promise<Blob | null> {
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => resolve(null), 15000)
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      img.onload = () => {
+        clearTimeout(timer)
+        try {
+          const canvas = document.createElement('canvas')
+          canvas.width = img.naturalWidth
+          canvas.height = img.naturalHeight
+          const ctx = canvas.getContext('2d')
+          if (!ctx) {
+            resolve(null)
+            return
+          }
+          ctx.drawImage(img, 0, 0)
+
+          ctx.strokeStyle = '#ef4444'
+          ctx.lineWidth = Math.max(3, canvas.width * 0.004)
+          ctx.beginPath()
+          points.forEach((p, i) => {
+            const px = (p.x / 100) * canvas.width
+            const py = (p.y / 100) * canvas.height
+            if (i === 0) ctx.moveTo(px, py)
+            else ctx.lineTo(px, py)
+          })
+          ctx.closePath()
+          ctx.stroke()
+
+          canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.9)
+        } catch {
+          resolve(null)
+        }
+      }
+      img.onerror = () => {
+        clearTimeout(timer)
+        resolve(null)
+      }
+      img.src = imageUrl
+    })
+  }
+
   function resetForm() {
     setTitle('')
     setElementType('')
@@ -139,6 +197,15 @@ export default function DefectKnowledgeAdminPage() {
     setDefectDescription('')
     setCorrectReference('')
     setSeverityDefault('ncr')
+    setPhotoFile(null)
+    setPhotoPreview(null)
+    setPolygonPoints(DEFAULT_POLYGON)
+  }
+
+  function applySelectedPhoto(selected: File) {
+    setPhotoFile(selected)
+    setPolygonPoints(DEFAULT_POLYGON)
+    setPhotoPreview(URL.createObjectURL(selected))
   }
 
   async function handleAdd() {
@@ -148,6 +215,29 @@ export default function DefectKnowledgeAdminPage() {
 
     const { data: { user } } = await supabase.auth.getUser()
 
+    let photoUrl: string | null = null
+    if (photoFile && photoPreview) {
+      const burned = await burnPolygonIntoPhoto(photoPreview, polygonPoints)
+      if (!burned) {
+        setError('Could not process the reference photo - try again.')
+        setSaving(false)
+        return
+      }
+      const path = `${Date.now()}-${photoFile.name}`
+      const { error: uploadError } = await supabase.storage
+        .from('defect-knowledge-photos')
+        .upload(path, burned, { contentType: 'image/jpeg' })
+      if (uploadError) {
+        setError(`Photo upload failed: ${uploadError.message}`)
+        setSaving(false)
+        return
+      }
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from('defect-knowledge-photos').getPublicUrl(path)
+      photoUrl = publicUrl
+    }
+
     const { error: insertError } = await supabase.from('defect_knowledge_base').insert({
       title,
       element_type: elementType || null,
@@ -156,6 +246,7 @@ export default function DefectKnowledgeAdminPage() {
       defect_description: defectDescription,
       correct_reference: correctReference || null,
       severity_default: severityDefault,
+      photo_url: photoUrl,
       created_by: user?.id,
     })
 
@@ -262,6 +353,15 @@ export default function DefectKnowledgeAdminPage() {
 
   return (
     <div className="min-h-screen px-4 py-8">
+      {showCamera && (
+        <CameraCapture
+          onCapture={(captured: File) => {
+            setShowCamera(false)
+            applySelectedPhoto(captured)
+          }}
+          onClose={() => setShowCamera(false)}
+        />
+      )}
       <div className="mx-auto max-w-md">
         <PageHeader title="Defect Knowledge Base" />
         <p className="mt-1 text-sm text-deck-dim">
@@ -343,6 +443,13 @@ export default function DefectKnowledgeAdminPage() {
                   {e.active ? 'Active' : 'Inactive'}
                 </span>
               </div>
+              {e.photo_url && (
+                <img
+                  src={e.photo_url}
+                  alt={`Reference for ${e.title}`}
+                  className="mt-2 w-full rounded-md border border-deck-border"
+                />
+              )}
               <p className="mt-2 text-xs text-deck-body"><strong>Wrong:</strong> {e.defect_description}</p>
               {e.correct_reference && (
                 <p className="mt-1 text-xs text-deck-body"><strong>Correct:</strong> {e.correct_reference}</p>
@@ -418,6 +525,43 @@ export default function DefectKnowledgeAdminPage() {
             <option value="ncr">NCR</option>
             <option value="snag">Snag</option>
           </select>
+
+          <div className="mt-3">
+            <label className="block text-sm font-medium text-deck-body">
+              Reference photo (optional, but recommended)
+            </label>
+            <p className="mt-0.5 text-xs text-deck-dim">
+              Draw a polygon around the exact defect area - it's burned into the photo and given to the AI
+              alongside the text description, so it can visually compare against what you've highlighted.
+            </p>
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowCamera(true)}
+                className="flex-1 rounded-md border border-deck-border px-3 py-2 text-sm font-medium text-deck-text"
+              >
+                Take photo
+              </button>
+              <label className="flex-1 cursor-pointer rounded-md border border-deck-border px-3 py-2 text-center text-sm font-medium text-deck-text">
+                Choose from library
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) applySelectedPhoto(f)
+                  }}
+                />
+              </label>
+            </div>
+            {photoPreview && (
+              <div className="relative mt-2 w-full">
+                <img src={photoPreview} alt="Reference preview" className="w-full rounded-md" />
+                <PolygonBoxEditor points={polygonPoints} onChange={setPolygonPoints} />
+              </div>
+            )}
+          </div>
 
           {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 
