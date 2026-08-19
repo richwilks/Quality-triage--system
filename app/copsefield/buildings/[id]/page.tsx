@@ -18,6 +18,7 @@ type Building = {
   country: string | null
   property_manager_name: string | null
   property_manager_email: string | null
+  strata_report_url: string | null
 }
 
 type Ticket = {
@@ -56,6 +57,7 @@ export default function BuildingDetailPage() {
   const [granting, setGranting] = useState(false)
   const [grantMessage, setGrantMessage] = useState<string | null>(null)
   const [generatingReport, setGeneratingReport] = useState(false)
+  const [generatingStrataReport, setGeneratingStrataReport] = useState(false)
 
   useEffect(() => {
     load()
@@ -64,7 +66,7 @@ export default function BuildingDetailPage() {
   async function load() {
     const { data: buildingData } = await supabase
       .from('copsefield_buildings')
-      .select('id, building_code, building_type, name, address, city, region, country, property_manager_name, property_manager_email')
+      .select('id, building_code, building_type, name, address, city, region, country, property_manager_name, property_manager_email, strata_report_url')
       .eq('id', buildingId)
       .single()
     setBuilding(buildingData)
@@ -140,6 +142,20 @@ export default function BuildingDetailPage() {
     setGeneratingReport(false)
   }
 
+  async function handleGenerateStrataReport() {
+    setGeneratingStrataReport(true)
+    try {
+      const res = await fetch('/api/copsefield/generate-strata-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ buildingId }),
+      })
+      const result = await res.json()
+      if (res.ok) router.push(`/copsefield/reports/${result.reportId}`)
+    } catch {}
+    setGeneratingStrataReport(false)
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen p-8">
@@ -178,21 +194,37 @@ export default function BuildingDetailPage() {
             {building.property_manager_email ? ` (${building.property_manager_email})` : ''}
           </p>
         )}
+        {building.strata_report_url && (
+          <a href={building.strata_report_url} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs text-copsefield-accent underline">
+            View strata report
+          </a>
+        )}
 
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4">
           <Link
             href={`/copsefield/inspections/new?buildingId=${building.id}`}
-            className="flex-1 rounded-md bg-copsefield-accent px-3 py-2 text-center text-sm font-medium text-deck-bg"
+            className="block w-full rounded-md bg-copsefield-accent px-3 py-2 text-center text-sm font-medium text-deck-bg"
           >
             Start inspection
           </Link>
-          <button
-            onClick={handleGenerateReport}
-            disabled={generatingReport}
-            className="flex-1 rounded-md border border-copsefield-accent px-3 py-2 text-sm font-medium text-copsefield-accent disabled:opacity-50"
-          >
-            {generatingReport ? 'Generating...' : 'Investment report'}
-          </button>
+          <div className="mt-2 flex gap-2">
+            <button
+              onClick={handleGenerateReport}
+              disabled={generatingReport}
+              className="flex-1 rounded-md border border-copsefield-accent px-3 py-2 text-sm font-medium text-copsefield-accent disabled:opacity-50"
+            >
+              {generatingReport ? 'Generating...' : 'Investment report'}
+            </button>
+            {building.building_type === 'strata' && (
+              <button
+                onClick={handleGenerateStrataReport}
+                disabled={generatingStrataReport}
+                className="flex-1 rounded-md border border-copsefield-accent px-3 py-2 text-sm font-medium text-copsefield-accent disabled:opacity-50"
+              >
+                {generatingStrataReport ? 'Generating...' : 'Strata report'}
+              </button>
+            )}
+          </div>
         </div>
 
         <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-deck-dim">Reports ({reports.length})</h2>

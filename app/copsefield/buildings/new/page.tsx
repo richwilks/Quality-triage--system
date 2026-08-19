@@ -18,6 +18,7 @@ export default function NewBuildingPage() {
   const [country, setCountry] = useState('')
   const [propertyManagerName, setPropertyManagerName] = useState('')
   const [propertyManagerEmail, setPropertyManagerEmail] = useState('')
+  const [strataReportFile, setStrataReportFile] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -64,6 +65,26 @@ export default function NewBuildingPage() {
       setError(insertError?.message || 'Could not save building')
       setSaving(false)
       return
+    }
+
+    if (strataReportFile) {
+      const path = `${building.id}/${Date.now()}-${strataReportFile.name}`
+      const { error: uploadError } = await supabase.storage
+        .from('copsefield-strata-reports')
+        .upload(path, strataReportFile)
+
+      if (!uploadError) {
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from('copsefield-strata-reports').getPublicUrl(path)
+        await supabase.from('copsefield_buildings').update({ strata_report_url: publicUrl }).eq('id', building.id)
+
+        fetch('/api/copsefield/extract-strata-report-text', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ buildingId: building.id }),
+        }).catch(() => {})
+      }
     }
 
     router.push(`/copsefield/buildings/${building.id}`)
@@ -149,6 +170,22 @@ export default function NewBuildingPage() {
           onChange={(e) => setPropertyManagerEmail(e.target.value)}
           className="mt-1 w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text"
         />
+
+        {buildingType === 'strata' && (
+          <>
+            <label className="mt-3 block text-sm font-medium text-deck-body">Most recent strata report (optional)</label>
+            <p className="mt-0.5 text-xs text-deck-dim">
+              If there's a recent depreciation report, engineering report, or AGM package on file, attach it here - it's kept
+              with the building and read for future reports.
+            </p>
+            <input
+              type="file"
+              accept=".pdf,.doc,.docx"
+              onChange={(e) => setStrataReportFile(e.target.files?.[0] || null)}
+              className="mt-1 w-full text-sm text-deck-text"
+            />
+          </>
+        )}
 
         {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 

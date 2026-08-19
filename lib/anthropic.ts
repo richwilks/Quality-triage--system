@@ -448,3 +448,127 @@ Be honest about uncertainty - do not present speculative figures as precise or g
   return textBlock?.text || 'Could not generate report.'
 }
 
+
+// --- Copsefield strata due-diligence reports ---
+
+export type ConditionFinding = {
+  asset_category: string
+  component: string | null
+  location: string | null
+  observation: string | null
+  recommendation: string | null
+  priority: number | null
+  status: string
+  planning_allowance_low: number | null
+  planning_allowance_high: number | null
+}
+
+export async function generateStrataDueDiligenceReport(
+  buildingName: string,
+  buildingAddress: string | null,
+  buildingCode: string,
+  sourceDocumentText: string | null,
+  findings: ConditionFinding[]
+): Promise<string> {
+  const findingsText = findings.length
+    ? findings
+        .map(
+          (f) =>
+            `- [${f.asset_category}${f.component ? ` / ${f.component}` : ''}${f.location ? ` @ ${f.location}` : ''}] ${f.observation || ''}${
+              f.recommendation ? ` Recommendation: ${f.recommendation}` : ''
+            }${f.priority !== null ? ` (priority ${f.priority}/10)` : ''}${
+              f.planning_allowance_low !== null ? ` est. ${f.planning_allowance_low}-${f.planning_allowance_high}` : ''
+            } [status: ${f.status}]`
+        )
+        .join('\n')
+    : 'No condition findings on record for this building yet.'
+
+  const sourceText = sourceDocumentText
+    ? `The following is text extracted from a strata document on file for this building (could be a depreciation report, AGM/council minutes, Form B, financial statement, insurance summary, or similar - the document type isn't labelled, infer it from content):\n\n${sourceDocumentText}`
+    : 'No strata source document (Form B, depreciation report, minutes, financials, insurance, etc.) has been uploaded for this building.'
+
+  const prompt = `You are drafting a Canadian strata/condo due-diligence report for a building, following a fixed 17-section template used by this firm. You have two sources of information: Copsefield's own on-site condition findings (an inspection company's ticket register), and possibly an uploaded strata document.
+
+Building: ${buildingName} (${buildingCode})${buildingAddress ? `, ${buildingAddress}` : ''}
+
+Copsefield's own condition findings for this building:
+${findingsText}
+
+${sourceText}
+
+Write the full report in plain text, following this exact section structure and order, using the section headings exactly as shown (numbered, in caps). For every field or row a section asks for, either fill it in from the source material above, or write "Not provided" / "Not identified in documents on file" - never invent a specific figure, date, name, or fact that isn't actually supported by the text you were given above. Condition-related sections (9, 10, and relevant rows of 4/5) should draw on Copsefield's condition findings; everything else (financials, minutes, insurance, legal, bylaws, Form B) should draw only on the uploaded document text, and should say "Not provided" throughout if no document was uploaded.
+
+REPORT CONTROL
+Property/unit, Strata/condo corporation, Plan/corporation number, Province, Report date (today), Prepared for, Documents received, Overall rating (BUY/CAUTION/AVOID)
+
+1. EXECUTIVE SUMMARY
+Overall risk, Financial position, Building condition, Reserve funding, Special levy exposure, Insurance/legal (each LOW/MODERATE/HIGH/CRITICAL where applicable), Key concern #1-3, Recommended action
+
+2. PROPERTY & CORPORATION PROFILE
+Address, Unit/strata lot, Year built, Number of lots, Building type, Storeys, Parking, Storage, Monthly strata fee, Fee history/increases, Property manager, Council/board
+
+3. FORM B / INFORMATION CERTIFICATE
+Form B date, Monthly fee, Owner arrears, Approved special levy, Future levy due, Projected budget overrun, Contingency Reserve Fund, Litigation/arbitration (Yes/No), Work orders/notices (Yes/No), Insurance summary reviewed (Yes/No), Rules & budget attached (Yes/No), Depreciation report attached (Yes/No)
+
+4. RESERVE / DEPRECIATION ANALYSIS
+List each building component you have evidence for as a line: Component, Condition, Remaining Life, Projected Cost, Year, Funding Source, Risk
+
+5. 30-YEAR CAPITAL EXPENDITURE PROFILE
+List each known/likely future project as a line: Year, Project, Estimated Cost, Reserve Available, Potential Levy, Risk
+
+6. SPECIAL LEVY ANALYSIS
+List each known special levy as a line: Date, Reason, Total Levy, Unit Share, Paid/Due, Status, Risk
+
+7. STRATA FINANCIAL REVIEW
+Operating budget, Actual expenditure, Operating surplus/deficit, CRF balance, Annual CRF contribution, Outstanding owner arrears, Insurance cost, Management cost, Utilities, Maintenance, Debt/borrowing, Funding gap
+
+8. STRATA MINUTES - RED FLAG REVIEW
+List each recurring/notable issue found in minutes as a line: Date, Issue, First Mentioned, Repeated?, Action/Decision, Current Status, Risk
+
+9. BUILDING CONDITION
+List each element from Copsefield's condition findings as a line: Element, Observed/Reported Condition, Evidence, Planned Work, Estimated Cost, Risk
+
+10. WATER / BUILDING ENVELOPE
+Water ingress reported (Y/N), Units affected, Building-envelope investigation (Y/N), Engineer involved (Y/N), Balcony issues (Y/N), Roof issues (Y/N), Window issues (Y/N), Parkade membrane (Y/N), Known remediation cost, Residual risk
+
+11. INSURANCE & CLAIMS
+Insurer, Policy expiry, Building coverage, Water deductible, Other major deductible, Claims history, Coverage exclusions/concerns
+
+12. LEGAL / REGULATORY
+List each matter as a line: Matter, Date, Description, Potential Cost, Current Status, Risk
+
+13. BYLAWS / USE RESTRICTIONS
+Rentals, Short-term rentals, Pets, Age restrictions, Smoking, Renovations, Parking, Other material restrictions
+
+14. BUYER RISK SCORE
+List each risk category you can assess as a line: Risk Category, Weight, Score (1-5), Weighted Score, Evidence/Notes
+
+15. POTENTIAL FUTURE OWNER COST
+Known levy exposure, Likely levy exposure, 10-year capital exposure, 30-year exposure, Estimated monthly equivalent, Worst-case identified exposure
+
+16. DOCUMENT COMPLETENESS CHECK
+List each of these and mark [received] or [not on file]: Current Form B/Information Certificate; Current budget; Rules/bylaws; Most recent depreciation report/reserve fund study; AGM minutes (current and prior years); SGM minutes; Council/board minutes; Financial statements; Insurance certificate/summary; Engineering/building-envelope reports; Special levy resolutions; Litigation/tribunal documentation; Work orders/municipal notices; Developer warranty/deficiency information
+
+17. FINAL DECISION
+Rating (BUY / BUY SUBJECT TO CONDITIONS / FURTHER INVESTIGATION / AVOID), Top reason, Conditions before purchase, Documents still required, Maximum acceptable levy exposure, Reviewer comments
+
+Do not add any closing disclaimer paragraph - that is appended separately.`
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': process.env.ANTHROPIC_API_KEY as string,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-5',
+      max_tokens: 6000,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  })
+
+  const data = await response.json()
+  const textBlock = data.content?.find((c: any) => c.type === 'text')
+  return textBlock?.text || 'Could not generate report.'
+}
