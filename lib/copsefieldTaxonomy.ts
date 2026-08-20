@@ -264,3 +264,17 @@ export function priorityColor(priority: number | null): string {
   if (priority >= 5) return 'bg-amber-100 text-amber-700'
   return 'bg-deck-raised text-deck-dim'
 }
+
+export const DIARY_ENTRY_TYPES = [
+  { value: 'appointment', label: 'Appointment' },
+  { value: 'inspection', label: 'Inspection' },
+  { value: 'work_order', label: 'Work order' },
+  { value: 'other', label: 'Other' },
+] as const
+
+export const DIARY_ENTRY_TYPE_COLOR: Record<string, string> = {
+  appointment: 'bg-copsefield-accent/15 text-copsefield-accent',
+  inspection: 'bg-blue-100 text-blue-700',
+  work_order: 'bg-indigo-100 text-indigo-700',
+  other: 'bg-deck-raised text-deck-dim',
+}
