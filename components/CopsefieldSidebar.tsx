@@ -49,6 +49,17 @@ const ITEMS: NavItem[] = [
     ),
   },
   {
+    href: '/copsefield/buildings/new',
+    label: 'New Building',
+    staffOnly: true,
+    icon: (active) => (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={active ? ACTIVE_STROKE : ICON_STROKE} strokeWidth="2">
+        <rect x="4" y="3" width="16" height="18" rx="1" />
+        <path d="M12 8v8M8 12h8" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
     href: '/copsefield/tickets',
     label: 'Tickets',
     icon: (active) => (
