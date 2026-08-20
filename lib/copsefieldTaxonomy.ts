@@ -285,3 +285,10 @@ export const CONTRACTOR_TYPES = [
 ] as const
 
 export type ContractorType = (typeof CONTRACTOR_TYPES)[number]['value']
+
+export const WORK_ORDER_PRIORITY_COLOR: Record<string, string> = {
+  low: 'bg-emerald-100 text-emerald-700',
+  medium: 'bg-amber-100 text-amber-700',
+  high: 'bg-red-100 text-red-700',
+  urgent: 'bg-red-600 text-white',
+}

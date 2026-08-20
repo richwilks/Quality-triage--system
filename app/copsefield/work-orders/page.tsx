@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
-import { WORK_ORDER_STATUS_COLOR } from '@/lib/copsefieldTaxonomy'
+import { WORK_ORDER_STATUS_COLOR, WORK_ORDER_PRIORITY_COLOR } from '@/lib/copsefieldTaxonomy'
 
 type WorkOrder = {
   id: string
@@ -137,7 +137,11 @@ export default function WorkOrdersPage() {
                   >
                     <td className="px-3 py-2 font-medium text-deck-text">{w.title}</td>
                     <td className="px-3 py-2 text-xs text-deck-dim">{name(w.copsefield_buildings)}</td>
-                    <td className="px-3 py-2 text-xs text-deck-dim">{w.priority}</td>
+                    <td className="px-3 py-2">
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${WORK_ORDER_PRIORITY_COLOR[w.priority] || 'bg-deck-raised text-deck-mute'}`}>
+                        {w.priority}
+                      </span>
+                    </td>
                     <td className="px-3 py-2">
                       <Stepper status={w.status} onNavigate={() => router.push(`/copsefield/work-orders/${w.id}`)} />
                     </td>

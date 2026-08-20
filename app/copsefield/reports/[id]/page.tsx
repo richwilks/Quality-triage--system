@@ -119,6 +119,7 @@ export default function CopsefieldReportPage() {
 
   function reportTypeLabel(type: string) {
     if (type === 'strata_due_diligence') return 'Strata Due Diligence Report'
+    if (type === 'investment') return 'Investment Report'
     return 'Property Report'
   }
 

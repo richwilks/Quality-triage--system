@@ -449,25 +449,78 @@ export async function generateInvestmentReport(
       .join('\n\n')
   }
 
-  const prompt = `You are a property investment analyst producing an investment/return report for a property owner, estimating the potential return on investing in maintenance and improvements.
+  const prompt = `You are a property investment analyst producing an investment report for someone weighing whether to purchase, develop, or otherwise invest in a property - grounded primarily in local market and economic data (city/town level, then the specific property).
+
+Property: ${propertyName}${propertyAddress ? ` (${propertyAddress})` : ''}${propertyType ? `, type: ${propertyType}` : ''}
+
+${economicText ? `Reference market/economic data (rental, commercial property, and construction industry reports covering this area):\n${economicText}` : 'No market/economic reference reports have been uploaded for this area yet - base guidance on general industry knowledge and say so explicitly rather than inventing local figures.'}
+
+Current outstanding condition findings for this property (supporting context only - condition detail belongs in the separate Property Report, don't repeat it at length here):
+${findingsText}
+
+${pastInspectionSummaries.length > 0 ? `Summary of past inspections on this property:\n${pastInspectionSummaries.join('\n')}\n` : ''}
+
+Write a clear, professional investment report in plain text (markdown headings ok). Structure it as:
+1. Executive summary - is this area/property an attractive investment right now, and for what purpose (purchase, development, or general/rental investment)
+2. Local market context - city/town-level trends from the reference data: pricing, rental yield, demand, growth or development activity
+3. Property-level investment case - how this specific property fits that market context (type, condition findings only where they materially affect value or investment case)
+4. Development or improvement potential, if the reference data or property type supports it
+5. Risks and uncertainties - be explicit about what's a sourced figure vs a general estimate
+6. Recommendation - buy/develop/hold/pass, with reasoning
+
+Be honest about uncertainty - do not present speculative figures as precise or guaranteed. If the reference data doesn't cover this property's region, say so rather than inventing numbers that look authoritative.`
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': process.env.ANTHROPIC_API_KEY as string,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-5',
+      max_tokens: 2500,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  })
+
+  const data = await response.json()
+  const textBlock = data.content?.find((c: any) => c.type === 'text')
+  return textBlock?.text || 'Could not generate report.'
+}
+
+// A condition-only report: what the property's inspections found and what
+// Copsefield recommends, with no market/economic framing.
+export async function generatePropertyConditionReport(
+  propertyName: string,
+  propertyAddress: string | null,
+  propertyType: string | null,
+  findings: FindingSummary[],
+  pastInspectionSummaries: string[]
+): Promise<string> {
+  const findingsText = findings.length
+    ? findings
+        .map((f) => `- [${f.severity}] ${f.description}${f.estimated_cost_min !== null ? ` (est. ${f.estimated_cost_min}-${f.estimated_cost_max})` : ''}`)
+        .join('\n')
+    : 'No outstanding findings on record.'
+
+  const prompt = `You are a building inspector producing a property condition report for a building owner, based purely on inspection findings and recommendations - no market or economic analysis belongs in this report.
 
 Property: ${propertyName}${propertyAddress ? ` (${propertyAddress})` : ''}${propertyType ? `, type: ${propertyType}` : ''}
 
 Current outstanding condition findings for this property:
 ${findingsText}
 
-${pastInspectionSummaries.length > 0 ? `Summary of past inspections on this property:\n${pastInspectionSummaries.join('\n')}\n` : ''}
+${pastInspectionSummaries.length > 0 ? `Summary of past inspections on this property:\n${pastInspectionSummaries.join('\n')}` : 'No completed inspections on record yet.'}
 
-${economicText ? `Reference market/economic data (rental, commercial property, and construction industry reports):\n${economicText}` : 'No market/economic reference reports have been uploaded yet - base guidance on general industry knowledge and say so explicitly.'}
+Write a clear, professional property condition report in plain text (markdown headings ok). Structure it as:
+1. Executive summary - overall condition and the headline concerns
+2. Findings by priority - group and explain the outstanding findings, highest priority first
+3. Recommendations - what should be done, in what order, and why
+4. Estimated maintenance/repair costs - only using the figures given above, and say plainly if none were provided
+5. Suggested inspection/maintenance schedule going forward
 
-Write a clear, professional investment return report in plain text (markdown headings ok). Structure it as:
-1. Executive summary
-2. Condition-driven risk: what happens to value/rentability if outstanding findings are left unaddressed
-3. Estimated return on investment if repairs/improvements are carried out - reference the market/economic data above where it's genuinely relevant, and be explicit when a figure is a rough estimate rather than sourced from the provided data
-4. Lease/rental potential: how addressing these findings (and any broader improvement opportunities you can reasonably infer for this property type) could affect achievable rent or lease terms
-5. Recommended priority order of investment, balancing cost against expected return
-
-Be honest about uncertainty - do not present speculative figures as precise or guaranteed. If the reference data doesn't cover this property's type/region, say so rather than inventing numbers that look authoritative.`
+Be factual and specific to the findings given - do not speculate about market value, investment return, or economic conditions; that belongs in a separate report. If there are no findings on record, say so plainly rather than inventing generic issues.`
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
