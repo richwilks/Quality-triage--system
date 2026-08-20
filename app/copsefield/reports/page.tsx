@@ -48,7 +48,9 @@ export default function ReportsPage() {
   }
 
   function typeLabel(type: string) {
-    return type === 'strata_due_diligence' ? 'Strata Due Diligence' : 'Investment Return'
+    if (type === 'strata_due_diligence') return 'Strata Due Diligence'
+    if (type === 'investment') return 'Investment'
+    return 'Property'
   }
 
   // RLS already hides unpublished reports from owner-portal accounts, but

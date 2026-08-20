@@ -61,7 +61,8 @@ export default function BuildingDetailPage() {
   const [grantEmail, setGrantEmail] = useState('')
   const [granting, setGranting] = useState(false)
   const [grantMessage, setGrantMessage] = useState<string | null>(null)
-  const [generatingReport, setGeneratingReport] = useState(false)
+  const [generatingPropertyReport, setGeneratingPropertyReport] = useState(false)
+  const [generatingInvestmentReport, setGeneratingInvestmentReport] = useState(false)
   const [generatingStrataReport, setGeneratingStrataReport] = useState(false)
   const [savingClient, setSavingClient] = useState(false)
 
@@ -153,8 +154,22 @@ export default function BuildingDetailPage() {
     setAccess((prev) => prev.filter((a) => a.id !== id))
   }
 
-  async function handleGenerateReport() {
-    setGeneratingReport(true)
+  async function handleGeneratePropertyReport() {
+    setGeneratingPropertyReport(true)
+    try {
+      const res = await fetch('/api/copsefield/generate-property-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ buildingId }),
+      })
+      const result = await res.json()
+      if (res.ok) router.push(`/copsefield/reports/${result.reportId}`)
+    } catch {}
+    setGeneratingPropertyReport(false)
+  }
+
+  async function handleGenerateInvestmentReport() {
+    setGeneratingInvestmentReport(true)
     try {
       const res = await fetch('/api/copsefield/generate-investment-report', {
         method: 'POST',
@@ -164,7 +179,7 @@ export default function BuildingDetailPage() {
       const result = await res.json()
       if (res.ok) router.push(`/copsefield/reports/${result.reportId}`)
     } catch {}
-    setGeneratingReport(false)
+    setGeneratingInvestmentReport(false)
   }
 
   async function handleGenerateStrataReport() {
@@ -222,11 +237,18 @@ export default function BuildingDetailPage() {
             Start inspection
           </Link>
           <button
-            onClick={handleGenerateReport}
-            disabled={generatingReport}
+            onClick={handleGeneratePropertyReport}
+            disabled={generatingPropertyReport}
             className="rounded-md border border-copsefield-accent px-4 py-2 text-sm font-medium text-copsefield-accent disabled:opacity-50"
           >
-            {generatingReport ? 'Generating...' : 'Property report'}
+            {generatingPropertyReport ? 'Generating...' : 'Property report'}
+          </button>
+          <button
+            onClick={handleGenerateInvestmentReport}
+            disabled={generatingInvestmentReport}
+            className="rounded-md border border-copsefield-accent px-4 py-2 text-sm font-medium text-copsefield-accent disabled:opacity-50"
+          >
+            {generatingInvestmentReport ? 'Generating...' : 'Investment report'}
           </button>
           {building.building_type === 'strata' && (
             <button

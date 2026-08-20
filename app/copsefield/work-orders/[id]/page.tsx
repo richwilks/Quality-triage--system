@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
-import { WORK_ORDER_STATUSES, WORK_ORDER_STATUS_COLOR } from '@/lib/copsefieldTaxonomy'
+import { WORK_ORDER_STATUSES, WORK_ORDER_STATUS_COLOR, WORK_ORDER_PRIORITY_COLOR } from '@/lib/copsefieldTaxonomy'
 import { logWorkOrderEvent, syncTicketStatus } from '@/lib/copsefieldWorkOrders'
 
 type WorkOrder = {
@@ -296,8 +296,11 @@ export default function WorkOrderDetailPage() {
         <div className="mt-4 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
           {workOrder.description && <p className="text-sm text-deck-body">{workOrder.description}</p>}
           <div className="mt-2 flex flex-wrap gap-2 text-xs text-deck-dim">
-            <span>
-              Priority: <span className="font-medium text-deck-body">{workOrder.priority}</span>
+            <span className="flex items-center gap-1.5">
+              Priority:
+              <span className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${WORK_ORDER_PRIORITY_COLOR[workOrder.priority] || 'bg-deck-raised text-deck-mute'}`}>
+                {workOrder.priority}
+              </span>
             </span>
             {workOrder.cost_estimate_low !== null && (
               <span>

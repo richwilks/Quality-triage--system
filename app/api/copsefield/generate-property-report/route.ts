@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { generateInvestmentReport, FindingSummary, EconomicReportExcerpt } from '@/lib/anthropic'
+import { generatePropertyConditionReport, FindingSummary } from '@/lib/anthropic'
 
 export const maxDuration = 60
 
@@ -53,33 +53,14 @@ export async function POST(req: NextRequest) {
       (i) => `- ${i.visit_date}${i.notes ? `: ${i.notes}` : ''}`
     )
 
-    const { data: economicReportsData } = await supabase
-      .from('copsefield_economic_reports')
-      .select('title, category, extracted_text, summary')
-      .not('extracted_text', 'is', null)
-      .limit(20)
-
-    const economicReports: EconomicReportExcerpt[] = (economicReportsData || []).map((r) => ({
-      title: r.title,
-      category: r.category,
-      text: r.summary || r.extracted_text,
-    }))
-
-    const content = await generateInvestmentReport(
-      building.name,
-      building.address,
-      building.building_type,
-      findings,
-      pastInspectionSummaries,
-      economicReports
-    )
+    const content = await generatePropertyConditionReport(building.name, building.address, building.building_type, findings, pastInspectionSummaries)
 
     const { data: report, error: insertError } = await supabase
       .from('copsefield_property_reports')
       .insert({
         building_id: building.id,
-        report_type: 'investment',
-        title: `Investment Report - ${building.name}`,
+        report_type: 'property_condition',
+        title: `Property Report - ${building.name}`,
         content,
       })
       .select()
