@@ -132,12 +132,6 @@ export default function CopsefieldHomePage() {
               >
                 + New inspection
               </Link>
-              <Link
-                href="/copsefield/buildings/new"
-                className="flex-1 rounded-md border border-deck-border px-4 py-2 text-center text-sm font-medium text-deck-text lg:flex-none lg:px-8"
-              >
-                + New building
-              </Link>
             </div>
 
             <div className="mt-8 grid gap-8 lg:grid-cols-2">
