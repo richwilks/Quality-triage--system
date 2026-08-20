@@ -23,7 +23,13 @@ export default function PageHeader({ title }: { title: string }) {
           <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
-      <img src={logoSrc} alt={logoAlt} className="h-7 w-7 rounded-md object-contain" />
+      {isCopsefield ? (
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-copsefield-dark p-1">
+          <img src={logoSrc} alt={logoAlt} className="h-full w-full object-contain" />
+        </span>
+      ) : (
+        <img src={logoSrc} alt={logoAlt} className="h-7 w-7 rounded-md object-contain" />
+      )}
       <h1 className="text-xl font-semibold text-deck-text">{title}</h1>
     </div>
   )

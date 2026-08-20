@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
+import { WORK_ORDER_STATUS_COLOR } from '@/lib/copsefieldTaxonomy'
 
 type WorkOrder = {
   id: string
@@ -13,11 +14,52 @@ type WorkOrder = {
   copsefield_buildings: { name: string } | { name: string }[] | null
 }
 
-const STATUS_COLOR: Record<string, string> = {
-  open: 'bg-amber-100 text-amber-700',
-  in_progress: 'bg-orange-100 text-orange-700',
-  completed: 'bg-emerald-100 text-emerald-700',
-  cancelled: 'bg-deck-raised text-deck-mute',
+const STAGES = ['quote', 'accepted', 'issued']
+
+function Stepper({ status, onNavigate }: { status: string; onNavigate: () => void }) {
+  if (status === 'cancelled') {
+    return <span className="rounded-full bg-deck-raised px-2 py-0.5 text-xs font-medium text-deck-mute">Cancelled</span>
+  }
+  const currentIndex = status === 'in_progress' || status === 'completed' ? STAGES.length : STAGES.indexOf(status)
+
+  return (
+    <div className="flex items-center gap-1">
+      {STAGES.map((stage, i) => {
+        const done = i < currentIndex
+        const active = i === currentIndex
+        const label = stage.charAt(0).toUpperCase() + stage.slice(1)
+        if (active) {
+          return (
+            <button
+              key={stage}
+              onClick={(e) => {
+                e.stopPropagation()
+                onNavigate()
+              }}
+              className="rounded-full bg-copsefield-accent px-2 py-0.5 text-xs font-medium text-deck-bg"
+            >
+              {label}
+            </button>
+          )
+        }
+        return (
+          <span
+            key={stage}
+            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+              done ? 'bg-emerald-100 text-emerald-700' : 'bg-deck-raised text-deck-mute'
+            }`}
+          >
+            {label}
+          </span>
+        )
+      })}
+      {currentIndex >= STAGES.length && (
+        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${WORK_ORDER_STATUS_COLOR[status] || WORK_ORDER_STATUS_COLOR.quote}`}>
+          {status.replace('_', ' ')}
+        </span>
+      )}
+    </div>
+  )
 }
 
 export default function WorkOrdersPage() {
@@ -72,7 +114,7 @@ export default function WorkOrdersPage() {
           className="mt-4 w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text placeholder:text-deck-mute lg:max-w-md"
         />
 
-        {workOrders.length === 0 && <p className="mt-3 text-sm text-deck-dim">No work orders yet - create one from a ticket.</p>}
+        {workOrders.length === 0 && <p className="mt-3 text-sm text-deck-dim">No work orders yet - generate one from a ticket.</p>}
         {workOrders.length > 0 && filtered.length === 0 && <p className="mt-3 text-sm text-deck-dim">No work orders match &quot;{search}&quot;.</p>}
 
         {filtered.length > 0 && (
@@ -83,7 +125,7 @@ export default function WorkOrdersPage() {
                   <th className="px-3 py-2 font-medium">Title</th>
                   <th className="px-3 py-2 font-medium">Building</th>
                   <th className="px-3 py-2 font-medium">Priority</th>
-                  <th className="px-3 py-2 font-medium">Status</th>
+                  <th className="px-3 py-2 font-medium">Stage</th>
                 </tr>
               </thead>
               <tbody>
@@ -97,9 +139,7 @@ export default function WorkOrdersPage() {
                     <td className="px-3 py-2 text-xs text-deck-dim">{name(w.copsefield_buildings)}</td>
                     <td className="px-3 py-2 text-xs text-deck-dim">{w.priority}</td>
                     <td className="px-3 py-2">
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLOR[w.status] || STATUS_COLOR.open}`}>
-                        {w.status.replace('_', ' ')}
-                      </span>
+                      <Stepper status={w.status} onNavigate={() => router.push(`/copsefield/work-orders/${w.id}`)} />
                     </td>
                   </tr>
                 ))}

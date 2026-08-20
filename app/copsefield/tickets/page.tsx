@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
 import { ASSET_CATEGORIES, TICKET_STATUSES, TICKET_STATUS_COLOR, priorityColor } from '@/lib/copsefieldTaxonomy'
+import { logWorkOrderEvent } from '@/lib/copsefieldWorkOrders'
 
 type Ticket = {
   id: string
@@ -15,8 +16,12 @@ type Ticket = {
   status: string
   priority: number | null
   created_at: string
+  building_id: string
+  work_order_id: string | null
   copsefield_buildings: { name: string; building_code: string } | { name: string; building_code: string }[] | null
 }
+
+const CLOSED_STATUSES = ['actioned', 'closed', 'deferred']
 
 export default function TicketsPage() {
   const supabase = createClient()
@@ -26,6 +31,7 @@ export default function TicketsPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [categoryFilter, setCategoryFilter] = useState('all')
+  const [busyId, setBusyId] = useState<string | null>(null)
 
   useEffect(() => {
     load()
@@ -34,7 +40,9 @@ export default function TicketsPage() {
   async function load() {
     const { data } = await supabase
       .from('copsefield_tickets')
-      .select('id, unique_ref, asset_category, component, status, priority, created_at, copsefield_buildings(name, building_code)')
+      .select(
+        'id, unique_ref, asset_category, component, status, priority, created_at, building_id, work_order_id, copsefield_buildings(name, building_code)'
+      )
       .order('created_at', { ascending: false })
     setTickets((data || []) as unknown as Ticket[])
     setLoading(false)
@@ -57,6 +65,44 @@ export default function TicketsPage() {
         .some((v) => (v as string).toLowerCase().includes(q))
     })
   }, [tickets, search, statusFilter, categoryFilter])
+
+  async function handleGenerateWorkOrder(t: Ticket, e: React.MouseEvent) {
+    e.stopPropagation()
+    setBusyId(t.id)
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    const priorityLabel = 'medium'
+    const { data: workOrder, error: insertError } = await supabase
+      .from('copsefield_work_orders')
+      .insert({
+        ticket_id: t.id,
+        building_id: t.building_id,
+        title: `${t.unique_ref} - ${t.asset_category}`,
+        status: 'quote',
+        priority: priorityLabel,
+        created_by: user?.id,
+      })
+      .select()
+      .single()
+
+    if (!insertError && workOrder) {
+      await supabase.from('copsefield_tickets').update({ work_order_id: workOrder.id, status: 'quote' }).eq('id', t.id)
+      await logWorkOrderEvent(supabase, workOrder.id, 'created', `Work order raised from ticket ${t.unique_ref}`, user?.id || null)
+      load()
+    }
+    setBusyId(null)
+  }
+
+  async function handleClose(t: Ticket, e: React.MouseEvent) {
+    e.stopPropagation()
+    setBusyId(t.id)
+    await supabase.from('copsefield_tickets').update({ status: 'closed' }).eq('id', t.id)
+    setTickets((prev) => prev.map((x) => (x.id === t.id ? { ...x, status: 'closed' } : x)))
+    setBusyId(null)
+  }
 
   if (loading) {
     return (
@@ -125,11 +171,13 @@ export default function TicketsPage() {
                   <th className="px-3 py-2 font-medium">Priority</th>
                   <th className="px-3 py-2 font-medium">Status</th>
                   <th className="px-3 py-2 font-medium">Raised</th>
+                  <th className="px-3 py-2 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((t) => {
                   const building = getBuilding(t)
+                  const closed = CLOSED_STATUSES.includes(t.status)
                   return (
                     <tr
                       key={t.id}
@@ -157,6 +205,36 @@ export default function TicketsPage() {
                         </span>
                       </td>
                       <td className="px-3 py-2 text-xs text-deck-mute">{new Date(t.created_at).toLocaleDateString()}</td>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          {t.work_order_id ? (
+                            <Link
+                              href={`/copsefield/work-orders/${t.work_order_id}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-xs font-medium text-copsefield-accent underline"
+                            >
+                              View work order
+                            </Link>
+                          ) : (
+                            <button
+                              onClick={(e) => handleGenerateWorkOrder(t, e)}
+                              disabled={busyId === t.id || closed}
+                              className="text-xs font-medium text-copsefield-accent underline disabled:opacity-40"
+                            >
+                              Generate work order
+                            </button>
+                          )}
+                          {!closed && (
+                            <button
+                              onClick={(e) => handleClose(t, e)}
+                              disabled={busyId === t.id}
+                              className="text-xs font-medium text-red-600 disabled:opacity-40"
+                            >
+                              Close
+                            </button>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   )
                 })}

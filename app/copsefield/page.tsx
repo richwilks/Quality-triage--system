@@ -91,7 +91,9 @@ export default function CopsefieldHomePage() {
       <div className={`mx-auto ${isStaff ? 'max-w-6xl' : 'max-w-md'}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <img src="/branding/copsefield/shield-icon.png" alt="Copsefield Group" className="h-8 w-8 rounded-md object-contain" />
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-copsefield-dark p-1.5">
+              <img src="/branding/copsefield/shield-icon.png" alt="Copsefield Group" className="h-full w-full object-contain" />
+            </span>
             <h1 className="text-xl font-semibold text-deck-text">Copsefield Group</h1>
           </div>
           {isStaff && (

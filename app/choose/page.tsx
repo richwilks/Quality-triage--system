@@ -76,11 +76,9 @@ export default function ChooseProductPage() {
             onClick={() => router.push('/copsefield')}
             className="flex w-full items-center gap-3 rounded-xl border border-deck-border bg-deck-surface p-4 text-left"
           >
-            <img
-              src="/branding/copsefield/shield-icon.png"
-              alt="Copsefield Group"
-              className="h-10 w-10 rounded-md object-contain"
-            />
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-copsefield-dark p-1.5">
+              <img src="/branding/copsefield/shield-icon.png" alt="Copsefield Group" className="h-full w-full object-contain" />
+            </span>
             <div>
               <p className="text-sm font-semibold text-deck-text">Copsefield Group</p>
               <p className="text-xs text-deck-dim">Property inspections &amp; ticket management</p>
