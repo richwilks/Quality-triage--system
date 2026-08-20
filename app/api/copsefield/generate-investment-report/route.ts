@@ -55,14 +55,14 @@ export async function POST(req: NextRequest) {
 
     const { data: economicReportsData } = await supabase
       .from('copsefield_economic_reports')
-      .select('title, category, extracted_text')
+      .select('title, category, extracted_text, summary')
       .not('extracted_text', 'is', null)
       .limit(20)
 
     const economicReports: EconomicReportExcerpt[] = (economicReportsData || []).map((r) => ({
       title: r.title,
       category: r.category,
-      text: r.extracted_text,
+      text: r.summary || r.extracted_text,
     }))
 
     const content = await generateInvestmentReport(
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
       .insert({
         building_id: building.id,
         report_type: 'investment',
-        title: `Investment Return Report - ${building.name}`,
+        title: `Property Report - ${building.name}`,
         content,
       })
       .select()

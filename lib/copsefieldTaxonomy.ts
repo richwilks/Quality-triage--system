@@ -278,3 +278,10 @@ export const DIARY_ENTRY_TYPE_COLOR: Record<string, string> = {
   work_order: 'bg-indigo-100 text-indigo-700',
   other: 'bg-deck-raised text-deck-dim',
 }
+
+export const CONTRACTOR_TYPES = [
+  { value: 'sole_trader', label: 'Sole trader' },
+  { value: 'business', label: 'Business' },
+] as const
+
+export type ContractorType = (typeof CONTRACTOR_TYPES)[number]['value']

@@ -60,6 +60,46 @@ Output plain text only, organised by clause/section where possible, with figure 
   return textBlock?.text || ''
 }
 
+// Condenses a raw extracted economic/market report into a short, reviewable
+// brief a property manager can scan before it's used as reference data in a
+// property report - and a shorter excerpt to feed into that report's prompt.
+export async function summarizeEconomicReportText(text: string, title: string, category: string | null): Promise<string> {
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': process.env.ANTHROPIC_API_KEY as string,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-5',
+      max_tokens: 800,
+      messages: [
+        {
+          role: 'user',
+          content: `You are helping a property management company review a market/economic report before it's used as reference data when generating investment and property condition reports for building owners.
+
+Report: "${title}"${category ? ` (category: ${category})` : ''}
+
+Full extracted text:
+${text}
+
+Write a short, plain-text brief (bullet points are fine) covering:
+- The key market figures/trends this report contains
+- What property types and regions it applies to
+- Specifically what it's useful for advising a building owner on (e.g. rental yield expectations, construction cost trends, resale value)
+
+Be concise - a few short bullets or a short paragraph, not a repeat of the source text. If the report has no genuinely useful market data, say so plainly rather than padding it out.`,
+        },
+      ],
+    }),
+  })
+
+  const data = await response.json()
+  const textBlock = data.content?.find((c: any) => c.type === 'text')
+  return textBlock?.text || ''
+}
+
 export async function analyzeDefectImage(
   base64Image: string,
   mimeType: string,

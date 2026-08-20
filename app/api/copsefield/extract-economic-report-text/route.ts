@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
-import { extractDocumentText } from '@/lib/anthropic'
+import { extractDocumentText, summarizeEconomicReportText } from '@/lib/anthropic'
 
 export const maxDuration = 120
 
@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     const supabase = await createClient()
     const { data: report } = await supabase
       .from('copsefield_economic_reports')
-      .select('document_url, title')
+      .select('document_url, title, category')
       .eq('id', reportId)
       .single()
 
@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
     const base64 = Buffer.from(buffer).toString('base64')
 
     const extractedText = await extractDocumentText(base64, report.title)
+    const summary = extractedText ? await summarizeEconomicReportText(extractedText, report.title, report.category) : ''
 
     const supabaseAdmin = createServiceClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL as string,
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
 
     await supabaseAdmin
       .from('copsefield_economic_reports')
-      .update({ extracted_text: extractedText })
+      .update({ extracted_text: extractedText, summary: summary || null })
       .eq('id', reportId)
 
     return NextResponse.json({ success: true })

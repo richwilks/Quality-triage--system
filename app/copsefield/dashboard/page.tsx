@@ -49,12 +49,6 @@ export default function DashboardPage() {
             <p className="text-2xl font-semibold text-red-600">{stats.urgentCount}</p>
             <p className="text-xs text-deck-dim">Priority 8+ outstanding</p>
           </div>
-          <div className="col-span-2 rounded-lg border border-deck-border bg-deck-surface p-3">
-            <p className="text-lg font-semibold text-deck-text">
-              {stats.totalLow.toLocaleString()} - {stats.totalHigh.toLocaleString()}
-            </p>
-            <p className="text-xs text-deck-dim">Planning allowance outstanding across all open tickets</p>
-          </div>
         </div>
 
         <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-deck-dim">By status</h2>

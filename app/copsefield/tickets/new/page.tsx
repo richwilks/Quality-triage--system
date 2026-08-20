@@ -208,7 +208,7 @@ function NewTicketInner() {
           onClose={() => setShowCamera(false)}
         />
       )}
-      <div className="mx-auto max-w-md">
+      <div className="mx-auto max-w-2xl">
         <PageHeader title="Raise a ticket" />
         {!isStaff && (
           <p className="mt-1 text-sm text-deck-dim">
