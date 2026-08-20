@@ -30,7 +30,6 @@ export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [counts, setCounts] = useState<Record<string, StatusCounts>>({})
   const [loading, setLoading] = useState(true)
-  const [hasCopsefieldAccess, setHasCopsefieldAccess] = useState(false)
   const [quickAccessOpen, setQuickAccessOpen] = useState(false)
 
   useEffect(() => {
@@ -42,13 +41,6 @@ export default function DashboardPage() {
       data: { user },
     } = await supabase.auth.getUser()
     if (!user) return
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('has_copsefield_access')
-      .eq('id', user.id)
-      .single()
-    setHasCopsefieldAccess(!!profile?.has_copsefield_access)
 
     const { data: projectData } = await supabase
       .from('project_members')
@@ -106,11 +98,6 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="flex flex-col items-end gap-1">
-            {hasCopsefieldAccess && (
-              <Link href="/choose" className="font-mono text-xs text-copsefield-accent">
-                SWITCH TO COPSEFIELD
-              </Link>
-            )}
             <Link href="/dashboard/account" className="font-mono text-xs text-deck-dim">
               MY ACCOUNT
             </Link>
