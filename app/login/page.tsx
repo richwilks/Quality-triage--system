@@ -1,12 +1,10 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
+import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { syncCompanyAccess } from '@/lib/companySync'
-
-const COPSEFIELD_HOSTS = ['copsefield.com', 'www.copsefield.com']
 
 function LoginForm() {
   const router = useRouter()
@@ -17,11 +15,7 @@ function LoginForm() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [isCopsefield, setIsCopsefield] = useState(false)
-
-  useEffect(() => {
-    setIsCopsefield(COPSEFIELD_HOSTS.includes(window.location.hostname))
-  }, [])
+  const isCopsefield = searchParams.get('redirect')?.startsWith('/copsefield') ?? false
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
@@ -41,7 +35,7 @@ function LoginForm() {
     }
 await syncCompanyAccess(supabase)
     const redirectTo = searchParams.get('redirect')
-    router.push(redirectTo || (isCopsefield ? '/copsefield' : '/choose'))
+    router.push(redirectTo || '/choose')
     router.refresh()
   }
 
