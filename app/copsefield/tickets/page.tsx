@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
@@ -19,6 +20,7 @@ type Ticket = {
 
 export default function TicketsPage() {
   const supabase = createClient()
+  const router = useRouter()
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -66,29 +68,27 @@ export default function TicketsPage() {
 
   return (
     <div className="min-h-screen px-4 py-8">
-      <div className="mx-auto max-w-md">
+      <div className="mx-auto max-w-6xl">
         <PageHeader title="Tickets" />
 
-        <Link
-          href="/copsefield/tickets/new"
-          className="mt-4 block w-full rounded-md bg-copsefield-accent px-4 py-2 text-center text-sm font-medium text-deck-bg"
-        >
-          Raise a ticket
-        </Link>
-
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by reference, category, or building..."
-          className="mt-4 w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text placeholder:text-deck-mute"
-        />
-
-        <div className="mt-2 flex gap-2">
+        <div className="mt-4 flex flex-col gap-2 lg:flex-row lg:items-center">
+          <Link
+            href="/copsefield/tickets/new"
+            className="rounded-md bg-copsefield-accent px-4 py-2 text-center text-sm font-medium text-deck-bg lg:shrink-0"
+          >
+            Raise a ticket
+          </Link>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by reference, category, or building..."
+            className="w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text placeholder:text-deck-mute lg:flex-1"
+          />
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="flex-1 rounded-md border border-deck-border bg-deck-surface px-2 py-1.5 text-xs text-deck-text"
+            className="w-full rounded-md border border-deck-border bg-deck-surface px-2 py-2 text-xs text-deck-text lg:w-48"
           >
             <option value="all">All statuses</option>
             {TICKET_STATUSES.map((s) => (
@@ -100,7 +100,7 @@ export default function TicketsPage() {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="flex-1 rounded-md border border-deck-border bg-deck-surface px-2 py-1.5 text-xs text-deck-text"
+            className="w-full rounded-md border border-deck-border bg-deck-surface px-2 py-2 text-xs text-deck-text lg:w-52"
           >
             <option value="all">All categories</option>
             {ASSET_CATEGORIES.map((c) => (
@@ -114,39 +114,56 @@ export default function TicketsPage() {
         {tickets.length === 0 && <p className="mt-4 text-sm text-deck-dim">No tickets yet.</p>}
         {tickets.length > 0 && filtered.length === 0 && <p className="mt-4 text-sm text-deck-dim">No tickets match these filters.</p>}
 
-        <div className="mt-3 space-y-1.5">
-          {filtered.map((t) => {
-            const building = getBuilding(t)
-            return (
-              <Link
-                key={t.id}
-                href={`/copsefield/tickets/${t.id}`}
-                className="block rounded-md border border-deck-border bg-deck-surface px-3 py-2"
-              >
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-mono text-deck-dim">{t.unique_ref}</p>
-                  <div className="flex items-center gap-1.5">
-                    {t.priority !== null && (
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${priorityColor(t.priority)}`}>P{t.priority}</span>
-                    )}
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${TICKET_STATUS_COLOR[t.status]}`}>
-                      {t.status.replace('_', ' ')}
-                    </span>
-                  </div>
-                </div>
-                <p className="mt-1 text-sm text-deck-text">
-                  {t.asset_category}
-                  {t.component ? ` · ${t.component}` : ''}
-                </p>
-                {building && (
-                  <p className="mt-0.5 text-xs text-deck-dim">
-                    {building.name} ({building.building_code})
-                  </p>
-                )}
-              </Link>
-            )
-          })}
-        </div>
+        {filtered.length > 0 && (
+          <div className="mt-4 overflow-x-auto rounded-lg border border-deck-border">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-deck-border bg-deck-raised text-xs uppercase tracking-wide text-deck-mute">
+                  <th className="px-3 py-2 font-medium">Reference</th>
+                  <th className="px-3 py-2 font-medium">Category / Component</th>
+                  <th className="px-3 py-2 font-medium">Building</th>
+                  <th className="px-3 py-2 font-medium">Priority</th>
+                  <th className="px-3 py-2 font-medium">Status</th>
+                  <th className="px-3 py-2 font-medium">Raised</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((t) => {
+                  const building = getBuilding(t)
+                  return (
+                    <tr
+                      key={t.id}
+                      onClick={() => router.push(`/copsefield/tickets/${t.id}`)}
+                      className="cursor-pointer border-b border-deck-border bg-deck-surface last:border-b-0 hover:bg-deck-raised"
+                    >
+                      <td className="px-3 py-2 font-mono text-xs text-deck-dim">{t.unique_ref}</td>
+                      <td className="px-3 py-2 text-deck-text">
+                        {t.asset_category}
+                        {t.component ? <span className="text-deck-dim"> · {t.component}</span> : ''}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-deck-dim">
+                        {building ? `${building.name} (${building.building_code})` : '-'}
+                      </td>
+                      <td className="px-3 py-2">
+                        {t.priority !== null ? (
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${priorityColor(t.priority)}`}>P{t.priority}</span>
+                        ) : (
+                          <span className="text-xs text-deck-mute">-</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${TICKET_STATUS_COLOR[t.status]}`}>
+                          {t.status.replace('_', ' ')}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-xs text-deck-mute">{new Date(t.created_at).toLocaleDateString()}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   )

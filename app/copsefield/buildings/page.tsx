@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
@@ -17,6 +18,7 @@ type Building = {
 
 export default function BuildingsPage() {
   const supabase = createClient()
+  const router = useRouter()
   const [buildings, setBuildings] = useState<Building[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
@@ -56,48 +58,60 @@ export default function BuildingsPage() {
 
   return (
     <div className="min-h-screen px-4 py-8">
-      <div className="mx-auto max-w-md">
+      <div className="mx-auto max-w-6xl">
         <PageHeader title="Buildings" />
 
-        <Link
-          href="/copsefield/buildings/new"
-          className="mt-4 block w-full rounded-md bg-copsefield-accent px-4 py-2 text-center text-sm font-medium text-deck-bg"
-        >
-          Add a building
-        </Link>
+        <div className="mt-4 flex flex-col gap-2 lg:flex-row lg:items-center">
+          <Link
+            href="/copsefield/buildings/new"
+            className="rounded-md bg-copsefield-accent px-4 py-2 text-center text-sm font-medium text-deck-bg lg:shrink-0"
+          >
+            Add a building
+          </Link>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by code, name, or address..."
+            className="w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text placeholder:text-deck-mute lg:flex-1"
+          />
+        </div>
 
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by code, name, or address..."
-          className="mt-4 w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text placeholder:text-deck-mute"
-        />
-
-        {buildings.length === 0 && <p className="mt-3 text-sm text-deck-dim">No buildings yet.</p>}
+        {buildings.length === 0 && <p className="mt-4 text-sm text-deck-dim">No buildings yet.</p>}
         {buildings.length > 0 && filtered.length === 0 && (
-          <p className="mt-3 text-sm text-deck-dim">No buildings match &quot;{search}&quot;.</p>
+          <p className="mt-4 text-sm text-deck-dim">No buildings match &quot;{search}&quot;.</p>
         )}
 
-        <div className="mt-3 space-y-2">
-          {filtered.map((b) => (
-            <Link
-              key={b.id}
-              href={`/copsefield/buildings/${b.id}`}
-              className="block rounded-lg border border-deck-border bg-deck-surface p-3"
-            >
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-deck-text">{b.name}</p>
-                <span className="rounded-full bg-deck-raised px-2 py-0.5 font-mono text-xs text-deck-dim">{b.building_code}</span>
-              </div>
-              <p className="mt-1 text-xs text-deck-dim">
-                {typeLabel(b.building_type)}
-                {b.address ? ` · ${b.address}` : ''}
-                {b.city ? `, ${b.city}` : ''}
-              </p>
-            </Link>
-          ))}
-        </div>
+        {filtered.length > 0 && (
+          <div className="mt-4 overflow-x-auto rounded-lg border border-deck-border">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-deck-border bg-deck-raised text-xs uppercase tracking-wide text-deck-mute">
+                  <th className="px-3 py-2 font-medium">Code</th>
+                  <th className="px-3 py-2 font-medium">Name</th>
+                  <th className="px-3 py-2 font-medium">Type</th>
+                  <th className="px-3 py-2 font-medium">Address</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((b) => (
+                  <tr
+                    key={b.id}
+                    onClick={() => router.push(`/copsefield/buildings/${b.id}`)}
+                    className="cursor-pointer border-b border-deck-border bg-deck-surface last:border-b-0 hover:bg-deck-raised"
+                  >
+                    <td className="px-3 py-2 font-mono text-xs text-deck-dim">{b.building_code}</td>
+                    <td className="px-3 py-2 font-medium text-deck-text">{b.name}</td>
+                    <td className="px-3 py-2 text-xs text-deck-dim">{typeLabel(b.building_type)}</td>
+                    <td className="px-3 py-2 text-xs text-deck-dim">
+                      {[b.address, b.city].filter(Boolean).join(', ') || '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   )

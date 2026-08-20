@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import StatusBadge from '@/components/StatusBadge'
 import { useBranding } from '@/components/BrandingContext'
@@ -24,11 +25,13 @@ const QUICK_LINKS = [
 
 export default function DashboardPage() {
   const supabase = createClient()
+  const router = useRouter()
   const branding = useBranding()
   const [projects, setProjects] = useState<Project[]>([])
   const [counts, setCounts] = useState<Record<string, StatusCounts>>({})
   const [loading, setLoading] = useState(true)
   const [hasCopsefieldAccess, setHasCopsefieldAccess] = useState(false)
+  const [quickAccessOpen, setQuickAccessOpen] = useState(false)
 
   useEffect(() => {
     load()
@@ -158,23 +161,39 @@ export default function DashboardPage() {
         </div>
 
         <div className="px-4 pt-5">
-          <h2 className="mb-2.5 font-mono text-[10px] uppercase tracking-wide text-deck-mute">
-            Quick Access
-          </h2>
-          <div className="overflow-hidden rounded-md border border-deck-border">
-            {QUICK_LINKS.map((link, i) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`flex items-center justify-between px-3.5 py-3 text-[13.5px] font-medium ${
-                  link.primary ? 'bg-deck-raised text-deck-accent' : 'bg-deck-surface text-deck-text'
-                } ${i < QUICK_LINKS.length - 1 ? 'border-b border-deck-border' : ''}`}
-              >
-                <span>{link.label}</span>
-                <span className="font-mono text-deck-mute">→</span>
-              </Link>
-            ))}
-          </div>
+          <button
+            onClick={() => setQuickAccessOpen((prev) => !prev)}
+            className="flex w-full items-center justify-between rounded-md border border-deck-border bg-deck-surface px-3.5 py-3"
+          >
+            <span className="font-mono text-[10px] uppercase tracking-wide text-deck-mute">Quick Access</span>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              className={`text-deck-mute transition-transform ${quickAccessOpen ? 'rotate-180' : ''}`}
+            >
+              <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          {quickAccessOpen && (
+            <div className="mt-2 overflow-hidden rounded-md border border-deck-border">
+              {QUICK_LINKS.map((link, i) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`flex items-center justify-between px-3.5 py-3 text-[13.5px] font-medium ${
+                    link.primary ? 'bg-deck-raised text-deck-accent' : 'bg-deck-surface text-deck-text'
+                  } ${i < QUICK_LINKS.length - 1 ? 'border-b border-deck-border' : ''}`}
+                >
+                  <span>{link.label}</span>
+                  <span className="font-mono text-deck-mute">→</span>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="px-4 pt-6">
@@ -196,42 +215,50 @@ export default function DashboardPage() {
             </div>
           )}
 
-          <div className="space-y-2">
-            {projects.map((p) => {
-              const projectCounts = counts[p.id] || {}
-              const total = Object.values(projectCounts).reduce((a, b) => a + b, 0)
+          {projects.length > 0 && (
+            <div className="overflow-x-auto rounded-md border border-deck-border">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-deck-border bg-deck-raised font-mono text-[10px] uppercase tracking-wide text-deck-mute">
+                    <th className="px-3.5 py-2.5 font-medium">Project</th>
+                    <th className="px-3.5 py-2.5 font-medium">Status breakdown</th>
+                    <th className="px-3.5 py-2.5 font-medium">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {projects.map((p) => {
+                    const projectCounts = counts[p.id] || {}
+                    const total = Object.values(projectCounts).reduce((a, b) => a + b, 0)
 
-              return (
-                <Link
-                  key={p.id}
-                  href={`/dashboard/projects/${p.id}`}
-                  className="block rounded-md border border-deck-border bg-deck-surface p-3.5"
-                >
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-deck-text">{p.name}</p>
-                    <span className="font-mono text-xs text-deck-mute">{total} TOTAL</span>
-                  </div>
-
-                  {total === 0 ? (
-                    <p className="mt-2 font-mono text-[11px] text-deck-mute">
-                      NO DEFECTS LOGGED YET
-                    </p>
-                  ) : (
-                    <div className="mt-2.5 flex flex-wrap gap-2">
-                      {STATUS_ORDER.filter((s) => projectCounts[s] > 0).map((s) => (
-                        <div key={s} className="flex items-center gap-1">
-                          <StatusBadge status={s} />
-                          <span className="font-mono text-xs font-medium text-deck-dim">
-                            {projectCounts[s]}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </Link>
-              )
-            })}
-          </div>
+                    return (
+                      <tr
+                        key={p.id}
+                        onClick={() => router.push(`/dashboard/projects/${p.id}`)}
+                        className="cursor-pointer border-b border-deck-border bg-deck-surface last:border-b-0 hover:bg-deck-raised"
+                      >
+                        <td className="px-3.5 py-3 font-semibold text-deck-text">{p.name}</td>
+                        <td className="px-3.5 py-3">
+                          {total === 0 ? (
+                            <span className="font-mono text-[11px] text-deck-mute">NO DEFECTS LOGGED YET</span>
+                          ) : (
+                            <div className="flex flex-wrap gap-2">
+                              {STATUS_ORDER.filter((s) => projectCounts[s] > 0).map((s) => (
+                                <div key={s} className="flex items-center gap-1">
+                                  <StatusBadge status={s} />
+                                  <span className="font-mono text-xs font-medium text-deck-dim">{projectCounts[s]}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-3.5 py-3 font-mono text-xs text-deck-mute">{total}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>
