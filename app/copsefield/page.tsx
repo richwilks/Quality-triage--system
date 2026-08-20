@@ -117,12 +117,6 @@ export default function CopsefieldHomePage() {
                 <p className="text-xs font-medium uppercase tracking-wide text-deck-mute">Priority 8+</p>
                 <p className="mt-1 text-2xl font-semibold text-red-600">{stats.urgentCount}</p>
               </div>
-              <div className="col-span-2 rounded-xl border border-deck-border bg-deck-surface p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-deck-mute">Planning allowance outstanding</p>
-                <p className="mt-1 text-lg font-semibold text-deck-text">
-                  {stats.totalLow.toLocaleString()} - {stats.totalHigh.toLocaleString()}
-                </p>
-              </div>
             </div>
 
             <div className="mt-6 flex gap-3">

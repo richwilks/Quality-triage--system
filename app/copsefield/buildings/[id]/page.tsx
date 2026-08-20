@@ -226,7 +226,7 @@ export default function BuildingDetailPage() {
             disabled={generatingReport}
             className="rounded-md border border-copsefield-accent px-4 py-2 text-sm font-medium text-copsefield-accent disabled:opacity-50"
           >
-            {generatingReport ? 'Generating...' : 'Investment report'}
+            {generatingReport ? 'Generating...' : 'Property report'}
           </button>
           {building.building_type === 'strata' && (
             <button

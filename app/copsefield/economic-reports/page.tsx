@@ -11,6 +11,7 @@ type EconomicReport = {
   region: string | null
   document_url: string | null
   extracted_text: string | null
+  summary: string | null
 }
 
 const CATEGORIES = [
@@ -40,7 +41,7 @@ export default function EconomicReportsLibraryPage() {
   async function load() {
     const { data } = await supabase
       .from('copsefield_economic_reports')
-      .select('id, title, category, region, document_url, extracted_text')
+      .select('id, title, category, region, document_url, extracted_text, summary')
       .order('created_at', { ascending: false })
     setReports(data || [])
     setLoading(false)
@@ -152,92 +153,99 @@ export default function EconomicReportsLibraryPage() {
 
   return (
     <div className="min-h-screen px-4 py-8">
-      <div className="mx-auto max-w-md">
+      <div className="mx-auto max-w-6xl">
         <PageHeader title="Economic Reports" />
         <p className="mt-1 text-sm text-deck-dim">
-          Rental, commercial property, and construction market data - used as reference when generating investment/ROI reports.
+          Rental, commercial property, and construction market data - reviewed and summarised, then used as reference when
+          generating property reports.
         </p>
 
-        <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
-          <p className="text-sm font-medium text-deck-body">Add report</p>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Title, e.g. UK Rental Market Report Q2 2026"
-            className="mt-2 w-full rounded-md border border-deck-border bg-deck-raised px-3 py-2 text-sm text-deck-text placeholder:text-deck-mute"
-          />
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="mt-2 w-full rounded-md border border-deck-border bg-deck-raised px-3 py-2 text-sm text-deck-text"
-          >
-            {CATEGORIES.map((c) => (
-              <option key={c.value} value={c.value}>{c.label}</option>
-            ))}
-          </select>
-          <input
-            type="text"
-            value={region}
-            onChange={(e) => setRegion(e.target.value)}
-            placeholder="Region (optional), e.g. London, or National"
-            className="mt-2 w-full rounded-md border border-deck-border bg-deck-raised px-3 py-2 text-sm text-deck-text placeholder:text-deck-mute"
-          />
-          <input
-            type="file"
-            accept="application/pdf"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
-            className="mt-2 w-full text-sm text-deck-dim"
-          />
+        <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm lg:col-span-1">
+            <p className="text-sm font-medium text-deck-body">Add report</p>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Title, e.g. UK Rental Market Report Q2 2026"
+              className="mt-2 w-full rounded-md border border-deck-border bg-deck-raised px-3 py-2 text-sm text-deck-text placeholder:text-deck-mute"
+            />
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="mt-2 w-full rounded-md border border-deck-border bg-deck-raised px-3 py-2 text-sm text-deck-text"
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
+            </select>
+            <input
+              type="text"
+              value={region}
+              onChange={(e) => setRegion(e.target.value)}
+              placeholder="Region (optional), e.g. London, or National"
+              className="mt-2 w-full rounded-md border border-deck-border bg-deck-raised px-3 py-2 text-sm text-deck-text placeholder:text-deck-mute"
+            />
+            <input
+              type="file"
+              accept="application/pdf"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              className="mt-2 w-full text-sm text-deck-dim"
+            />
 
-          {status && <p className="mt-2 text-xs text-amber-700">{status}</p>}
-          {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+            {status && <p className="mt-2 text-xs text-amber-700">{status}</p>}
+            {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 
-          <button
-            onClick={handleUpload}
-            disabled={uploading || !file || !title.trim()}
-            className="mt-3 w-full rounded-md bg-copsefield-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
-          >
-            {uploading ? 'Processing...' : 'Add report'}
-          </button>
-        </div>
+            <button
+              onClick={handleUpload}
+              disabled={uploading || !file || !title.trim()}
+              className="mt-3 w-full rounded-md bg-copsefield-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
+            >
+              {uploading ? 'Processing...' : 'Add report'}
+            </button>
+          </div>
 
-        <div className="mt-6">
-          {reports.length === 0 ? (
-            <p className="text-sm text-deck-dim">No economic reports uploaded yet.</p>
-          ) : (
-            <>
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by title, category, or region..."
-                className="w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text placeholder:text-deck-mute"
-              />
-              <div className="mt-2 space-y-2">
-                {filtered.map((r) => (
-                  <div key={r.id} className="rounded-lg border border-deck-border bg-deck-surface p-3">
-                    <p className="text-sm font-semibold text-deck-text">{r.title}</p>
-                    <p className="text-xs text-deck-mute">
-                      {[CATEGORIES.find((c) => c.value === r.category)?.label, r.region].filter(Boolean).join(' · ')}
-                    </p>
-                    <p className="mt-1 text-xs">
+          <div className="lg:col-span-2">
+            {reports.length === 0 ? (
+              <p className="text-sm text-deck-dim">No economic reports uploaded yet.</p>
+            ) : (
+              <>
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by title, category, or region..."
+                  className="w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text placeholder:text-deck-mute"
+                />
+                <div className="mt-2 grid grid-cols-1 gap-2 lg:grid-cols-2">
+                  {filtered.map((r) => (
+                    <div key={r.id} className="rounded-lg border border-deck-border bg-deck-surface p-3">
+                      <p className="text-sm font-semibold text-deck-text">{r.title}</p>
+                      <p className="text-xs text-deck-mute">
+                        {[CATEGORIES.find((c) => c.value === r.category)?.label, r.region].filter(Boolean).join(' · ')}
+                      </p>
                       {r.extracted_text ? (
-                        <span className="text-emerald-700">Ready for analysis</span>
+                        r.summary ? (
+                          <p className="mt-2 whitespace-pre-wrap text-xs text-deck-body">{r.summary}</p>
+                        ) : (
+                          <p className="mt-2 text-xs text-deck-dim">Extracted, but no summary yet.</p>
+                        )
                       ) : (
-                        <span className="text-amber-700">
-                          Processing...{' '}
-                          <button onClick={() => handleRetry(r.id)} className="ml-1 underline text-copsefield-accent">
-                            Retry
-                          </button>
-                        </span>
+                        <p className="mt-1 text-xs">
+                          <span className="text-amber-700">
+                            Processing...{' '}
+                            <button onClick={() => handleRetry(r.id)} className="ml-1 underline text-copsefield-accent">
+                              Retry
+                            </button>
+                          </span>
+                        </p>
                       )}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
