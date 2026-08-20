@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -9,7 +9,7 @@ import { BUILDING_TYPES, BuildingType, buildingCode } from '@/lib/copsefieldTaxo
 
 type Client = { id: string; name: string }
 
-export default function NewBuildingPage() {
+function NewBuildingInner() {
   const supabase = createClient()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -253,5 +253,19 @@ export default function NewBuildingPage() {
         </button>
       </div>
     </div>
+  )
+}
+
+export default function NewBuildingPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen p-8">
+          <p className="text-sm text-deck-dim">Loading...</p>
+        </div>
+      }
+    >
+      <NewBuildingInner />
+    </Suspense>
   )
 }
