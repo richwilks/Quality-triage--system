@@ -166,13 +166,15 @@ export default function CopsefieldSidebar() {
   const items = ITEMS.filter((item) => !isOwner || !item.staffOnly)
 
   return (
-    <aside className="fixed left-0 top-0 z-40 hidden h-screen w-56 flex-col border-r border-deck-border bg-deck-surface px-3 py-6 lg:flex print:hidden">
-      <div className="flex items-center gap-2 px-2">
-        <img src="/branding/copsefield/shield-icon.png" alt="Copsefield Group" className="h-8 w-8 rounded-md object-contain" />
-        <span className="truncate text-sm font-bold text-deck-text">Copsefield Group</span>
+    <aside className="fixed left-0 top-0 z-40 hidden h-screen w-56 flex-col border-r border-deck-border bg-deck-surface pb-6 lg:flex print:hidden">
+      <div className="flex items-center gap-2.5 bg-copsefield-dark px-4 py-5">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-white/10 p-1">
+          <img src="/branding/copsefield/shield-icon.png" alt="Copsefield Group" className="h-full w-full object-contain" />
+        </span>
+        <span className="truncate text-sm font-bold text-white">Copsefield Group</span>
       </div>
 
-      <nav className="mt-8 flex flex-1 flex-col gap-1">
+      <nav className="mt-6 flex flex-1 flex-col gap-1 px-3">
         {items.map((item) => {
           const active = pathname === item.href
           return (

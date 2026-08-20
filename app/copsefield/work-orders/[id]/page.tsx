@@ -5,6 +5,8 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
+import { WORK_ORDER_STATUSES, WORK_ORDER_STATUS_COLOR } from '@/lib/copsefieldTaxonomy'
+import { logWorkOrderEvent, syncTicketStatus, generateQuoteReference } from '@/lib/copsefieldWorkOrders'
 
 type WorkOrder = {
   id: string
@@ -16,10 +18,33 @@ type WorkOrder = {
   priority: string
   cost_estimate_low: number | null
   cost_estimate_high: number | null
+  quote_reference: string | null
+  quote_amount: number | null
+  quote_notes: string | null
+  quote_sent_at: string | null
+  accepted_at: string | null
+  contractor_name: string | null
+  scheduled_start_date: string | null
+  issued_at: string | null
+  completed_at: string | null
   copsefield_buildings: { name: string } | { name: string }[] | null
 }
 
-const STATUS_OPTIONS = ['open', 'in_progress', 'completed', 'cancelled']
+type WorkOrderEvent = {
+  id: string
+  event_type: string
+  description: string
+  created_at: string
+}
+
+type MaterialOrder = {
+  id: string
+  description: string
+  cost_estimate: number | null
+  created_at: string
+}
+
+const STAGE_ORDER = ['quote', 'accepted', 'issued', 'in_progress', 'completed']
 
 export default function WorkOrderDetailPage() {
   const supabase = createClient()
@@ -27,10 +52,17 @@ export default function WorkOrderDetailPage() {
   const workOrderId = params.id as string
 
   const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null)
-  const [status, setStatus] = useState('')
+  const [events, setEvents] = useState<WorkOrderEvent[]>([])
+  const [materialOrders, setMaterialOrders] = useState<MaterialOrder[]>([])
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  const [quoteAmount, setQuoteAmount] = useState('')
+  const [quoteNotes, setQuoteNotes] = useState('')
+  const [materialDesc, setMaterialDesc] = useState('')
+  const [materialCost, setMaterialCost] = useState('')
+  const [contractorName, setContractorName] = useState('')
+  const [scheduledStartDate, setScheduledStartDate] = useState('')
 
   useEffect(() => {
     load()
@@ -39,14 +71,33 @@ export default function WorkOrderDetailPage() {
   async function load() {
     const { data } = await supabase
       .from('copsefield_work_orders')
-      .select('id, ticket_id, building_id, title, description, status, priority, cost_estimate_low, cost_estimate_high, copsefield_buildings(name)')
+      .select(
+        'id, ticket_id, building_id, title, description, status, priority, cost_estimate_low, cost_estimate_high, quote_reference, quote_amount, quote_notes, quote_sent_at, accepted_at, contractor_name, scheduled_start_date, issued_at, completed_at, copsefield_buildings(name)'
+      )
       .eq('id', workOrderId)
       .single()
 
     if (data) {
-      setWorkOrder(data as unknown as WorkOrder)
-      setStatus(data.status)
+      const w = data as unknown as WorkOrder
+      setWorkOrder(w)
+      setContractorName(w.contractor_name || '')
+      setScheduledStartDate(w.scheduled_start_date || '')
     }
+
+    const { data: eventData } = await supabase
+      .from('copsefield_work_order_events')
+      .select('id, event_type, description, created_at')
+      .eq('work_order_id', workOrderId)
+      .order('created_at', { ascending: false })
+    setEvents(eventData || [])
+
+    const { data: materialData } = await supabase
+      .from('copsefield_material_orders')
+      .select('id, description, cost_estimate, created_at')
+      .eq('work_order_id', workOrderId)
+      .order('created_at', { ascending: false })
+    setMaterialOrders(materialData || [])
+
     setLoading(false)
   }
 
@@ -55,25 +106,137 @@ export default function WorkOrderDetailPage() {
     return Array.isArray(w.copsefield_buildings) ? w.copsefield_buildings[0]?.name : w.copsefield_buildings.name
   }
 
-  async function handleSave() {
-    if (!workOrder) return
-    setSaving(true)
+  async function currentUserId() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    return user?.id || null
+  }
 
-    const { error } = await supabase
+  async function handleSendQuote() {
+    if (!workOrder || !quoteAmount) return
+    setBusy(true)
+    const userId = await currentUserId()
+    const reference = generateQuoteReference()
+
+    await supabase
       .from('copsefield_work_orders')
       .update({
-        status,
-        completed_at: status === 'completed' ? new Date().toISOString() : null,
+        quote_reference: reference,
+        quote_amount: Number(quoteAmount),
+        quote_notes: quoteNotes.trim() || null,
+        quote_sent_at: new Date().toISOString(),
       })
       .eq('id', workOrder.id)
 
-    if (!error) {
-      setSaved(true)
-      if (status === 'completed' && workOrder.ticket_id) {
-        await supabase.from('copsefield_tickets').update({ status: 'actioned' }).eq('id', workOrder.ticket_id)
-      }
-    }
-    setSaving(false)
+    await logWorkOrderEvent(supabase, workOrder.id, 'quote_sent', `Quote ${reference} sent for ${quoteAmount}`, userId)
+    load()
+    setBusy(false)
+  }
+
+  async function handleMarkAccepted() {
+    if (!workOrder) return
+    setBusy(true)
+    const userId = await currentUserId()
+    await supabase.from('copsefield_work_orders').update({ status: 'accepted', accepted_at: new Date().toISOString() }).eq('id', workOrder.id)
+    await syncTicketStatus(supabase, workOrder.ticket_id, 'accepted')
+    await logWorkOrderEvent(supabase, workOrder.id, 'status_change', `Quote ${workOrder.quote_reference || ''} accepted`, userId)
+    load()
+    setBusy(false)
+  }
+
+  async function handleAddMaterialOrder() {
+    if (!workOrder || !materialDesc.trim()) return
+    setBusy(true)
+    const userId = await currentUserId()
+    await supabase.from('copsefield_material_orders').insert({
+      work_order_id: workOrder.id,
+      description: materialDesc.trim(),
+      cost_estimate: materialCost ? Number(materialCost) : null,
+      created_by: userId,
+    })
+    await logWorkOrderEvent(supabase, workOrder.id, 'material_order', `Material order raised: ${materialDesc.trim()}`, userId)
+    setMaterialDesc('')
+    setMaterialCost('')
+    load()
+    setBusy(false)
+  }
+
+  async function handleMarkIssued() {
+    if (!workOrder || !contractorName.trim()) return
+    setBusy(true)
+    const userId = await currentUserId()
+    await supabase
+      .from('copsefield_work_orders')
+      .update({
+        status: 'issued',
+        contractor_name: contractorName.trim(),
+        scheduled_start_date: scheduledStartDate || null,
+        issued_at: new Date().toISOString(),
+      })
+      .eq('id', workOrder.id)
+    await syncTicketStatus(supabase, workOrder.ticket_id, 'issued')
+    await logWorkOrderEvent(
+      supabase,
+      workOrder.id,
+      'status_change',
+      `Issued to ${contractorName.trim()}${scheduledStartDate ? ` - start date ${scheduledStartDate}` : ''}`,
+      userId
+    )
+    load()
+    setBusy(false)
+  }
+
+  async function handleSaveSchedule() {
+    if (!workOrder) return
+    setBusy(true)
+    const userId = await currentUserId()
+    await supabase
+      .from('copsefield_work_orders')
+      .update({ contractor_name: contractorName.trim() || null, scheduled_start_date: scheduledStartDate || null })
+      .eq('id', workOrder.id)
+    await logWorkOrderEvent(
+      supabase,
+      workOrder.id,
+      'note',
+      `Schedule updated: ${contractorName.trim() || 'no contractor set'}${scheduledStartDate ? `, start date ${scheduledStartDate}` : ''}`,
+      userId
+    )
+    load()
+    setBusy(false)
+  }
+
+  async function handleMarkInProgress() {
+    if (!workOrder) return
+    setBusy(true)
+    const userId = await currentUserId()
+    await supabase.from('copsefield_work_orders').update({ status: 'in_progress' }).eq('id', workOrder.id)
+    await syncTicketStatus(supabase, workOrder.ticket_id, 'in_progress')
+    await logWorkOrderEvent(supabase, workOrder.id, 'status_change', 'Work started', userId)
+    load()
+    setBusy(false)
+  }
+
+  async function handleMarkCompleted() {
+    if (!workOrder) return
+    setBusy(true)
+    const userId = await currentUserId()
+    await supabase.from('copsefield_work_orders').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', workOrder.id)
+    await syncTicketStatus(supabase, workOrder.ticket_id, 'completed')
+    await logWorkOrderEvent(supabase, workOrder.id, 'status_change', 'Work order completed', userId)
+    load()
+    setBusy(false)
+  }
+
+  async function handleCancel() {
+    if (!workOrder) return
+    setBusy(true)
+    const userId = await currentUserId()
+    await supabase.from('copsefield_work_orders').update({ status: 'cancelled' }).eq('id', workOrder.id)
+    await syncTicketStatus(supabase, workOrder.ticket_id, 'cancelled')
+    await logWorkOrderEvent(supabase, workOrder.id, 'status_change', 'Work order cancelled', userId)
+    load()
+    setBusy(false)
   }
 
   if (loading) {
@@ -92,9 +255,12 @@ export default function WorkOrderDetailPage() {
     )
   }
 
+  const stageIndex = STAGE_ORDER.indexOf(workOrder.status)
+  const cancelled = workOrder.status === 'cancelled'
+
   return (
     <div className="min-h-screen px-4 py-8">
-      <div className="mx-auto max-w-md">
+      <div className="mx-auto max-w-3xl">
         <PageHeader title={workOrder.title} />
         <p className="mt-1 text-sm text-deck-dim">{getBuildingName(workOrder)}</p>
         {workOrder.ticket_id && (
@@ -103,9 +269,30 @@ export default function WorkOrderDetailPage() {
           </Link>
         )}
 
+        {/* Stage indicator */}
+        {!cancelled ? (
+          <div className="mt-4 flex flex-wrap items-center gap-1.5">
+            {STAGE_ORDER.map((stage, i) => (
+              <span
+                key={stage}
+                className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                  i < stageIndex
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : i === stageIndex
+                      ? WORK_ORDER_STATUS_COLOR[stage]
+                      : 'bg-deck-raised text-deck-mute'
+                }`}
+              >
+                {WORK_ORDER_STATUSES.find((s) => s.value === stage)?.label || stage}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <span className="mt-4 inline-block rounded-full bg-deck-raised px-2.5 py-1 text-xs font-medium text-deck-mute">Cancelled</span>
+        )}
+
         <div className="mt-4 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
           {workOrder.description && <p className="text-sm text-deck-body">{workOrder.description}</p>}
-
           <div className="mt-2 flex flex-wrap gap-2 text-xs text-deck-dim">
             <span>
               Priority: <span className="font-medium text-deck-body">{workOrder.priority}</span>
@@ -116,28 +303,179 @@ export default function WorkOrderDetailPage() {
               </span>
             )}
           </div>
+        </div>
 
-          <label className="mt-4 block text-sm font-medium text-deck-body">Status</label>
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="mt-1 w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text"
-          >
-            {STATUS_OPTIONS.map((s) => (
-              <option key={s} value={s}>
-                {s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')}
-              </option>
-            ))}
-          </select>
+        {/* Quote stage */}
+        {!cancelled && workOrder.status === 'quote' && (
+          <div className="mt-4 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-deck-dim">Quote</h2>
+            {workOrder.quote_sent_at ? (
+              <>
+                <p className="mt-2 text-sm text-deck-text">
+                  <span className="font-mono text-xs text-deck-dim">{workOrder.quote_reference}</span> · {workOrder.quote_amount}
+                </p>
+                {workOrder.quote_notes && <p className="mt-1 text-xs text-deck-dim">{workOrder.quote_notes}</p>}
+                <p className="mt-1 text-xs text-deck-mute">Sent {new Date(workOrder.quote_sent_at).toLocaleDateString()}</p>
+                <button
+                  onClick={handleMarkAccepted}
+                  disabled={busy}
+                  className="mt-3 w-full rounded-md bg-copsefield-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
+                >
+                  Mark quote accepted
+                </button>
+              </>
+            ) : (
+              <>
+                <label className="mt-2 block text-xs font-medium text-deck-body">Quote amount</label>
+                <input
+                  type="number"
+                  value={quoteAmount}
+                  onChange={(e) => setQuoteAmount(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text"
+                />
+                <label className="mt-2 block text-xs font-medium text-deck-body">Notes (optional)</label>
+                <textarea
+                  value={quoteNotes}
+                  onChange={(e) => setQuoteNotes(e.target.value)}
+                  rows={2}
+                  className="mt-1 w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text"
+                />
+                <button
+                  onClick={handleSendQuote}
+                  disabled={busy || !quoteAmount}
+                  className="mt-3 w-full rounded-md bg-copsefield-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
+                >
+                  Send quote
+                </button>
+              </>
+            )}
+          </div>
+        )}
 
+        {/* Accepted stage - material orders + prep for issuing */}
+        {!cancelled && stageIndex >= STAGE_ORDER.indexOf('accepted') && (
+          <div className="mt-4 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-deck-dim">Material orders</h2>
+            <div className="mt-2 space-y-1.5">
+              {materialOrders.map((m) => (
+                <div key={m.id} className="rounded-md border border-deck-border px-3 py-2 text-sm">
+                  <p className="text-deck-text">{m.description}</p>
+                  {m.cost_estimate !== null && <p className="text-xs text-deck-dim">Est. {m.cost_estimate}</p>}
+                </div>
+              ))}
+              {materialOrders.length === 0 && <p className="text-xs text-deck-dim">No material orders raised yet.</p>}
+            </div>
+            {workOrder.status === 'accepted' && (
+              <div className="mt-3 flex gap-2">
+                <input
+                  type="text"
+                  value={materialDesc}
+                  onChange={(e) => setMaterialDesc(e.target.value)}
+                  placeholder="Material/description"
+                  className="flex-1 rounded-md border border-deck-border bg-deck-surface px-2.5 py-1.5 text-xs text-deck-text placeholder:text-deck-mute"
+                />
+                <input
+                  type="number"
+                  value={materialCost}
+                  onChange={(e) => setMaterialCost(e.target.value)}
+                  placeholder="Est. cost"
+                  className="w-24 rounded-md border border-deck-border bg-deck-surface px-2.5 py-1.5 text-xs text-deck-text placeholder:text-deck-mute"
+                />
+                <button
+                  onClick={handleAddMaterialOrder}
+                  disabled={busy || !materialDesc.trim()}
+                  className="rounded-md bg-copsefield-accent px-3 py-1.5 text-xs font-medium text-deck-bg disabled:opacity-50"
+                >
+                  Add
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Issue stage - assign worker/contractor + schedule */}
+        {!cancelled && stageIndex >= STAGE_ORDER.indexOf('accepted') && (
+          <div className="mt-4 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-deck-dim">Worker / contractor &amp; schedule</h2>
+            <label className="mt-2 block text-xs font-medium text-deck-body">Assigned to (worker or subcontractor)</label>
+            <input
+              type="text"
+              value={contractorName}
+              onChange={(e) => setContractorName(e.target.value)}
+              className="mt-1 w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text"
+            />
+            <label className="mt-2 block text-xs font-medium text-deck-body">Agreed start date</label>
+            <input
+              type="date"
+              value={scheduledStartDate}
+              onChange={(e) => setScheduledStartDate(e.target.value)}
+              className="mt-1 w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text"
+            />
+
+            {workOrder.status === 'accepted' && (
+              <button
+                onClick={handleMarkIssued}
+                disabled={busy || !contractorName.trim()}
+                className="mt-3 w-full rounded-md bg-copsefield-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
+              >
+                Mark issued
+              </button>
+            )}
+            {workOrder.status !== 'accepted' && (
+              <button
+                onClick={handleSaveSchedule}
+                disabled={busy}
+                className="mt-3 w-full rounded-md border border-copsefield-accent px-3 py-2 text-sm font-medium text-copsefield-accent disabled:opacity-50"
+              >
+                Save changes
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Progress / completion */}
+        {!cancelled && workOrder.status === 'issued' && (
           <button
-            onClick={handleSave}
-            disabled={saving}
+            onClick={handleMarkInProgress}
+            disabled={busy}
             className="mt-4 w-full rounded-md bg-copsefield-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
           >
-            {saving ? 'Saving...' : 'Save changes'}
+            Mark work in progress
           </button>
-          {saved && <p className="mt-2 text-sm text-emerald-700">Saved.</p>}
+        )}
+        {!cancelled && workOrder.status === 'in_progress' && (
+          <button
+            onClick={handleMarkCompleted}
+            disabled={busy}
+            className="mt-4 w-full rounded-md bg-copsefield-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
+          >
+            Mark completed
+          </button>
+        )}
+        {workOrder.status === 'completed' && workOrder.completed_at && (
+          <p className="mt-4 text-sm text-emerald-700">Completed {new Date(workOrder.completed_at).toLocaleDateString()}</p>
+        )}
+
+        {!cancelled && workOrder.status !== 'completed' && (
+          <button
+            onClick={handleCancel}
+            disabled={busy}
+            className="mt-3 w-full rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-600 disabled:opacity-50"
+          >
+            Cancel work order
+          </button>
+        )}
+
+        {/* Audit trail */}
+        <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-deck-dim">Activity</h2>
+        <div className="mt-2 space-y-1.5">
+          {events.map((e) => (
+            <div key={e.id} className="rounded-md border border-deck-border bg-deck-surface px-3 py-2">
+              <p className="text-sm text-deck-text">{e.description}</p>
+              <p className="mt-0.5 text-xs text-deck-mute">{new Date(e.created_at).toLocaleString()}</p>
+            </div>
+          ))}
+          {events.length === 0 && <p className="text-sm text-deck-dim">No activity recorded yet.</p>}
         </div>
       </div>
     </div>

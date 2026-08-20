@@ -194,8 +194,12 @@ export const TICKET_STATUSES = [
   { value: 'under_review', label: 'Under review', description: 'An inspector is assessing it on site' },
   { value: 'recommended', label: 'Recommended', description: "Copsefield's recommendation is recorded" },
   { value: 'planned', label: 'Planned', description: 'The building intends to progress it' },
+  { value: 'quote', label: 'Quote', description: 'A work order has been raised and is being quoted' },
+  { value: 'accepted', label: 'Quote accepted', description: 'The quote has been accepted' },
+  { value: 'issued', label: 'Issued', description: 'Assigned to a worker/contractor, start date being agreed' },
   { value: 'in_progress', label: 'In progress', description: 'Work has started' },
   { value: 'actioned', label: 'Actioned', description: 'Complete' },
+  { value: 'closed', label: 'Closed', description: 'Closed without further action' },
   { value: 'deferred', label: 'Deferred', description: 'The building has decided not to progress it for now' },
 ] as const
 
@@ -206,9 +210,51 @@ export const TICKET_STATUS_COLOR: Record<string, string> = {
   under_review: 'bg-blue-100 text-blue-700',
   recommended: 'bg-deck-raised text-deck-dim',
   planned: 'bg-purple-100 text-purple-700',
+  quote: 'bg-sky-100 text-sky-700',
+  accepted: 'bg-teal-100 text-teal-700',
+  issued: 'bg-indigo-100 text-indigo-700',
   in_progress: 'bg-orange-100 text-orange-700',
   actioned: 'bg-emerald-100 text-emerald-700',
+  closed: 'bg-deck-raised text-deck-mute',
   deferred: 'bg-deck-raised text-deck-mute',
+}
+
+// Work orders run their own, more granular lifecycle. When a work order is
+// linked to a ticket, the ticket's status is kept in sync with it (see
+// syncTicketStatus in lib/copsefieldWorkOrders.ts) - completed/cancelled
+// work orders map back onto the ticket statuses above rather than adding
+// more overlap.
+export const WORK_ORDER_STATUSES = [
+  { value: 'quote', label: 'Quote', description: 'Raising/sending a quote for the work' },
+  { value: 'accepted', label: 'Accepted', description: 'Quote accepted - materials/workers can be arranged' },
+  { value: 'issued', label: 'Issued', description: 'Assigned to a worker/contractor' },
+  { value: 'in_progress', label: 'In progress', description: 'Work under way' },
+  { value: 'completed', label: 'Completed', description: 'Work finished' },
+  { value: 'cancelled', label: 'Cancelled', description: 'Work order cancelled' },
+] as const
+
+export type WorkOrderStatus = (typeof WORK_ORDER_STATUSES)[number]['value']
+
+export const WORK_ORDER_STATUS_COLOR: Record<string, string> = {
+  quote: 'bg-sky-100 text-sky-700',
+  accepted: 'bg-teal-100 text-teal-700',
+  issued: 'bg-indigo-100 text-indigo-700',
+  in_progress: 'bg-orange-100 text-orange-700',
+  completed: 'bg-emerald-100 text-emerald-700',
+  cancelled: 'bg-deck-raised text-deck-mute',
+}
+
+// Ticket status a work order's status maps onto when the ticket needs a
+// value from the (smaller) ticket status set - used only for the two
+// terminal work order stages, since quote/accepted/issued/in_progress are
+// valid ticket statuses in their own right now.
+export const WORK_ORDER_TO_TICKET_STATUS: Record<string, string> = {
+  quote: 'quote',
+  accepted: 'accepted',
+  issued: 'issued',
+  in_progress: 'in_progress',
+  completed: 'actioned',
+  cancelled: 'deferred',
 }
 
 export function priorityColor(priority: number | null): string {
@@ -217,4 +263,18 @@ export function priorityColor(priority: number | null): string {
   if (priority >= 7) return 'bg-orange-100 text-orange-700'
   if (priority >= 5) return 'bg-amber-100 text-amber-700'
   return 'bg-deck-raised text-deck-dim'
+}
+
+export const DIARY_ENTRY_TYPES = [
+  { value: 'appointment', label: 'Appointment' },
+  { value: 'inspection', label: 'Inspection' },
+  { value: 'work_order', label: 'Work order' },
+  { value: 'other', label: 'Other' },
+] as const
+
+export const DIARY_ENTRY_TYPE_COLOR: Record<string, string> = {
+  appointment: 'bg-copsefield-accent/15 text-copsefield-accent',
+  inspection: 'bg-blue-100 text-blue-700',
+  work_order: 'bg-indigo-100 text-indigo-700',
+  other: 'bg-deck-raised text-deck-dim',
 }

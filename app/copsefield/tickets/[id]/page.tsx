@@ -14,6 +14,9 @@ import {
   TICKET_STATUS_COLOR,
   priorityColor,
 } from '@/lib/copsefieldTaxonomy'
+import { logWorkOrderEvent } from '@/lib/copsefieldWorkOrders'
+
+const CLOSED_STATUSES = ['actioned', 'closed', 'deferred']
 
 type Ticket = {
   id: string
@@ -47,6 +50,7 @@ export default function TicketDetailPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [creatingWorkOrder, setCreatingWorkOrder] = useState(false)
+  const [closing, setClosing] = useState(false)
 
   const [form, setForm] = useState<Partial<Ticket>>({})
 
@@ -120,6 +124,7 @@ export default function TicketDetailPage() {
         building_id: ticket.building_id,
         title: `${ticket.unique_ref} - ${ticket.asset_category}`,
         description: [ticket.observation, ticket.recommendation].filter(Boolean).join(' - '),
+        status: 'quote',
         priority: priorityLabel,
         cost_estimate_low: ticket.planning_allowance_low,
         cost_estimate_high: ticket.planning_allowance_high,
@@ -129,10 +134,19 @@ export default function TicketDetailPage() {
       .single()
 
     if (!insertError && workOrder) {
-      await supabase.from('copsefield_tickets').update({ work_order_id: workOrder.id, status: 'planned' }).eq('id', ticket.id)
+      await supabase.from('copsefield_tickets').update({ work_order_id: workOrder.id, status: 'quote' }).eq('id', ticket.id)
+      await logWorkOrderEvent(supabase, workOrder.id, 'created', `Work order raised from ticket ${ticket.unique_ref}`, user?.id || null)
       router.push(`/copsefield/work-orders/${workOrder.id}`)
     }
     setCreatingWorkOrder(false)
+  }
+
+  async function handleCloseTicket() {
+    if (!ticket) return
+    setClosing(true)
+    await supabase.from('copsefield_tickets').update({ status: 'closed' }).eq('id', ticket.id)
+    setClosing(false)
+    load()
   }
 
   if (loading) {
@@ -191,17 +205,26 @@ export default function TicketDetailPage() {
         {ticket.photo_url && <img src={ticket.photo_url} alt="Ticket" className="mt-3 w-full rounded-md" />}
 
         <label className="mt-4 block text-sm font-medium text-deck-body">Status</label>
-        <select
-          value={form.status || ''}
-          onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))}
-          className="mt-1 w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text"
-        >
-          {TICKET_STATUSES.map((s) => (
-            <option key={s.value} value={s.value}>
-              {s.label}
-            </option>
-          ))}
-        </select>
+        {ticket.work_order_id ? (
+          <div className="mt-1 flex items-center justify-between rounded-md border border-deck-border bg-deck-raised px-3 py-2">
+            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${TICKET_STATUS_COLOR[ticket.status]}`}>
+              {TICKET_STATUSES.find((s) => s.value === ticket.status)?.label || ticket.status}
+            </span>
+            <span className="text-xs text-deck-mute">Synced to the linked work order</span>
+          </div>
+        ) : (
+          <select
+            value={form.status || ''}
+            onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))}
+            className="mt-1 w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text"
+          >
+            {TICKET_STATUSES.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        )}
 
         <label className="mt-3 block text-sm font-medium text-deck-body">Category</label>
         <select
@@ -329,7 +352,17 @@ export default function TicketDetailPage() {
             disabled={creatingWorkOrder}
             className="mt-3 w-full rounded-md border border-copsefield-accent px-3 py-2 text-sm font-medium text-copsefield-accent disabled:opacity-50"
           >
-            {creatingWorkOrder ? 'Creating...' : 'Assign for work/repair'}
+            {creatingWorkOrder ? 'Creating...' : 'Generate work order'}
+          </button>
+        )}
+
+        {!CLOSED_STATUSES.includes(ticket.status) && (
+          <button
+            onClick={handleCloseTicket}
+            disabled={closing}
+            className="mt-3 w-full rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-600 disabled:opacity-50"
+          >
+            {closing ? 'Closing...' : 'Close ticket'}
           </button>
         )}
       </div>
