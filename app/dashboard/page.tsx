@@ -29,6 +29,7 @@ export default function DashboardPage() {
   const [counts, setCounts] = useState<Record<string, StatusCounts>>({})
   const [loading, setLoading] = useState(true)
   const [hasCopsefieldAccess, setHasCopsefieldAccess] = useState(false)
+  const [quickAccessOpen, setQuickAccessOpen] = useState(false)
 
   useEffect(() => {
     load()
@@ -158,23 +159,39 @@ export default function DashboardPage() {
         </div>
 
         <div className="px-4 pt-5">
-          <h2 className="mb-2.5 font-mono text-[10px] uppercase tracking-wide text-deck-mute">
-            Quick Access
-          </h2>
-          <div className="overflow-hidden rounded-md border border-deck-border">
-            {QUICK_LINKS.map((link, i) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`flex items-center justify-between px-3.5 py-3 text-[13.5px] font-medium ${
-                  link.primary ? 'bg-deck-raised text-deck-accent' : 'bg-deck-surface text-deck-text'
-                } ${i < QUICK_LINKS.length - 1 ? 'border-b border-deck-border' : ''}`}
-              >
-                <span>{link.label}</span>
-                <span className="font-mono text-deck-mute">→</span>
-              </Link>
-            ))}
-          </div>
+          <button
+            onClick={() => setQuickAccessOpen((prev) => !prev)}
+            className="flex w-full items-center justify-between rounded-md border border-deck-border bg-deck-surface px-3.5 py-3"
+          >
+            <span className="font-mono text-[10px] uppercase tracking-wide text-deck-mute">Quick Access</span>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              className={`text-deck-mute transition-transform ${quickAccessOpen ? 'rotate-180' : ''}`}
+            >
+              <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          {quickAccessOpen && (
+            <div className="mt-2 overflow-hidden rounded-md border border-deck-border">
+              {QUICK_LINKS.map((link, i) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`flex items-center justify-between px-3.5 py-3 text-[13.5px] font-medium ${
+                    link.primary ? 'bg-deck-raised text-deck-accent' : 'bg-deck-surface text-deck-text'
+                  } ${i < QUICK_LINKS.length - 1 ? 'border-b border-deck-border' : ''}`}
+                >
+                  <span>{link.label}</span>
+                  <span className="font-mono text-deck-mute">→</span>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="px-4 pt-6">
