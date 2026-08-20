@@ -109,7 +109,7 @@ export default function CopsefieldSettingsPage() {
 
   return (
     <div className="min-h-screen px-4 py-8">
-      <div className="mx-auto max-w-md">
+      <div className="mx-auto max-w-2xl">
         <PageHeader title="Copsefield Settings" />
         <p className="mt-1 text-sm text-deck-dim">
           Everyone with Copsefield access - staff can use the full system, owners are restricted to their linked

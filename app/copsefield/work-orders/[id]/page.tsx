@@ -259,7 +259,7 @@ export default function WorkOrderDetailPage() {
 
   return (
     <div className="min-h-screen px-4 py-8">
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-6xl">
         <PageHeader title={workOrder.title} />
         <p className="mt-1 text-sm text-deck-dim">{getBuildingName(workOrder)}</p>
         {workOrder.ticket_id && (
@@ -267,6 +267,9 @@ export default function WorkOrderDetailPage() {
             View source ticket
           </Link>
         )}
+
+        <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
 
         {/* Stage indicator */}
         {!cancelled ? (
@@ -389,42 +392,50 @@ export default function WorkOrderDetailPage() {
         {!cancelled && stageIndex >= STAGE_ORDER.indexOf('accepted') && (
           <div className="mt-4 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-deck-dim">Worker / contractor &amp; schedule</h2>
-            <label className="mt-2 block text-xs font-medium text-deck-body">From supply chain</label>
-            <select
-              value={contractorId}
-              onChange={(e) => {
-                const id = e.target.value
-                setContractorId(id)
-                const c = contractors.find((x) => x.id === id)
-                if (c) setContractorName(c.name)
-              }}
-              className="mt-1 w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text"
-            >
-              <option value="">Not in directory / other</option>
-              {contractors.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                  {c.trade ? ` (${c.trade})` : ''}
-                </option>
-              ))}
-            </select>
-            <label className="mt-2 block text-xs font-medium text-deck-body">Assigned to (worker or subcontractor)</label>
-            <input
-              type="text"
-              value={contractorName}
-              onChange={(e) => {
-                setContractorName(e.target.value)
-                setContractorId('')
-              }}
-              className="mt-1 w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text"
-            />
-            <label className="mt-2 block text-xs font-medium text-deck-body">Agreed start date</label>
-            <input
-              type="date"
-              value={scheduledStartDate}
-              onChange={(e) => setScheduledStartDate(e.target.value)}
-              className="mt-1 w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text"
-            />
+            <div className="mt-2 grid grid-cols-1 gap-3 lg:grid-cols-2">
+              <div>
+                <label className="block text-xs font-medium text-deck-body">From supply chain</label>
+                <select
+                  value={contractorId}
+                  onChange={(e) => {
+                    const id = e.target.value
+                    setContractorId(id)
+                    const c = contractors.find((x) => x.id === id)
+                    if (c) setContractorName(c.name)
+                  }}
+                  className="mt-1 w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text"
+                >
+                  <option value="">Not in directory / other</option>
+                  {contractors.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                      {c.trade ? ` (${c.trade})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-deck-body">Assigned to (worker or subcontractor)</label>
+                <input
+                  type="text"
+                  value={contractorName}
+                  onChange={(e) => {
+                    setContractorName(e.target.value)
+                    setContractorId('')
+                  }}
+                  className="mt-1 w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-deck-body">Agreed start date</label>
+                <input
+                  type="date"
+                  value={scheduledStartDate}
+                  onChange={(e) => setScheduledStartDate(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text"
+                />
+              </div>
+            </div>
 
             {workOrder.status === 'accepted' && (
               <button
@@ -480,16 +491,21 @@ export default function WorkOrderDetailPage() {
           </button>
         )}
 
+        </div>
+
         {/* Audit trail */}
-        <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-deck-dim">Activity</h2>
-        <div className="mt-2 space-y-1.5">
-          {events.map((e) => (
-            <div key={e.id} className="rounded-md border border-deck-border bg-deck-surface px-3 py-2">
-              <p className="text-sm text-deck-text">{e.description}</p>
-              <p className="mt-0.5 text-xs text-deck-mute">{new Date(e.created_at).toLocaleString()}</p>
-            </div>
-          ))}
-          {events.length === 0 && <p className="text-sm text-deck-dim">No activity recorded yet.</p>}
+        <div className="lg:col-span-1">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-deck-dim">Activity</h2>
+          <div className="mt-2 space-y-1.5">
+            {events.map((e) => (
+              <div key={e.id} className="rounded-md border border-deck-border bg-deck-surface px-3 py-2">
+                <p className="text-sm text-deck-text">{e.description}</p>
+                <p className="mt-0.5 text-xs text-deck-mute">{new Date(e.created_at).toLocaleString()}</p>
+              </div>
+            ))}
+            {events.length === 0 && <p className="text-sm text-deck-dim">No activity recorded yet.</p>}
+          </div>
+        </div>
         </div>
       </div>
     </div>

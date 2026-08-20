@@ -171,7 +171,7 @@ export default function TicketDetailPage() {
   if (!isStaff) {
     return (
       <div className="min-h-screen px-4 py-8">
-        <div className="mx-auto max-w-md">
+        <div className="mx-auto max-w-2xl">
           <PageHeader title={ticket.unique_ref} />
           {building && <p className="mt-1 text-sm text-deck-dim">{building.name}</p>}
           <span className={`mt-2 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${TICKET_STATUS_COLOR[ticket.status]}`}>
@@ -189,7 +189,7 @@ export default function TicketDetailPage() {
 
   return (
     <div className="min-h-screen px-4 py-8">
-      <div className="mx-auto max-w-md">
+      <div className="mx-auto max-w-2xl">
         <PageHeader title={ticket.unique_ref} />
         {building && (
           <p className="mt-1 text-sm text-deck-dim">

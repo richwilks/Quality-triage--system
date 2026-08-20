@@ -74,7 +74,7 @@ export default function CopsefieldAccountPage() {
 
   return (
     <div className="min-h-screen px-4 py-8">
-      <div className="mx-auto max-w-md">
+      <div className="mx-auto max-w-2xl">
         <PageHeader title="Account" />
         <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
           <p className="text-xs font-medium uppercase tracking-wide text-deck-dim">

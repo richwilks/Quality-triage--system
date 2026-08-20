@@ -57,7 +57,7 @@ export default function NewContractorPage() {
 
   return (
     <div className="min-h-screen px-4 py-8">
-      <div className="mx-auto max-w-md">
+      <div className="mx-auto max-w-2xl">
         <PageHeader title="Add a supply chain contact" />
 
         <label className="mt-4 block text-sm font-medium text-deck-body">Type</label>

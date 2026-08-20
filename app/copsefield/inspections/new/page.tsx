@@ -203,7 +203,7 @@ function NewInspectionInner() {
   if (!inspectionId) {
     return (
       <div className="min-h-screen px-4 py-8">
-        <div className="mx-auto max-w-md">
+        <div className="mx-auto max-w-2xl">
           <PageHeader title="New inspection" />
           <label className="mt-4 block text-sm font-medium text-deck-body">Building</label>
           <select
@@ -242,7 +242,7 @@ function NewInspectionInner() {
           onClose={() => setCameraForRow(null)}
         />
       )}
-      <div className="mx-auto max-w-md">
+      <div className="mx-auto max-w-2xl">
         <PageHeader title={buildings.find((b) => b.id === buildingId)?.name || 'Inspection'} />
         <p className="mt-1 text-sm text-deck-dim">Add a row for each item you find. Save each as you go.</p>
 

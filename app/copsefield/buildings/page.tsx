@@ -14,6 +14,7 @@ type Building = {
   name: string
   address: string | null
   city: string | null
+  copsefield_clients: { name: string } | { name: string }[] | null
 }
 
 export default function BuildingsPage() {
@@ -30,17 +31,22 @@ export default function BuildingsPage() {
   async function load() {
     const { data } = await supabase
       .from('copsefield_buildings')
-      .select('id, building_code, building_type, name, address, city')
+      .select('id, building_code, building_type, name, address, city, copsefield_clients(name)')
       .order('building_code', { ascending: true })
-    setBuildings(data || [])
+    setBuildings((data || []) as unknown as Building[])
     setLoading(false)
+  }
+
+  function clientName(b: Building) {
+    if (!b.copsefield_clients) return null
+    return Array.isArray(b.copsefield_clients) ? b.copsefield_clients[0]?.name : b.copsefield_clients.name
   }
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     if (!q) return buildings
     return buildings.filter((b) =>
-      [b.building_code, b.name, b.address, b.city].filter(Boolean).some((v) => (v as string).toLowerCase().includes(q))
+      [b.building_code, b.name, b.address, b.city, clientName(b)].filter(Boolean).some((v) => (v as string).toLowerCase().includes(q))
     )
   }, [buildings, search])
 
@@ -89,6 +95,7 @@ export default function BuildingsPage() {
                 <tr className="border-b border-deck-border bg-deck-raised text-xs uppercase tracking-wide text-deck-mute">
                   <th className="px-3 py-2 font-medium">Code</th>
                   <th className="px-3 py-2 font-medium">Name</th>
+                  <th className="px-3 py-2 font-medium">Client</th>
                   <th className="px-3 py-2 font-medium">Type</th>
                   <th className="px-3 py-2 font-medium">Address</th>
                 </tr>
@@ -102,6 +109,7 @@ export default function BuildingsPage() {
                   >
                     <td className="px-3 py-2 font-mono text-xs text-deck-dim">{b.building_code}</td>
                     <td className="px-3 py-2 font-medium text-deck-text">{b.name}</td>
+                    <td className="px-3 py-2 text-xs text-deck-dim">{clientName(b) || '-'}</td>
                     <td className="px-3 py-2 text-xs text-deck-dim">{typeLabel(b.building_type)}</td>
                     <td className="px-3 py-2 text-xs text-deck-dim">
                       {[b.address, b.city].filter(Boolean).join(', ') || '-'}
