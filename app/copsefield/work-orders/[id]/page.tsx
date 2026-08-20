@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
 import { WORK_ORDER_STATUSES, WORK_ORDER_STATUS_COLOR } from '@/lib/copsefieldTaxonomy'
-import { logWorkOrderEvent, syncTicketStatus, generateQuoteReference } from '@/lib/copsefieldWorkOrders'
+import { logWorkOrderEvent, syncTicketStatus } from '@/lib/copsefieldWorkOrders'
 
 type WorkOrder = {
   id: string
@@ -23,6 +23,7 @@ type WorkOrder = {
   quote_notes: string | null
   quote_sent_at: string | null
   accepted_at: string | null
+  contractor_id: string | null
   contractor_name: string | null
   scheduled_start_date: string | null
   issued_at: string | null
@@ -44,6 +45,12 @@ type MaterialOrder = {
   created_at: string
 }
 
+type Contractor = {
+  id: string
+  name: string
+  trade: string | null
+}
+
 const STAGE_ORDER = ['quote', 'accepted', 'issued', 'in_progress', 'completed']
 
 export default function WorkOrderDetailPage() {
@@ -54,13 +61,13 @@ export default function WorkOrderDetailPage() {
   const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null)
   const [events, setEvents] = useState<WorkOrderEvent[]>([])
   const [materialOrders, setMaterialOrders] = useState<MaterialOrder[]>([])
+  const [contractors, setContractors] = useState<Contractor[]>([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
 
-  const [quoteAmount, setQuoteAmount] = useState('')
-  const [quoteNotes, setQuoteNotes] = useState('')
   const [materialDesc, setMaterialDesc] = useState('')
   const [materialCost, setMaterialCost] = useState('')
+  const [contractorId, setContractorId] = useState('')
   const [contractorName, setContractorName] = useState('')
   const [scheduledStartDate, setScheduledStartDate] = useState('')
 
@@ -72,7 +79,7 @@ export default function WorkOrderDetailPage() {
     const { data } = await supabase
       .from('copsefield_work_orders')
       .select(
-        'id, ticket_id, building_id, title, description, status, priority, cost_estimate_low, cost_estimate_high, quote_reference, quote_amount, quote_notes, quote_sent_at, accepted_at, contractor_name, scheduled_start_date, issued_at, completed_at, copsefield_buildings(name)'
+        'id, ticket_id, building_id, title, description, status, priority, cost_estimate_low, cost_estimate_high, quote_reference, quote_amount, quote_notes, quote_sent_at, accepted_at, contractor_id, contractor_name, scheduled_start_date, issued_at, completed_at, copsefield_buildings(name)'
       )
       .eq('id', workOrderId)
       .single()
@@ -80,9 +87,17 @@ export default function WorkOrderDetailPage() {
     if (data) {
       const w = data as unknown as WorkOrder
       setWorkOrder(w)
+      setContractorId(w.contractor_id || '')
       setContractorName(w.contractor_name || '')
       setScheduledStartDate(w.scheduled_start_date || '')
     }
+
+    const { data: contractorData } = await supabase
+      .from('copsefield_contractors')
+      .select('id, name, trade')
+      .eq('active', true)
+      .order('name', { ascending: true })
+    setContractors(contractorData || [])
 
     const { data: eventData } = await supabase
       .from('copsefield_work_order_events')
@@ -111,27 +126,6 @@ export default function WorkOrderDetailPage() {
       data: { user },
     } = await supabase.auth.getUser()
     return user?.id || null
-  }
-
-  async function handleSendQuote() {
-    if (!workOrder || !quoteAmount) return
-    setBusy(true)
-    const userId = await currentUserId()
-    const reference = generateQuoteReference()
-
-    await supabase
-      .from('copsefield_work_orders')
-      .update({
-        quote_reference: reference,
-        quote_amount: Number(quoteAmount),
-        quote_notes: quoteNotes.trim() || null,
-        quote_sent_at: new Date().toISOString(),
-      })
-      .eq('id', workOrder.id)
-
-    await logWorkOrderEvent(supabase, workOrder.id, 'quote_sent', `Quote ${reference} sent for ${quoteAmount}`, userId)
-    load()
-    setBusy(false)
   }
 
   async function handleMarkAccepted() {
@@ -170,6 +164,7 @@ export default function WorkOrderDetailPage() {
       .from('copsefield_work_orders')
       .update({
         status: 'issued',
+        contractor_id: contractorId || null,
         contractor_name: contractorName.trim(),
         scheduled_start_date: scheduledStartDate || null,
         issued_at: new Date().toISOString(),
@@ -193,7 +188,11 @@ export default function WorkOrderDetailPage() {
     const userId = await currentUserId()
     await supabase
       .from('copsefield_work_orders')
-      .update({ contractor_name: contractorName.trim() || null, scheduled_start_date: scheduledStartDate || null })
+      .update({
+        contractor_id: contractorId || null,
+        contractor_name: contractorName.trim() || null,
+        scheduled_start_date: scheduledStartDate || null,
+      })
       .eq('id', workOrder.id)
     await logWorkOrderEvent(
       supabase,
@@ -314,39 +313,32 @@ export default function WorkOrderDetailPage() {
                 <p className="mt-2 text-sm text-deck-text">
                   <span className="font-mono text-xs text-deck-dim">{workOrder.quote_reference}</span> · {workOrder.quote_amount}
                 </p>
-                {workOrder.quote_notes && <p className="mt-1 text-xs text-deck-dim">{workOrder.quote_notes}</p>}
                 <p className="mt-1 text-xs text-deck-mute">Sent {new Date(workOrder.quote_sent_at).toLocaleDateString()}</p>
-                <button
-                  onClick={handleMarkAccepted}
-                  disabled={busy}
-                  className="mt-3 w-full rounded-md bg-copsefield-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
-                >
-                  Mark quote accepted
-                </button>
+                <div className="mt-3 flex gap-2">
+                  <Link
+                    href={`/copsefield/work-orders/${workOrder.id}/quote`}
+                    className="flex-1 rounded-md border border-copsefield-accent px-3 py-2 text-center text-sm font-medium text-copsefield-accent"
+                  >
+                    View quote
+                  </Link>
+                  <button
+                    onClick={handleMarkAccepted}
+                    disabled={busy}
+                    className="flex-1 rounded-md bg-copsefield-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
+                  >
+                    Mark accepted
+                  </button>
+                </div>
               </>
             ) : (
               <>
-                <label className="mt-2 block text-xs font-medium text-deck-body">Quote amount</label>
-                <input
-                  type="number"
-                  value={quoteAmount}
-                  onChange={(e) => setQuoteAmount(e.target.value)}
-                  className="mt-1 w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text"
-                />
-                <label className="mt-2 block text-xs font-medium text-deck-body">Notes (optional)</label>
-                <textarea
-                  value={quoteNotes}
-                  onChange={(e) => setQuoteNotes(e.target.value)}
-                  rows={2}
-                  className="mt-1 w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text"
-                />
-                <button
-                  onClick={handleSendQuote}
-                  disabled={busy || !quoteAmount}
-                  className="mt-3 w-full rounded-md bg-copsefield-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
+                <p className="mt-2 text-sm text-deck-dim">No quote raised yet.</p>
+                <Link
+                  href={`/copsefield/work-orders/${workOrder.id}/quote`}
+                  className="mt-3 block w-full rounded-md bg-copsefield-accent px-3 py-2 text-center text-sm font-medium text-deck-bg"
                 >
-                  Send quote
-                </button>
+                  Create quote
+                </Link>
               </>
             )}
           </div>
@@ -397,11 +389,33 @@ export default function WorkOrderDetailPage() {
         {!cancelled && stageIndex >= STAGE_ORDER.indexOf('accepted') && (
           <div className="mt-4 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-deck-dim">Worker / contractor &amp; schedule</h2>
+            <label className="mt-2 block text-xs font-medium text-deck-body">From supply chain</label>
+            <select
+              value={contractorId}
+              onChange={(e) => {
+                const id = e.target.value
+                setContractorId(id)
+                const c = contractors.find((x) => x.id === id)
+                if (c) setContractorName(c.name)
+              }}
+              className="mt-1 w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text"
+            >
+              <option value="">Not in directory / other</option>
+              {contractors.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                  {c.trade ? ` (${c.trade})` : ''}
+                </option>
+              ))}
+            </select>
             <label className="mt-2 block text-xs font-medium text-deck-body">Assigned to (worker or subcontractor)</label>
             <input
               type="text"
               value={contractorName}
-              onChange={(e) => setContractorName(e.target.value)}
+              onChange={(e) => {
+                setContractorName(e.target.value)
+                setContractorId('')
+              }}
               className="mt-1 w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text"
             />
             <label className="mt-2 block text-xs font-medium text-deck-body">Agreed start date</label>

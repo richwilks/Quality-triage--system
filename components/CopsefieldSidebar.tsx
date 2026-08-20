@@ -80,6 +80,19 @@ const ITEMS: NavItem[] = [
     ),
   },
   {
+    href: '/copsefield/supply-chain',
+    label: 'Supply Chain',
+    staffOnly: true,
+    icon: (active) => (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={active ? ACTIVE_STROKE : ICON_STROKE} strokeWidth="2">
+        <circle cx="6" cy="6" r="2.5" />
+        <circle cx="18" cy="6" r="2.5" />
+        <circle cx="12" cy="18" r="2.5" />
+        <path d="M8 7.5L11 16M16 7.5L13 16M8.5 6h7" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
     href: '/copsefield/my-tasks',
     label: 'My Tasks',
     staffOnly: true,
