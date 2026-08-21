@@ -6,11 +6,14 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import StatusBadge from '@/components/StatusBadge'
 import { useBranding } from '@/components/BrandingContext'
+import StackedBar from '@/components/charts/StackedBar'
+import BarList from '@/components/charts/BarList'
 
 type Project = { id: string; name: string }
 type StatusCounts = Record<string, number>
 
 const STATUS_ORDER = ['draft', 'confirmed', 'assigned', 'closed', 'rejected']
+const BACKLOG_STATUSES = ['draft', 'confirmed', 'assigned']
 
 const QUICK_LINKS = [
   { href: '/dashboard/projects/new', label: 'New Project', primary: true },
@@ -29,6 +32,7 @@ export default function DashboardPage() {
   const branding = useBranding()
   const [projects, setProjects] = useState<Project[]>([])
   const [counts, setCounts] = useState<Record<string, StatusCounts>>({})
+  const [classificationCounts, setClassificationCounts] = useState<{ snag: number; ncr: number }>({ snag: 0, ncr: 0 })
   const [loading, setLoading] = useState(true)
   const [quickAccessOpen, setQuickAccessOpen] = useState(false)
 
@@ -56,18 +60,22 @@ export default function DashboardPage() {
       const projectIds = projectList.map((p: Project) => p.id)
       const { data: defectData } = await supabase
         .from('defects')
-        .select('project_id, status')
+        .select('project_id, status, classification')
         .in('project_id', projectIds)
 
       const grouped: Record<string, StatusCounts> = {}
       projectList.forEach((p: Project) => {
         grouped[p.id] = {}
       })
+      const classCounts = { snag: 0, ncr: 0 }
       ;(defectData || []).forEach((d: any) => {
         if (!grouped[d.project_id]) grouped[d.project_id] = {}
         grouped[d.project_id][d.status] = (grouped[d.project_id][d.status] || 0) + 1
+        if (d.classification === 'snag') classCounts.snag++
+        if (d.classification === 'ncr') classCounts.ncr++
       })
       setCounts(grouped)
+      setClassificationCounts(classCounts)
     }
 
     setLoading(false)
@@ -78,9 +86,46 @@ export default function DashboardPage() {
     0
   )
 
+  const backlogOf = (c: StatusCounts) => BACKLOG_STATUSES.reduce((sum, s) => sum + (c[s] || 0), 0)
+  const totalBacklog = Object.values(counts).reduce((sum, c) => sum + backlogOf(c), 0)
+  const totalClosed = Object.values(counts).reduce((sum, c) => sum + (c.closed || 0), 0)
+
+  const statusSegments = [
+    { label: 'Draft', value: Object.values(counts).reduce((s, c) => s + (c.draft || 0), 0), colorClass: 'bg-status-draft' },
+    { label: 'Confirmed', value: Object.values(counts).reduce((s, c) => s + (c.confirmed || 0), 0), colorClass: 'bg-status-confirmed' },
+    { label: 'Assigned', value: Object.values(counts).reduce((s, c) => s + (c.assigned || 0), 0), colorClass: 'bg-status-assigned' },
+    { label: 'Closed', value: totalClosed, colorClass: 'bg-status-closed' },
+    { label: 'Rejected', value: Object.values(counts).reduce((s, c) => s + (c.rejected || 0), 0), colorClass: 'bg-status-rejected' },
+  ]
+
+  const classificationSegments = [
+    { label: 'Snag', value: classificationCounts.snag, colorClass: 'bg-deck-accent' },
+    { label: 'NCR', value: classificationCounts.ncr, colorClass: 'bg-red-600' },
+  ]
+
+  const backlogRows = projects
+    .map((p) => ({ key: p.id, label: p.name, value: backlogOf(counts[p.id] || {}), colorClass: 'bg-status-assigned' }))
+    .sort((a, b) => b.value - a.value)
+
+  const performanceRows = projects
+    .map((p) => {
+      const c = counts[p.id] || {}
+      const total = Object.values(c).reduce((a, b) => a + b, 0)
+      return { key: p.id, label: p.name, total, closed: c.closed || 0 }
+    })
+    .filter((p) => p.total > 0)
+    .map((p) => ({
+      key: p.key,
+      label: p.label,
+      value: Math.round((p.closed / p.total) * 100),
+      colorClass: 'bg-deck-success',
+      formatValue: (v: number) => `${v}%`,
+    }))
+    .sort((a, b) => b.value - a.value)
+
   return (
     <div className="min-h-screen">
-      <div className="mx-auto max-w-md pb-10">
+      <div className="mx-auto max-w-md pb-10 lg:max-w-6xl">
         <div className="flex items-center justify-between border-b border-deck-border px-4 py-4">
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-md bg-deck-accent font-mono text-xs font-bold text-deck-bg">
@@ -146,6 +191,42 @@ export default function DashboardPage() {
             RAISE A NEW DEFECT
           </Link>
         </div>
+
+        {!loading && projects.length > 0 && totalAcrossAll > 0 && (
+          <div className="px-4 pt-5">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              <div className="rounded-md border border-deck-border bg-deck-surface p-4">
+                <h2 className="font-mono text-[10px] uppercase tracking-wide text-deck-mute">Defects by status</h2>
+                <div className="mt-3">
+                  <StackedBar segments={statusSegments} />
+                </div>
+              </div>
+
+              <div className="rounded-md border border-deck-border bg-deck-surface p-4">
+                <h2 className="font-mono text-[10px] uppercase tracking-wide text-deck-mute">Snag vs NCR</h2>
+                <div className="mt-3">
+                  <StackedBar segments={classificationSegments} />
+                </div>
+              </div>
+
+              <div className="rounded-md border border-deck-border bg-deck-surface p-4">
+                <h2 className="font-mono text-[10px] uppercase tracking-wide text-deck-mute">Backlog by project</h2>
+                <p className="mt-1 text-xs text-deck-dim">{totalBacklog} open (draft, confirmed or assigned) across all your projects.</p>
+                <div className="mt-3">
+                  <BarList rows={backlogRows} />
+                </div>
+              </div>
+
+              <div className="rounded-md border border-deck-border bg-deck-surface p-4">
+                <h2 className="font-mono text-[10px] uppercase tracking-wide text-deck-mute">Project performance</h2>
+                <p className="mt-1 text-xs text-deck-dim">Share of logged defects closed out, by project.</p>
+                <div className="mt-3">
+                  <BarList rows={performanceRows} />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="px-4 pt-5">
           <button
