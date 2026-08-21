@@ -32,9 +32,10 @@ export default function DashboardPage() {
   const branding = useBranding()
   const [projects, setProjects] = useState<Project[]>([])
   const [counts, setCounts] = useState<Record<string, StatusCounts>>({})
-  const [classificationCounts, setClassificationCounts] = useState<{ snag: number; ncr: number }>({ snag: 0, ncr: 0 })
+  const [classificationCounts, setClassificationCounts] = useState<Record<string, { snag: number; ncr: number }>>({})
   const [loading, setLoading] = useState(true)
   const [quickAccessOpen, setQuickAccessOpen] = useState(false)
+  const [activeProjectId, setActiveProjectId] = useState<string | 'all'>('all')
 
   useEffect(() => {
     load()
@@ -64,18 +65,20 @@ export default function DashboardPage() {
         .in('project_id', projectIds)
 
       const grouped: Record<string, StatusCounts> = {}
+      const classGrouped: Record<string, { snag: number; ncr: number }> = {}
       projectList.forEach((p: Project) => {
         grouped[p.id] = {}
+        classGrouped[p.id] = { snag: 0, ncr: 0 }
       })
-      const classCounts = { snag: 0, ncr: 0 }
       ;(defectData || []).forEach((d: any) => {
         if (!grouped[d.project_id]) grouped[d.project_id] = {}
         grouped[d.project_id][d.status] = (grouped[d.project_id][d.status] || 0) + 1
-        if (d.classification === 'snag') classCounts.snag++
-        if (d.classification === 'ncr') classCounts.ncr++
+        if (!classGrouped[d.project_id]) classGrouped[d.project_id] = { snag: 0, ncr: 0 }
+        if (d.classification === 'snag') classGrouped[d.project_id].snag++
+        if (d.classification === 'ncr') classGrouped[d.project_id].ncr++
       })
       setCounts(grouped)
-      setClassificationCounts(classCounts)
+      setClassificationCounts(classGrouped)
     }
 
     setLoading(false)
@@ -87,20 +90,28 @@ export default function DashboardPage() {
   )
 
   const backlogOf = (c: StatusCounts) => BACKLOG_STATUSES.reduce((sum, s) => sum + (c[s] || 0), 0)
-  const totalBacklog = Object.values(counts).reduce((sum, c) => sum + backlogOf(c), 0)
-  const totalClosed = Object.values(counts).reduce((sum, c) => sum + (c.closed || 0), 0)
+
+  // Combined view aggregates every project; a single project tab scopes every
+  // chart down to just that project's counts.
+  const scopedProjects = activeProjectId === 'all' ? projects : projects.filter((p) => p.id === activeProjectId)
+  const scopedCounts = scopedProjects.map((p) => counts[p.id] || {})
+  const scopedClassCounts = scopedProjects.map((p) => classificationCounts[p.id] || { snag: 0, ncr: 0 })
+
+  const scopedBacklog = scopedCounts.reduce((sum, c) => sum + backlogOf(c), 0)
+  const scopedClosed = scopedCounts.reduce((sum, c) => sum + (c.closed || 0), 0)
+  const scopedTotal = scopedCounts.reduce((sum, c) => sum + Object.values(c).reduce((a, b) => a + b, 0), 0)
 
   const statusSegments = [
-    { label: 'Draft', value: Object.values(counts).reduce((s, c) => s + (c.draft || 0), 0), colorClass: 'bg-status-draft' },
-    { label: 'Confirmed', value: Object.values(counts).reduce((s, c) => s + (c.confirmed || 0), 0), colorClass: 'bg-status-confirmed' },
-    { label: 'Assigned', value: Object.values(counts).reduce((s, c) => s + (c.assigned || 0), 0), colorClass: 'bg-status-assigned' },
-    { label: 'Closed', value: totalClosed, colorClass: 'bg-status-closed' },
-    { label: 'Rejected', value: Object.values(counts).reduce((s, c) => s + (c.rejected || 0), 0), colorClass: 'bg-status-rejected' },
+    { label: 'Draft', value: scopedCounts.reduce((s, c) => s + (c.draft || 0), 0), colorClass: 'bg-status-draft' },
+    { label: 'Confirmed', value: scopedCounts.reduce((s, c) => s + (c.confirmed || 0), 0), colorClass: 'bg-status-confirmed' },
+    { label: 'Assigned', value: scopedCounts.reduce((s, c) => s + (c.assigned || 0), 0), colorClass: 'bg-status-assigned' },
+    { label: 'Closed', value: scopedClosed, colorClass: 'bg-status-closed' },
+    { label: 'Rejected', value: scopedCounts.reduce((s, c) => s + (c.rejected || 0), 0), colorClass: 'bg-status-rejected' },
   ]
 
   const classificationSegments = [
-    { label: 'Snag', value: classificationCounts.snag, colorClass: 'bg-deck-accent' },
-    { label: 'NCR', value: classificationCounts.ncr, colorClass: 'bg-red-600' },
+    { label: 'Snag', value: scopedClassCounts.reduce((s, c) => s + c.snag, 0), colorClass: 'bg-deck-accent' },
+    { label: 'NCR', value: scopedClassCounts.reduce((s, c) => s + c.ncr, 0), colorClass: 'bg-red-600' },
   ]
 
   const backlogRows = projects
@@ -194,37 +205,75 @@ export default function DashboardPage() {
 
         {!loading && projects.length > 0 && totalAcrossAll > 0 && (
           <div className="px-4 pt-5">
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-              <div className="rounded-md border border-deck-border bg-deck-surface p-4">
-                <h2 className="font-mono text-[10px] uppercase tracking-wide text-deck-mute">Defects by status</h2>
-                <div className="mt-3">
-                  <StackedBar segments={statusSegments} />
-                </div>
+            {projects.length > 1 && (
+              <div className="mb-3 flex gap-1 overflow-x-auto">
+                <button
+                  onClick={() => setActiveProjectId('all')}
+                  className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${
+                    activeProjectId === 'all'
+                      ? 'bg-deck-accent text-deck-bg'
+                      : 'border border-deck-border bg-deck-surface text-deck-body'
+                  }`}
+                >
+                  Combined
+                </button>
+                {projects.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => setActiveProjectId(p.id)}
+                    className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${
+                      activeProjectId === p.id
+                        ? 'bg-deck-accent text-deck-bg'
+                        : 'border border-deck-border bg-deck-surface text-deck-body'
+                    }`}
+                  >
+                    {p.name}
+                  </button>
+                ))}
               </div>
+            )}
 
-              <div className="rounded-md border border-deck-border bg-deck-surface p-4">
-                <h2 className="font-mono text-[10px] uppercase tracking-wide text-deck-mute">Snag vs NCR</h2>
-                <div className="mt-3">
-                  <StackedBar segments={classificationSegments} />
+            {scopedTotal === 0 ? (
+              <p className="rounded-md border border-deck-border bg-deck-surface p-4 text-xs text-deck-dim">
+                No defects logged yet on this project.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                <div className="rounded-md border border-deck-border bg-deck-surface p-4">
+                  <h2 className="font-mono text-[10px] uppercase tracking-wide text-deck-mute">Defects by status</h2>
+                  <div className="mt-3">
+                    <StackedBar segments={statusSegments} />
+                  </div>
                 </div>
-              </div>
 
-              <div className="rounded-md border border-deck-border bg-deck-surface p-4">
-                <h2 className="font-mono text-[10px] uppercase tracking-wide text-deck-mute">Backlog by project</h2>
-                <p className="mt-1 text-xs text-deck-dim">{totalBacklog} open (draft, confirmed or assigned) across all your projects.</p>
-                <div className="mt-3">
-                  <BarList rows={backlogRows} />
+                <div className="rounded-md border border-deck-border bg-deck-surface p-4">
+                  <h2 className="font-mono text-[10px] uppercase tracking-wide text-deck-mute">Snag vs NCR</h2>
+                  <div className="mt-3">
+                    <StackedBar segments={classificationSegments} />
+                  </div>
                 </div>
-              </div>
 
-              <div className="rounded-md border border-deck-border bg-deck-surface p-4">
-                <h2 className="font-mono text-[10px] uppercase tracking-wide text-deck-mute">Project performance</h2>
-                <p className="mt-1 text-xs text-deck-dim">Share of logged defects closed out, by project.</p>
-                <div className="mt-3">
-                  <BarList rows={performanceRows} />
-                </div>
+                {activeProjectId === 'all' && (
+                  <>
+                    <div className="rounded-md border border-deck-border bg-deck-surface p-4">
+                      <h2 className="font-mono text-[10px] uppercase tracking-wide text-deck-mute">Backlog by project</h2>
+                      <p className="mt-1 text-xs text-deck-dim">{scopedBacklog} open (draft, confirmed or assigned) across all your projects.</p>
+                      <div className="mt-3">
+                        <BarList rows={backlogRows} />
+                      </div>
+                    </div>
+
+                    <div className="rounded-md border border-deck-border bg-deck-surface p-4">
+                      <h2 className="font-mono text-[10px] uppercase tracking-wide text-deck-mute">Project performance</h2>
+                      <p className="mt-1 text-xs text-deck-dim">Share of logged defects closed out, by project.</p>
+                      <div className="mt-3">
+                        <BarList rows={performanceRows} />
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
-            </div>
+            )}
           </div>
         )}
 
