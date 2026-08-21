@@ -85,7 +85,7 @@ export default function ReviewDefectsPage() {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState('')
-  const [confirmError, setConfirmError] = useState<string | null>(null)
+  const [actionErrors, setActionErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
     loadDefects()
@@ -294,7 +294,11 @@ export default function ReviewDefectsPage() {
 
   async function handleConfirm(defect: Defect) {
     setBusyId(defect.id)
-    setConfirmError(null)
+    setActionErrors((prev) => {
+      const next = { ...prev }
+      delete next[defect.id]
+      return next
+    })
 
     try {
       const {
@@ -373,7 +377,10 @@ export default function ReviewDefectsPage() {
 
       setDefects((prev) => prev.filter((d) => d.id !== defect.id))
     } catch (err: any) {
-      setConfirmError(err?.message || 'Could not confirm this defect - please try again.')
+      setActionErrors((prev) => ({
+        ...prev,
+        [defect.id]: err?.message || 'Could not confirm this defect - please try again.',
+      }))
     } finally {
       setBusyId(null)
     }
@@ -381,27 +388,42 @@ export default function ReviewDefectsPage() {
 
   async function handleReject(defect: Defect) {
     setBusyId(defect.id)
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    await supabase
-      .from('defects')
-      .update({ status: 'rejected' })
-      .eq('id', defect.id)
-
-    await supabase.from('defect_history').insert({
-      defect_id: defect.id,
-      changed_by: user?.id,
-      old_status: 'draft',
-      new_status: 'rejected',
-      notes: rejectReason || null,
+    setActionErrors((prev) => {
+      const next = { ...prev }
+      delete next[defect.id]
+      return next
     })
 
-    setDefects((prev) => prev.filter((d) => d.id !== defect.id))
-    setBusyId(null)
-    setRejectingId(null)
-    setRejectReason('')
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      const { error: updateError } = await supabase
+        .from('defects')
+        .update({ status: 'rejected' })
+        .eq('id', defect.id)
+      if (updateError) throw updateError
+
+      await supabase.from('defect_history').insert({
+        defect_id: defect.id,
+        changed_by: user?.id,
+        old_status: 'draft',
+        new_status: 'rejected',
+        notes: rejectReason || null,
+      })
+
+      setDefects((prev) => prev.filter((d) => d.id !== defect.id))
+      setRejectingId(null)
+      setRejectReason('')
+    } catch (err: any) {
+      setActionErrors((prev) => ({
+        ...prev,
+        [defect.id]: err?.message || 'Could not reject this defect - please try again.',
+      }))
+    } finally {
+      setBusyId(null)
+    }
   }
 
   if (loading) {
@@ -419,12 +441,6 @@ export default function ReviewDefectsPage() {
         <p className="mt-1 text-sm text-deck-dim">
           Confirm or reject each item. Drag a point to reshape the outline, tap an edge to add a point, or double-tap a point to remove it - it'll be baked into the photo once confirmed.
         </p>
-
-        {confirmError && (
-          <p className="mt-3 rounded-md border border-red-300 bg-red-50 p-2 text-sm text-red-600">
-            {confirmError}
-          </p>
-        )}
 
         {defects.length === 0 && (
           <p className="mt-6 text-sm text-deck-dim">
@@ -583,6 +599,12 @@ export default function ReviewDefectsPage() {
                     className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                   />
                 </div>
+
+                {actionErrors[defect.id] && (
+                  <p className="mt-3 rounded-md border border-red-300 bg-red-50 p-2 text-sm text-red-600">
+                    {actionErrors[defect.id]}
+                  </p>
+                )}
 
                 {rejectingId === defect.id ? (
                   <div className="mt-3">
