@@ -70,7 +70,7 @@ export async function middleware(request: NextRequest) {
   if (user && isAuthPage) {
     const url = request.nextUrl.clone()
     const redirectTo = request.nextUrl.searchParams.get('redirect')
-    url.pathname = redirectTo || '/choose'
+    url.pathname = redirectTo || '/dashboard'
     url.search = ''
     return NextResponse.redirect(url)
   }

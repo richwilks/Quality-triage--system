@@ -96,11 +96,6 @@ export default function CopsefieldHomePage() {
             </span>
             <h1 className="text-xl font-semibold text-deck-text">Copsefield Group</h1>
           </div>
-          {isStaff && (
-            <Link href="/choose" className="text-xs font-medium text-deck-dim underline">
-              Switch system
-            </Link>
-          )}
         </div>
         <p className="mt-1 text-sm text-deck-dim">
           {isStaff ? 'Property inspections & ticket management.' : 'Raise and track issues for your building.'}

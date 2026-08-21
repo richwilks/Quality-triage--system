@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
+import BarList from '@/components/charts/BarList'
 
 type CompanyStats = {
   company_name: string
@@ -127,9 +128,18 @@ export default function PlatformAnalyticsPage() {
     )
   }
 
+  const backlogRows = companies
+    .map((c) => ({
+      key: c.company_name,
+      label: c.company_name,
+      value: c.draft + c.confirmed + c.assigned,
+      colorClass: 'bg-status-assigned',
+    }))
+    .sort((a, b) => b.value - a.value)
+
   return (
     <div className="min-h-screen px-4 py-8">
-      <div className="mx-auto max-w-md">
+      <div className="mx-auto max-w-md lg:max-w-6xl">
         <PageHeader title="Platform Analytics" />
         <p className="mt-1 text-sm text-deck-dim">Usage, engagement, and AI cost across every company.</p>
 
@@ -138,7 +148,15 @@ export default function PlatformAnalyticsPage() {
           <p className="mt-0.5 text-xs text-white/70">Total estimated AI cost, all time</p>
         </div>
 
-        <div className="mt-4 space-y-3">
+        <div className="mt-4 rounded-xl border border-deck-border bg-deck-surface p-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-deck-dim">Backlog by company</h2>
+          <p className="mt-0.5 text-xs text-deck-dim">Open defects (draft, confirmed or assigned) not yet closed out.</p>
+          <div className="mt-3">
+            <BarList rows={backlogRows} />
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
           {companies.map((c) => (
             <div key={c.company_name} className="rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
               <div className="flex items-center justify-between">

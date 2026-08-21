@@ -149,7 +149,7 @@ export default function CameraCapture({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col bg-black"
+      className="fixed inset-0 z-[60] flex flex-col bg-black"
       style={{ touchAction: 'none', overscrollBehavior: 'none' }}
     >
       {error ? (

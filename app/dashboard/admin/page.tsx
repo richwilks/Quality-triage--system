@@ -14,7 +14,6 @@ type UserRow = {
   company_admin: boolean
   is_platform_admin: boolean
   is_blocked: boolean
-  has_copsefield_access: boolean
 }
 
 type ProjectRow = {
@@ -100,7 +99,7 @@ export default function PlatformAdminPage() {
 
     const { data: userData } = await supabase
       .from('profiles')
-      .select('id, full_name, email, company_name, account_type, role, company_admin, is_platform_admin, is_blocked, has_copsefield_access')
+      .select('id, full_name, email, company_name, account_type, role, company_admin, is_platform_admin, is_blocked')
       .order('company_name', { ascending: true })
     setUsers(userData || [])
 
@@ -371,16 +370,6 @@ export default function PlatformAdminPage() {
                         />
                         Platform admin
                       </label>
-                      <label className="flex items-center gap-1 text-xs text-deck-body">
-                        <input
-                          type="checkbox"
-                          checked={u.has_copsefield_access}
-                          onChange={(e) =>
-                            setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, has_copsefield_access: e.target.checked } : x)))
-                          }
-                        />
-                        Copsefield access
-                      </label>
                     </div>
 
                     <p className="pt-1 text-xs font-medium text-deck-body">Assigned projects</p>
@@ -407,7 +396,6 @@ export default function PlatformAdminPage() {
                             role: u.role,
                             company_admin: u.company_admin,
                             is_platform_admin: u.is_platform_admin,
-                            has_copsefield_access: u.has_copsefield_access,
                           })
                           setEditingUser(null)
                         }}
@@ -440,11 +428,6 @@ export default function PlatformAdminPage() {
                           {u.is_platform_admin && (
                             <span className="rounded-full bg-deck-mute/20 px-2 py-0.5 text-[10px] font-medium text-deck-text">
                               Platform admin
-                            </span>
-                          )}
-                          {u.has_copsefield_access && (
-                            <span className="rounded-full bg-copsefield-accent/15 px-2 py-0.5 text-[10px] font-medium text-copsefield-accent">
-                              Copsefield access
                             </span>
                           )}
                           {u.is_blocked && (
