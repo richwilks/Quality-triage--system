@@ -94,6 +94,7 @@ export default function DefectKnowledgeAdminPage() {
   const [entries, setEntries] = useState<KnowledgeRow[]>([])
   const [search, setSearch] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(true)
   const [authorized, setAuthorized] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -348,6 +349,22 @@ export default function DefectKnowledgeAdminPage() {
     )
   }, [entries, search])
 
+  const groupedEntries = useMemo(() => {
+    const byCategory = new Map<string, KnowledgeRow[]>()
+    filteredEntries.forEach((e) => {
+      const category = e.element_type || 'General'
+      if (!byCategory.has(category)) byCategory.set(category, [])
+      byCategory.get(category)!.push(e)
+    })
+    return Array.from(byCategory.entries())
+      .map(([category, items]) => ({ category, items }))
+      .sort((a, b) => a.category.localeCompare(b.category))
+  }, [filteredEntries])
+
+  function toggleCategory(category: string) {
+    setOpenCategories((prev) => ({ ...prev, [category]: !prev[category] }))
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen p-8">
@@ -383,171 +400,6 @@ export default function DefectKnowledgeAdminPage() {
         <p className="mt-1 text-sm text-deck-dim">
           Shared defect patterns that apply across all projects, matched automatically by country and standard during photo analysis.
         </p>
-
-        <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
-          <p className="text-sm font-medium text-deck-body">Bulk import from CSV</p>
-          <p className="mt-1 text-xs text-deck-dim">
-            Columns required: <span className="font-mono">title, element_type, country, applicable_standards, defect_description</span>. Only <span className="font-mono">title</span> and <span className="font-mono">defect_description</span> are required per row - the rest can be left blank.
-          </p>
-
-          <input
-            type="file"
-            accept=".csv"
-            onChange={handleCsvSelect}
-            className="mt-3 w-full text-sm"
-          />
-
-          {importPreview.length > 0 && (
-            <div className="mt-3 rounded-md border border-deck-border bg-deck-raised p-3">
-              <p className="text-xs font-medium text-deck-body">
-                {importPreview.length} row{importPreview.length === 1 ? '' : 's'} found
-              </p>
-              <div className="mt-2 max-h-40 space-y-1 overflow-y-auto">
-                {importPreview.slice(0, 5).map((row, i) => (
-                  <p key={i} className="text-xs text-deck-dim truncate">
-                    {i + 1}. {row.title || '(no title)'}
-                  </p>
-                ))}
-                {importPreview.length > 5 && (
-                  <p className="text-xs text-deck-dim">...and {importPreview.length - 5} more</p>
-                )}
-              </div>
-              <button
-                onClick={handleImport}
-                disabled={importing}
-                className="mt-3 w-full rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
-              >
-                {importing ? 'Importing...' : `Import ${importPreview.length} entries`}
-              </button>
-            </div>
-          )}
-
-          {importResults && (
-            <div className="mt-3 rounded-md border border-deck-border p-3">
-              <p className="text-xs font-medium text-deck-body">
-                {successCount} imported, {errorCount} failed
-              </p>
-              {errorCount > 0 && (
-                <div className="mt-2 max-h-32 space-y-1 overflow-y-auto">
-                  {importResults
-                    .filter((r) => r.status === 'error')
-                    .map((r, i) => (
-                      <p key={i} className="text-xs text-red-600">
-                        Row {r.row} ({r.title}): {r.error}
-                      </p>
-                    ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="mt-4">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by title, element type, country, standard, or company..."
-            className="w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text placeholder:text-deck-mute"
-          />
-
-          {entries.length === 0 && (
-            <p className="mt-3 text-sm text-deck-dim">No knowledge base entries yet.</p>
-          )}
-          {entries.length > 0 && filteredEntries.length === 0 && (
-            <p className="mt-3 text-sm text-deck-dim">No entries match &quot;{search}&quot;.</p>
-          )}
-
-          {filteredEntries.length > 0 && (
-            <div className="mt-3 overflow-x-auto rounded-lg border border-deck-border">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-deck-border bg-deck-raised text-xs uppercase tracking-wide text-deck-mute">
-                    <th className="px-3 py-2 font-medium">Title</th>
-                    <th className="px-3 py-2 font-medium">Element / country</th>
-                    <th className="px-3 py-2 font-medium">Source</th>
-                    <th className="px-3 py-2 font-medium">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredEntries.map((e) => (
-                    <Fragment key={e.id}>
-                      <tr
-                        onClick={() => setExpandedId(expandedId === e.id ? null : e.id)}
-                        className="cursor-pointer border-b border-deck-border bg-deck-surface last:border-b-0 hover:bg-deck-raised"
-                      >
-                        <td className="px-3 py-2 font-medium text-deck-text">{e.title}</td>
-                        <td className="px-3 py-2 text-xs text-deck-dim">
-                          {[e.element_type, e.country].filter(Boolean).join(' · ') || 'General'}
-                        </td>
-                        <td className="px-3 py-2 text-xs text-deck-dim">
-                          {e.source === 'project' ? `Project${e.company_name ? ` · ${e.company_name}` : ''}` : 'Manual'}
-                        </td>
-                        <td className="px-3 py-2">
-                          <span className={`text-xs font-medium ${e.active ? 'text-emerald-700' : 'text-deck-dim'}`}>
-                            {e.active ? 'Active' : 'Inactive'}
-                          </span>
-                        </td>
-                      </tr>
-                      {expandedId === e.id && (
-                        <tr className="border-b border-deck-border bg-deck-raised last:border-b-0">
-                          <td colSpan={4} className="px-3 py-3">
-                            {e.source === 'project' && (
-                              <p className="text-xs text-deck-mute">
-                                From a confirmed project defect
-                                {e.company_name ? ` · ${e.company_name}` : ''}
-                                {e.source_defect_id && (
-                                  <>
-                                    {' · '}
-                                    <Link href={`/dashboard/defects/${e.source_defect_id}`} className="text-deck-accent underline">
-                                      View original defect
-                                    </Link>
-                                  </>
-                                )}
-                              </p>
-                            )}
-                            {e.applicable_standards && (
-                              <p className="text-xs text-deck-mute">Standard: {e.applicable_standards}</p>
-                            )}
-                            {e.photo_url && (
-                              <img
-                                src={e.photo_url}
-                                alt={`Reference for ${e.title}`}
-                                className="mt-2 w-full rounded-md border border-deck-border"
-                              />
-                            )}
-                            <p className="mt-2 text-xs text-deck-body">
-                              <strong>Wrong:</strong> {e.defect_description}
-                            </p>
-                            {e.correct_reference && (
-                              <p className="mt-1 text-xs text-deck-body">
-                                <strong>Correct:</strong> {e.correct_reference}
-                              </p>
-                            )}
-                            <div className="mt-2 flex gap-3">
-                              <button
-                                onClick={() => handleToggleActive(e.id, e.active)}
-                                className="text-xs font-medium text-deck-accent underline"
-                              >
-                                {e.active ? 'Deactivate' : 'Activate'}
-                              </button>
-                              <button
-                                onClick={() => handleDelete(e.id)}
-                                className="text-xs font-medium text-red-600"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </Fragment>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
 
         <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
           <p className="text-sm font-medium text-deck-body">Add a single entry</p>
@@ -650,6 +502,202 @@ export default function DefectKnowledgeAdminPage() {
             {saving ? 'Saving...' : 'Add entry'}
           </button>
         </div>
+
+        <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
+          <p className="text-sm font-medium text-deck-body">Bulk import from CSV</p>
+          <p className="mt-1 text-xs text-deck-dim">
+            Columns required: <span className="font-mono">title, element_type, country, applicable_standards, defect_description</span>. Only <span className="font-mono">title</span> and <span className="font-mono">defect_description</span> are required per row - the rest can be left blank.
+          </p>
+
+          <input
+            type="file"
+            accept=".csv"
+            onChange={handleCsvSelect}
+            className="mt-3 w-full text-sm"
+          />
+
+          {importPreview.length > 0 && (
+            <div className="mt-3 rounded-md border border-deck-border bg-deck-raised p-3">
+              <p className="text-xs font-medium text-deck-body">
+                {importPreview.length} row{importPreview.length === 1 ? '' : 's'} found
+              </p>
+              <div className="mt-2 max-h-40 space-y-1 overflow-y-auto">
+                {importPreview.slice(0, 5).map((row, i) => (
+                  <p key={i} className="text-xs text-deck-dim truncate">
+                    {i + 1}. {row.title || '(no title)'}
+                  </p>
+                ))}
+                {importPreview.length > 5 && (
+                  <p className="text-xs text-deck-dim">...and {importPreview.length - 5} more</p>
+                )}
+              </div>
+              <button
+                onClick={handleImport}
+                disabled={importing}
+                className="mt-3 w-full rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
+              >
+                {importing ? 'Importing...' : `Import ${importPreview.length} entries`}
+              </button>
+            </div>
+          )}
+
+          {importResults && (
+            <div className="mt-3 rounded-md border border-deck-border p-3">
+              <p className="text-xs font-medium text-deck-body">
+                {successCount} imported, {errorCount} failed
+              </p>
+              {errorCount > 0 && (
+                <div className="mt-2 max-h-32 space-y-1 overflow-y-auto">
+                  {importResults
+                    .filter((r) => r.status === 'error')
+                    .map((r, i) => (
+                      <p key={i} className="text-xs text-red-600">
+                        Row {r.row} ({r.title}): {r.error}
+                      </p>
+                    ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by title, element type, country, standard, or company..."
+            className="w-full rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm text-deck-text placeholder:text-deck-mute"
+          />
+
+          {entries.length === 0 && (
+            <p className="mt-3 text-sm text-deck-dim">No knowledge base entries yet.</p>
+          )}
+          {entries.length > 0 && filteredEntries.length === 0 && (
+            <p className="mt-3 text-sm text-deck-dim">No entries match &quot;{search}&quot;.</p>
+          )}
+
+          {groupedEntries.length > 0 && (
+            <div className="mt-3 space-y-2">
+              {groupedEntries.map((g) => {
+                const isOpen = search.trim() ? true : !!openCategories[g.category]
+                return (
+                  <div key={g.category} className="overflow-hidden rounded-lg border border-deck-border">
+                    <button
+                      type="button"
+                      onClick={() => toggleCategory(g.category)}
+                      className="flex w-full items-center justify-between bg-deck-surface px-3.5 py-2.5 text-sm"
+                    >
+                      <span className="font-medium text-deck-text">
+                        {g.category} ({g.items.length})
+                      </span>
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        className={`text-deck-dim transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                      >
+                        <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+
+                    {isOpen && (
+                      <div className="overflow-x-auto border-t border-deck-border">
+                        <table className="w-full text-left text-sm">
+                          <thead>
+                            <tr className="border-b border-deck-border bg-deck-raised text-xs uppercase tracking-wide text-deck-mute">
+                              <th className="px-3 py-2 font-medium">Title</th>
+                              <th className="px-3 py-2 font-medium">Country</th>
+                              <th className="px-3 py-2 font-medium">Source</th>
+                              <th className="px-3 py-2 font-medium">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {g.items.map((e) => (
+                              <Fragment key={e.id}>
+                                <tr
+                                  onClick={() => setExpandedId(expandedId === e.id ? null : e.id)}
+                                  className="cursor-pointer border-b border-deck-border bg-deck-surface last:border-b-0 hover:bg-deck-raised"
+                                >
+                                  <td className="px-3 py-2 font-medium text-deck-text">{e.title}</td>
+                                  <td className="px-3 py-2 text-xs text-deck-dim">{e.country || 'All'}</td>
+                                  <td className="px-3 py-2 text-xs text-deck-dim">
+                                    {e.source === 'project' ? `Project${e.company_name ? ` · ${e.company_name}` : ''}` : 'Manual'}
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    <span className={`text-xs font-medium ${e.active ? 'text-emerald-700' : 'text-deck-dim'}`}>
+                                      {e.active ? 'Active' : 'Inactive'}
+                                    </span>
+                                  </td>
+                                </tr>
+                                {expandedId === e.id && (
+                                  <tr className="border-b border-deck-border bg-deck-raised last:border-b-0">
+                                    <td colSpan={4} className="px-3 py-3">
+                                      {e.source === 'project' && (
+                                        <p className="text-xs text-deck-mute">
+                                          From a confirmed project defect
+                                          {e.company_name ? ` · ${e.company_name}` : ''}
+                                          {e.source_defect_id && (
+                                            <>
+                                              {' · '}
+                                              <Link href={`/dashboard/defects/${e.source_defect_id}`} className="text-deck-accent underline">
+                                                View original defect
+                                              </Link>
+                                            </>
+                                          )}
+                                        </p>
+                                      )}
+                                      {e.applicable_standards && (
+                                        <p className="text-xs text-deck-mute">Standard: {e.applicable_standards}</p>
+                                      )}
+                                      {e.photo_url && (
+                                        <img
+                                          src={e.photo_url}
+                                          alt={`Reference for ${e.title}`}
+                                          className="mt-2 w-full rounded-md border border-deck-border"
+                                        />
+                                      )}
+                                      <p className="mt-2 text-xs text-deck-body">
+                                        <strong>Wrong:</strong> {e.defect_description}
+                                      </p>
+                                      {e.correct_reference && (
+                                        <p className="mt-1 text-xs text-deck-body">
+                                          <strong>Correct:</strong> {e.correct_reference}
+                                        </p>
+                                      )}
+                                      <div className="mt-2 flex gap-3">
+                                        <button
+                                          onClick={() => handleToggleActive(e.id, e.active)}
+                                          className="text-xs font-medium text-deck-accent underline"
+                                        >
+                                          {e.active ? 'Deactivate' : 'Activate'}
+                                        </button>
+                                        <button
+                                          onClick={() => handleDelete(e.id)}
+                                          className="text-xs font-medium text-red-600"
+                                        >
+                                          Delete
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </Fragment>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
       </div>
     </div>
   )
