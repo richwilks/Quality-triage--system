@@ -73,6 +73,7 @@ export default function PlatformAdminPage() {
   const [editingUser, setEditingUser] = useState<string | null>(null)
   const [editingProject, setEditingProject] = useState<string | null>(null)
   const [resetMessage, setResetMessage] = useState<Record<string, string>>({})
+  const [projectToggleError, setProjectToggleError] = useState<Record<string, string>>({})
 
   useEffect(() => {
     load()
@@ -182,11 +183,21 @@ export default function PlatformAdminPage() {
     const current = userProjectIds[userId] || []
     const has = current.includes(projectId)
 
+    setProjectToggleError((prev) => ({ ...prev, [userId]: '' }))
+
     if (has) {
-      await supabase.from('project_members').delete().eq('user_id', userId).eq('project_id', projectId)
+      const { error } = await supabase.from('project_members').delete().eq('user_id', userId).eq('project_id', projectId)
+      if (error) {
+        setProjectToggleError((prev) => ({ ...prev, [userId]: error.message }))
+        return
+      }
       setUserProjectIds((prev) => ({ ...prev, [userId]: current.filter((id) => id !== projectId) }))
     } else {
-      await supabase.from('project_members').insert({ user_id: userId, project_id: projectId, project_role: 'member' })
+      const { error } = await supabase.from('project_members').insert({ user_id: userId, project_id: projectId, project_role: 'member' })
+      if (error) {
+        setProjectToggleError((prev) => ({ ...prev, [userId]: error.message }))
+        return
+      }
       setUserProjectIds((prev) => ({ ...prev, [userId]: [...current, projectId] }))
     }
   }
@@ -385,6 +396,9 @@ export default function PlatformAdminPage() {
                         </label>
                       ))}
                     </div>
+                    {projectToggleError[u.id] && (
+                      <p className="pt-1 text-xs text-red-600">{projectToggleError[u.id]}</p>
+                    )}
 
                     <div className="flex gap-2 pt-1">
                       <button
