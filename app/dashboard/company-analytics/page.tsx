@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
 import StatusBadge from '@/components/StatusBadge'
+import StackedBar from '@/components/charts/StackedBar'
+import BarList from '@/components/charts/BarList'
 
 type ProjectStats = {
   id: string
@@ -14,6 +16,12 @@ type ProjectStats = {
   assigned: number
   closed: number
   rejected: number
+  snag: number
+  ncr: number
+}
+
+function backlogOf(p: ProjectStats) {
+  return p.draft + p.confirmed + p.assigned
 }
 
 export default function CompanyAnalyticsPage() {
@@ -58,12 +66,12 @@ export default function CompanyAnalyticsPage() {
 
     const { data: defectData } = await supabase
       .from('defects')
-      .select('project_id, status, created_at, closed_at')
+      .select('project_id, status, classification, created_at, closed_at')
       .in('project_id', projectIds.length ? projectIds : ['00000000-0000-0000-0000-000000000000'])
 
     const stats: Record<string, ProjectStats> = {}
     ;(projectData || []).forEach((p) => {
-      stats[p.id] = { id: p.id, name: p.name, total: 0, draft: 0, confirmed: 0, assigned: 0, closed: 0, rejected: 0 }
+      stats[p.id] = { id: p.id, name: p.name, total: 0, draft: 0, confirmed: 0, assigned: 0, closed: 0, rejected: 0, snag: 0, ncr: 0 }
     })
 
     let closedDaysSum = 0
@@ -85,6 +93,8 @@ export default function CompanyAnalyticsPage() {
         }
       }
       if (d.status === 'rejected') s.rejected++
+      if (d.classification === 'snag') s.snag++
+      if (d.classification === 'ncr') s.ncr++
     })
 
     setAvgDaysToClose(closedCount > 0 ? closedDaysSum / closedCount : null)
@@ -117,23 +127,64 @@ export default function CompanyAnalyticsPage() {
 
   const totalAll = projects.reduce((sum, p) => sum + p.total, 0)
   const totalClosed = projects.reduce((sum, p) => sum + p.closed, 0)
+  const totalBacklog = projects.reduce((sum, p) => sum + backlogOf(p), 0)
+  const totalSnag = projects.reduce((sum, p) => sum + p.snag, 0)
+  const totalNcr = projects.reduce((sum, p) => sum + p.ncr, 0)
+
+  const statusSegments = [
+    { label: 'Draft', value: projects.reduce((s, p) => s + p.draft, 0), colorClass: 'bg-status-draft' },
+    { label: 'Confirmed', value: projects.reduce((s, p) => s + p.confirmed, 0), colorClass: 'bg-status-confirmed' },
+    { label: 'Assigned', value: projects.reduce((s, p) => s + p.assigned, 0), colorClass: 'bg-status-assigned' },
+    { label: 'Closed', value: totalClosed, colorClass: 'bg-status-closed' },
+    { label: 'Rejected', value: projects.reduce((s, p) => s + p.rejected, 0), colorClass: 'bg-status-rejected' },
+  ]
+
+  const classificationSegments = [
+    { label: 'Snag', value: totalSnag, colorClass: 'bg-deck-accent' },
+    { label: 'NCR', value: totalNcr, colorClass: 'bg-red-600' },
+  ]
+
+  const backlogRows = projects
+    .map((p) => ({ key: p.id, label: p.name, value: backlogOf(p), colorClass: 'bg-status-assigned' }))
+    .sort((a, b) => b.value - a.value)
+
+  const performanceRows = projects
+    .filter((p) => p.total > 0)
+    .map((p) => ({
+      key: p.id,
+      label: p.name,
+      value: Math.round((p.closed / p.total) * 100),
+      colorClass: 'bg-deck-success',
+      formatValue: (v: number) => `${v}%`,
+    }))
+    .sort((a, b) => b.value - a.value)
 
   return (
     <div className="min-h-screen px-4 py-8">
-      <div className="mx-auto max-w-md">
+      <div className="mx-auto max-w-md lg:max-w-6xl">
         <PageHeader title="Company Performance" />
         <p className="mt-1 text-sm text-deck-dim">{companyName} - across all your projects.</p>
 
-        <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <div className="rounded-xl bg-brand-ink p-4 text-white">
             <p className="text-2xl font-semibold">{totalAll}</p>
             <p className="mt-0.5 text-xs text-white/70">Total defects logged</p>
+          </div>
+          <div className="rounded-xl border border-deck-border bg-deck-surface p-4">
+            <p className="text-2xl font-semibold text-deck-text">{totalBacklog}</p>
+            <p className="mt-0.5 text-xs text-deck-dim">Open backlog</p>
           </div>
           <div className="rounded-xl border border-deck-border bg-deck-surface p-4">
             <p className="text-2xl font-semibold text-deck-text">
               {avgDaysToClose !== null ? avgDaysToClose.toFixed(1) : '-'}
             </p>
             <p className="mt-0.5 text-xs text-deck-dim">Avg days to close</p>
+          </div>
+          <div className="rounded-xl border border-deck-border bg-deck-surface p-4">
+            <p className="text-2xl font-semibold text-deck-text">
+              {totalAll > 0 ? Math.round((totalClosed / totalAll) * 100) : 0}%
+            </p>
+            <p className="mt-0.5 text-xs text-deck-dim">Closed out</p>
           </div>
         </div>
 
@@ -143,10 +194,42 @@ export default function CompanyAnalyticsPage() {
           </p>
         </div>
 
+        <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="rounded-xl border border-deck-border bg-deck-surface p-4">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-deck-dim">Defects by status</h2>
+            <div className="mt-3">
+              <StackedBar segments={statusSegments} />
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-deck-border bg-deck-surface p-4">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-deck-dim">Snag vs NCR</h2>
+            <div className="mt-3">
+              <StackedBar segments={classificationSegments} />
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-deck-border bg-deck-surface p-4">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-deck-dim">Backlog by project</h2>
+            <p className="mt-0.5 text-xs text-deck-dim">Open defects (draft, confirmed or assigned) not yet closed out.</p>
+            <div className="mt-3">
+              <BarList rows={backlogRows} />
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-deck-border bg-deck-surface p-4">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-deck-dim">Project performance</h2>
+            <p className="mt-0.5 text-xs text-deck-dim">Share of logged defects closed out, by project.</p>
+            <div className="mt-3">
+              <BarList rows={performanceRows} />
+            </div>
+          </div>
+        </div>
+
         <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-deck-dim">
           By project
         </h2>
-        <div className="mt-2 space-y-2">
+        <div className="mt-2 grid grid-cols-1 gap-2 lg:grid-cols-2">
           {projects.map((p) => (
             <div key={p.id} className="rounded-lg border border-deck-border bg-deck-surface p-3">
               <div className="flex items-center justify-between">
@@ -192,4 +275,3 @@ export default function CompanyAnalyticsPage() {
     </div>
   )
 }
-
