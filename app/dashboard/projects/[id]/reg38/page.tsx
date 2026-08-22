@@ -256,6 +256,13 @@ export default function Reg38Page() {
           </p>
         )}
 
+        <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-900">
+          This checklist reflects our best understanding of Regulation 38 and Golden Thread (Building Safety Act
+          2022) requirements, but is not a substitute for legal or fire-safety advice. Have your Principal
+          Accountable Person, fire engineer, or building safety professional confirm what's required for this
+          specific building before relying on this for compliance.
+        </p>
+
         <div className="mt-4 rounded-md border border-deck-border bg-deck-surface p-4">
           <StackedBar segments={statusSegments} />
         </div>
