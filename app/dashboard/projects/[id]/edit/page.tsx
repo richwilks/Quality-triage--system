@@ -28,6 +28,7 @@ export default function EditProjectPage() {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [standards, setStandards] = useState('')
+  const [higherRiskBuilding, setHigherRiskBuilding] = useState(false)
   const [specs, setSpecs] = useState<ProjectSpec[]>([])
   const [library, setLibrary] = useState<StandardDoc[]>([])
   const [loading, setLoading] = useState(true)
@@ -42,7 +43,7 @@ export default function EditProjectPage() {
   async function load() {
     const { data: project } = await supabase
       .from('projects')
-      .select('name, description, standards')
+      .select('name, description, standards, higher_risk_building')
       .eq('id', projectId)
       .single()
 
@@ -50,6 +51,7 @@ export default function EditProjectPage() {
       setName(project.name || '')
       setDescription(project.description || '')
       setStandards(project.standards || '')
+      setHigherRiskBuilding(!!project.higher_risk_building)
     }
 
     const { data: specData } = await supabase
@@ -92,7 +94,7 @@ export default function EditProjectPage() {
 
     const { error: updateError } = await supabase
       .from('projects')
-      .update({ name: name.trim(), description, standards })
+      .update({ name: name.trim(), description, standards, higher_risk_building: higherRiskBuilding })
       .eq('id', projectId)
 
     if (updateError) {
@@ -143,6 +145,21 @@ export default function EditProjectPage() {
               rows={3}
               className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
             />
+          </div>
+
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium text-deck-body">
+              <input
+                type="checkbox"
+                checked={higherRiskBuilding}
+                onChange={(e) => setHigherRiskBuilding(e.target.checked)}
+              />
+              Higher-Risk Building
+            </label>
+            <p className="mt-1 text-xs text-deck-dim">
+              Residential, 18m+ or 7+ storeys (England). Determines whether Golden Thread record-keeping is shown as a
+              legal requirement or recommended practice on the Regulation 38 / Golden Thread page.
+            </p>
           </div>
 
           <div>
