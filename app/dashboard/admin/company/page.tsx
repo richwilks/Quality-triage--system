@@ -12,6 +12,8 @@ type BrandingRow = {
   logo_url: string | null
   accent_color: string | null
   feature_branded_reports: boolean
+  feature_reg38_custom_template: boolean
+  reg38_template_name: string | null
 }
 
 const ACCOUNT_TYPES = ['employee', 'contractor', 'client_agent', 'client']
@@ -35,6 +37,9 @@ export default function CompanyAdminPage() {
   const [accentColor, setAccentColor] = useState('#2C5C57')
   const [savingBranding, setSavingBranding] = useState(false)
   const [brandingMessage, setBrandingMessage] = useState<string | null>(null)
+
+  const [uploadingTemplate, setUploadingTemplate] = useState(false)
+  const [templateMessage, setTemplateMessage] = useState<string | null>(null)
 
   useEffect(() => {
     load()
@@ -75,7 +80,9 @@ export default function CompanyAdminPage() {
 
     const { data: brandingData } = await supabase
       .from('company_settings')
-      .select('white_label_enabled, logo_url, accent_color, feature_branded_reports')
+      .select(
+        'white_label_enabled, logo_url, accent_color, feature_branded_reports, feature_reg38_custom_template, reg38_template_name'
+      )
       .ilike('company_name', profile.company_name)
       .maybeSingle()
 
@@ -167,6 +174,8 @@ export default function CompanyAdminPage() {
       setBranding((prev) => ({
         white_label_enabled: prev?.white_label_enabled || false,
         feature_branded_reports: prev?.feature_branded_reports || false,
+        feature_reg38_custom_template: prev?.feature_reg38_custom_template || false,
+        reg38_template_name: prev?.reg38_template_name || null,
         logo_url: logoUrl,
         accent_color: accentColor,
       }))
@@ -174,6 +183,38 @@ export default function CompanyAdminPage() {
     }
 
     setSavingBranding(false)
+  }
+
+  async function handleUploadReg38Template(file: File) {
+    setUploadingTemplate(true)
+    setTemplateMessage(null)
+
+    const path = `templates/${companyName}/${Date.now()}-${file.name}`
+    const { error: uploadError } = await supabase.storage.from('reg38-documents').upload(path, file)
+    if (uploadError) {
+      setTemplateMessage(`Upload failed: ${uploadError.message}`)
+      setUploadingTemplate(false)
+      return
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from('reg38-documents').getPublicUrl(path)
+
+    const res = await fetch('/api/extract-reg38-template-text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ companyName, templateUrl: publicUrl, templateName: file.name }),
+    })
+    const result = await res.json()
+
+    if (res.ok) {
+      setTemplateMessage('Template saved - it will be used the next time a Regulation 38 report is generated.')
+      setBranding((prev) => (prev ? { ...prev, reg38_template_name: file.name } : prev))
+    } else {
+      setTemplateMessage(result.error || 'Could not save template')
+    }
+    setUploadingTemplate(false)
   }
 
   if (loading) {
@@ -329,6 +370,39 @@ export default function CompanyAdminPage() {
             </button>
           </div>
         )}
+
+        <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
+          <p className="text-sm font-medium text-deck-body">Regulation 38 / Golden Thread report template</p>
+          {branding?.feature_reg38_custom_template ? (
+            <>
+              <p className="mt-1 text-xs text-deck-dim">
+                Upload a document with your own report section structure - it'll be used as the template for every
+                Regulation 38 status report and handover pack generated on your projects.
+              </p>
+              {branding.reg38_template_name && (
+                <p className="mt-2 text-xs font-medium text-deck-body">Current template: {branding.reg38_template_name}</p>
+              )}
+              <label className="mt-3 inline-block cursor-pointer rounded-md border border-deck-border px-4 py-2 text-sm font-medium text-deck-body">
+                {uploadingTemplate ? 'Uploading...' : branding.reg38_template_name ? 'Replace template' : 'Upload template'}
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx"
+                  className="hidden"
+                  disabled={uploadingTemplate}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) handleUploadReg38Template(f)
+                  }}
+                />
+              </label>
+              {templateMessage && <p className="mt-2 text-sm text-deck-body">{templateMessage}</p>}
+            </>
+          ) : (
+            <p className="mt-1 text-xs text-deck-dim">
+              Reports use InspectIQ's standard template. Contact us to unlock uploading your own report template.
+            </p>
+          )}
+        </div>
       </div>
     </div>
   )

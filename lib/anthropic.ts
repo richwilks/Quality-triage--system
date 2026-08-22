@@ -666,3 +666,79 @@ Do not add any closing disclaimer paragraph - that is appended separately.`
   const textBlock = data.content?.find((c: any) => c.type === 'text')
   return textBlock?.text || 'Could not generate report.'
 }
+
+// --- Regulation 38 / Golden Thread ---
+
+export type Reg38ItemStatus = {
+  label: string
+  regime: 'reg38' | 'golden_thread'
+  status: 'missing' | 'uploaded' | 'approved'
+  documentName: string | null
+  notes: string | null
+}
+
+const REG38_STANDARD_STRUCTURE = `1. COVER - project name, address, report date, prepared for
+2. EXECUTIVE SUMMARY - overall readiness for handover, in one paragraph
+3. REGULATION 38 FIRE SAFETY INFORMATION - list each item with its status, and for anything missing, what specifically needs to be obtained and why it matters
+4. GOLDEN THREAD INFORMATION - list each item with its status, noting whether it is legally required for this building (Higher-Risk Building) or recommended good practice
+5. OUTSTANDING ITEMS - a clear, prioritised list of everything still missing before handover can complete
+6. SIGN-OFF - space for the Responsible Person's name, signature, and date of acknowledgement`
+
+export async function generateReg38Report(
+  kind: 'status' | 'handover',
+  projectName: string,
+  isHigherRiskBuilding: boolean,
+  items: Reg38ItemStatus[],
+  customTemplateText?: string | null
+): Promise<string> {
+  const itemsText = items
+    .map(
+      (i) =>
+        `- [${i.regime === 'reg38' ? 'Reg 38' : 'Golden Thread'}] ${i.label}: ${i.status}${
+          i.documentName ? ` (document: ${i.documentName})` : ''
+        }${i.notes ? ` - note: ${i.notes}` : ''}`
+    )
+    .join('\n')
+
+  const kindInstruction =
+    kind === 'status'
+      ? 'This is an in-progress STATUS REPORT - the project is not necessarily complete. Be direct about what is still outstanding and what to do next.'
+      : "This is the FINAL HANDOVER PACK, generated once the team believes everything is ready - it should read as a completed handover document for the Responsible Person to review and sign, not a to-do list. If items are still missing, say so plainly rather than glossing over them - a handover pack presented as complete when it isn't is worse than an honest status report."
+
+  const structureInstruction = customTemplateText
+    ? `Follow this company-specific report structure and section order exactly, using its headings:\n\n${customTemplateText}`
+    : `Follow this standard structure and section order exactly, using these headings:\n\n${REG38_STANDARD_STRUCTURE}`
+
+  const prompt = `You are producing a UK Regulation 38 (Building Regulations 2010) fire safety information and Golden Thread (Building Safety Act 2022) ${
+    kind === 'status' ? 'status report' : 'handover pack'
+  } for a construction project.
+
+Project: ${projectName}${isHigherRiskBuilding ? ' (Higher-Risk Building - Golden Thread requirements are legally mandatory, not just recommended)' : ' (not flagged as a Higher-Risk Building - Golden Thread items here are recommended record-keeping, not a legal requirement, and the report should say so)'}
+
+${kindInstruction}
+
+Checklist status:
+${itemsText || 'No checklist items recorded yet.'}
+
+${structureInstruction}
+
+Write in plain text (markdown headings ok). Be factual and specific to the checklist status given above - do not invent document content you haven't been told about, and do not claim an item is complete if its status above is "missing". Where an item is "uploaded" but not yet "approved", note that it's awaiting review, not signed off.`
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': process.env.ANTHROPIC_API_KEY as string,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-5',
+      max_tokens: 3000,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  })
+
+  const data = await response.json()
+  const textBlock = data.content?.find((c: any) => c.type === 'text')
+  return textBlock?.text || 'Could not generate report.'
+}

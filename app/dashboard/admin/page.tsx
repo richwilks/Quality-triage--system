@@ -44,6 +44,7 @@ type CompanyBranding = {
   feature_custom_terminology: boolean
   feature_private_knowledge_base: boolean
   feature_custom_email_sender: boolean
+  feature_reg38_custom_template: boolean
 }
 
 type FeatureKey =
@@ -52,6 +53,7 @@ type FeatureKey =
   | 'feature_custom_terminology'
   | 'feature_private_knowledge_base'
   | 'feature_custom_email_sender'
+  | 'feature_reg38_custom_template'
 
 const ACCOUNT_TYPES = ['employee', 'contractor', 'client_agent', 'client']
 const TABS = ['Users', 'Projects', 'Invites', 'Branding'] as const
@@ -129,7 +131,7 @@ export default function PlatformAdminPage() {
 
     const { data: brandingData } = await supabase
       .from('company_settings')
-      .select('company_name, white_label_enabled, logo_url, accent_color, feature_branded_reports, feature_hide_inspectiq_brand, feature_custom_terminology, feature_private_knowledge_base, feature_custom_email_sender')
+      .select('company_name, white_label_enabled, logo_url, accent_color, feature_branded_reports, feature_hide_inspectiq_brand, feature_custom_terminology, feature_private_knowledge_base, feature_custom_email_sender, feature_reg38_custom_template')
     const brandingMap: Record<string, CompanyBranding> = {}
     ;(brandingData || []).forEach((b: any) => {
       brandingMap[b.company_name] = b
@@ -240,6 +242,7 @@ export default function PlatformAdminPage() {
             feature_custom_terminology: false,
             feature_private_knowledge_base: false,
             feature_custom_email_sender: false,
+            feature_reg38_custom_template: false,
           }),
           [featureKey]: !currentlyEnabled,
         } as CompanyBranding,
@@ -626,6 +629,7 @@ export default function PlatformAdminPage() {
                 { key: 'feature_custom_terminology', label: 'Custom terminology' },
                 { key: 'feature_private_knowledge_base', label: 'Private defect knowledge base' },
                 { key: 'feature_custom_email_sender', label: 'Custom email sender name' },
+                { key: 'feature_reg38_custom_template', label: 'Custom Regulation 38 / Golden Thread report template' },
               ]
               return (
                 <div key={companyName} className="rounded-lg border border-deck-border bg-deck-surface p-3">
