@@ -14,9 +14,33 @@ type Defect = {
   status: string
   target_close_date: string | null
   ncr_number: string | null
+  element_type: string | null
+  classification: string | null
+  created_at: string
 }
 
 const STATUS_ORDER = ['draft', 'confirmed', 'assigned', 'closed', 'rejected']
+
+const ELEMENT_TYPE_LABELS: Record<string, string> = {
+  floor: 'Floor',
+  wall: 'Wall',
+  ceiling: 'Ceiling',
+  structural_steel: 'Structural steel',
+  cladding_envelope: 'Cladding / envelope',
+  fire_penetration: 'Fire penetration / seal',
+  movement_joint: 'Movement joint',
+  mep: 'MEP',
+  other: 'Other',
+}
+
+type SortKey = 'date_desc' | 'date_asc' | 'type' | 'category'
+
+const SORT_LABELS: Record<SortKey, string> = {
+  date_desc: 'Newest first',
+  date_asc: 'Oldest first',
+  type: 'Type',
+  category: 'Category (Snag / NCR)',
+}
 
 export default function ProjectDetailPage() {
   const supabase = createClient()
@@ -27,6 +51,7 @@ export default function ProjectDetailPage() {
   const [defects, setDefects] = useState<Defect[]>([])
   const [isOwner, setIsOwner] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [sortBy, setSortBy] = useState<SortKey>('date_desc')
 
   useEffect(() => {
     load()
@@ -42,7 +67,7 @@ export default function ProjectDetailPage() {
 
     const { data: defectData } = await supabase
       .from('defects')
-      .select('id, title, status, target_close_date, ncr_number')
+      .select('id, title, status, target_close_date, ncr_number, element_type, classification, created_at')
       .eq('project_id', projectId)
       .order('created_at', { ascending: false })
     setDefects(defectData || [])
@@ -66,6 +91,22 @@ export default function ProjectDetailPage() {
   const counts: Record<string, number> = {}
   defects.forEach((d) => {
     counts[d.status] = (counts[d.status] || 0) + 1
+  })
+
+  const sortedDefects = [...defects].sort((a, b) => {
+    switch (sortBy) {
+      case 'date_asc':
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      case 'type':
+        return (ELEMENT_TYPE_LABELS[a.element_type || ''] || a.element_type || '').localeCompare(
+          ELEMENT_TYPE_LABELS[b.element_type || ''] || b.element_type || ''
+        )
+      case 'category':
+        return (a.classification || '').localeCompare(b.classification || '')
+      case 'date_desc':
+      default:
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    }
   })
 
   if (loading) {
@@ -144,12 +185,28 @@ export default function ProjectDetailPage() {
         </div>
 
 
-        <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-deck-dim">
-          All defects
-        </h2>
+        <div className="mt-6 flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-deck-dim">
+            All defects
+          </h2>
+          {defects.length > 0 && (
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortKey)}
+              className="rounded-md border border-deck-border bg-deck-surface px-2 py-1 text-xs text-deck-text"
+              aria-label="Sort defects"
+            >
+              {(Object.keys(SORT_LABELS) as SortKey[]).map((key) => (
+                <option key={key} value={key}>
+                  Sort: {SORT_LABELS[key]}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
 
         <div className="mt-3 space-y-2">
-          {defects.map((d) => (
+          {sortedDefects.map((d) => (
             <Link
               key={d.id}
               href={`/dashboard/defects/${d.id}`}
@@ -162,8 +219,16 @@ export default function ProjectDetailPage() {
                   </p>
                 )}
                 <p className="text-sm font-medium text-deck-text">{d.title || 'Untitled'}</p>
+                <p className="mt-0.5 text-xs text-deck-dim">
+                  {[
+                    d.element_type ? ELEMENT_TYPE_LABELS[d.element_type] || d.element_type : null,
+                    d.classification ? d.classification.toUpperCase() : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </p>
                 {d.target_close_date && (
-                  <p className="text-xs text-deck-dim">Due {d.target_close_date}</p>
+                  <p className="mt-1 text-xs text-deck-dim">Due {d.target_close_date}</p>
                 )}
               </div>
               <StatusBadge status={d.status} />
