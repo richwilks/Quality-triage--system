@@ -33,14 +33,26 @@ export default function ProjectSpecPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    const { data } = await supabase
-      .from('project_members')
-      .select('projects(id, name)')
-      .eq('user_id', user.id)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_platform_admin')
+      .eq('id', user.id)
+      .single()
 
-    const list = (data || []).flatMap((row: any) =>
-      Array.isArray(row.projects) ? row.projects : row.projects ? [row.projects] : []
-    )
+    let list: Project[]
+    if (profile?.is_platform_admin) {
+      const { data: allProjects } = await supabase.from('projects').select('id, name')
+      list = allProjects || []
+    } else {
+      const { data } = await supabase
+        .from('project_members')
+        .select('projects(id, name)')
+        .eq('user_id', user.id)
+
+      list = (data || []).flatMap((row: any) =>
+        Array.isArray(row.projects) ? row.projects : row.projects ? [row.projects] : []
+      )
+    }
     setProjects(list)
     if (list.length > 0) setProjectId(list[0].id)
     setLoading(false)
