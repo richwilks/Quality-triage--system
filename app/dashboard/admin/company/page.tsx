@@ -299,15 +299,21 @@ export default function CompanyAdminPage() {
             placeholder="their@email.com"
             className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           />
+          <label className="mt-2 block text-xs font-medium text-deck-body">Account type</label>
           <select
             value={inviteAccountType}
             onChange={(e) => setInviteAccountType(e.target.value)}
-            className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
+            className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           >
             {ACCOUNT_TYPES.map((t) => (
               <option key={t} value={t}>{t.replace('_', ' ')}</option>
             ))}
           </select>
+          <p className="mt-1 text-xs text-deck-dim">
+            {inviteAccountType === 'contractor' || inviteAccountType === 'client'
+              ? 'This creates a Supply chain partner - they only see defects assigned to them, not the whole project.'
+              : 'Internal team member - sees the whole project, not just what\'s assigned to them.'}
+          </p>
           {message && <p className="mt-2 text-sm text-emerald-700">{message}</p>}
           <button
             onClick={handleInvite}
