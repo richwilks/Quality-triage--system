@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import StatusBadge from '@/components/StatusBadge'
 import PageHeader from '@/components/PageHeader'
@@ -49,6 +49,7 @@ const ELEMENT_TYPE_LABELS: Record<string, string> = {
 export default function DefectDetailPage() {
   const supabase = createClient()
   const params = useParams()
+  const router = useRouter()
   const defectId = params.id as string
 
   const [defect, setDefect] = useState<Defect | null>(null)
@@ -143,6 +144,10 @@ export default function DefectDetailPage() {
 
     setSaved(true)
     setSaving(false)
+
+    if (status === 'closed') {
+      setTimeout(() => router.push(`/dashboard/projects/${defect.project_id}`), 700)
+    }
   }
 
   if (loading) {
