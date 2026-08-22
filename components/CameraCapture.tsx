@@ -19,8 +19,8 @@ export function guessFromBeta(beta: number): OrientationHint['guess'] {
   return 'wall'
 }
 
-const MIN_ZOOM = 1
-const MAX_ZOOM = 4
+const DIGITAL_ZOOM_MIN = 1
+const DIGITAL_ZOOM_MAX = 4
 
 function pinchDistance(touches: React.TouchList | TouchList) {
   const dx = touches[0].clientX - touches[1].clientX
@@ -37,11 +37,22 @@ export default function CameraCapture({
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const trackRef = useRef<MediaStreamTrack | null>(null)
   const latestBetaRef = useRef<number | null>(null)
   const pinchStartRef = useRef<{ distance: number; zoom: number } | null>(null)
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
   const [zoom, setZoom] = useState(1)
+
+  // Native (optical/sensor-level) zoom range, only set when the device/browser actually
+  // exposes it - otherwise we fall back to the crop-based digital zoom that already works
+  // everywhere. Applying both at once would double-zoom, so exactly one path is active.
+  const [nativeZoomRange, setNativeZoomRange] = useState<{ min: number; max: number; step: number } | null>(null)
+  const [torchSupported, setTorchSupported] = useState(false)
+  const [torchOn, setTorchOn] = useState(false)
+  const [tapFocusSupported, setTapFocusSupported] = useState(false)
+  const [focusPoint, setFocusPoint] = useState<{ x: number; y: number } | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -73,6 +84,33 @@ export default function CameraCapture({
           return
         }
         streamRef.current = stream
+        const track = stream.getVideoTracks()[0]
+        trackRef.current = track || null
+
+        if (track && typeof track.getCapabilities === 'function') {
+          const caps: any = track.getCapabilities()
+
+          if (caps.zoom && typeof caps.zoom.min === 'number' && typeof caps.zoom.max === 'number') {
+            setNativeZoomRange({ min: caps.zoom.min, max: caps.zoom.max, step: caps.zoom.step || 0.1 })
+            setZoom(caps.zoom.min)
+          }
+          if (caps.torch) {
+            setTorchSupported(true)
+          }
+          if (caps.pointsOfInterest || (Array.isArray(caps.focusMode) && caps.focusMode.includes('single-shot'))) {
+            setTapFocusSupported(true)
+          }
+          // Best-effort: keep autofocus running continuously rather than locking after the
+          // first shot, on devices that support it. Silently ignored where unsupported.
+          if (Array.isArray(caps.focusMode) && caps.focusMode.includes('continuous')) {
+            try {
+              await track.applyConstraints({ advanced: [{ focusMode: 'continuous' } as any] })
+            } catch {
+              // Ignore - not fatal, camera keeps whatever focus behaviour it already had.
+            }
+          }
+        }
+
         if (videoRef.current) {
           videoRef.current.srcObject = stream
           await videoRef.current.play()
@@ -91,8 +129,49 @@ export default function CameraCapture({
       cancelled = true
       window.removeEventListener('deviceorientation', handleOrientation)
       streamRef.current?.getTracks().forEach((t) => t.stop())
+      if (tapTimerRef.current) clearTimeout(tapTimerRef.current)
     }
   }, [])
+
+  function applyZoom(value: number) {
+    setZoom(value)
+    if (nativeZoomRange && trackRef.current) {
+      trackRef.current.applyConstraints({ advanced: [{ zoom: value } as any] }).catch(() => {
+        // Ignore - falls visually flat rather than crashing if the device rejects it mid-session.
+      })
+    }
+  }
+
+  async function toggleTorch() {
+    if (!trackRef.current || !torchSupported) return
+    const next = !torchOn
+    try {
+      await trackRef.current.applyConstraints({ advanced: [{ torch: next } as any] })
+      setTorchOn(next)
+    } catch {
+      // Device claimed torch support but rejected the constraint - leave state unchanged.
+    }
+  }
+
+  async function handleTapFocus(e: React.TouchEvent) {
+    if (!tapFocusSupported || !trackRef.current || e.touches.length !== 1 || pinchStartRef.current) return
+    const container = e.currentTarget.getBoundingClientRect()
+    const touch = e.touches[0]
+    const x = (touch.clientX - container.left) / container.width
+    const y = (touch.clientY - container.top) / container.height
+
+    setFocusPoint({ x: touch.clientX - container.left, y: touch.clientY - container.top })
+    if (tapTimerRef.current) clearTimeout(tapTimerRef.current)
+    tapTimerRef.current = setTimeout(() => setFocusPoint(null), 900)
+
+    try {
+      await trackRef.current.applyConstraints({
+        advanced: [{ focusMode: 'single-shot', pointsOfInterest: [{ x, y }] } as any],
+      })
+    } catch {
+      // Unsupported combination on this device - the tap indicator still gives visual feedback.
+    }
+  }
 
   function handleTouchStart(e: React.TouchEvent) {
     if (e.touches.length === 2) {
@@ -105,8 +184,9 @@ export default function CameraCapture({
     if (!start || e.touches.length !== 2) return
     e.preventDefault()
     const distance = pinchDistance(e.touches)
+    const range = nativeZoomRange || { min: DIGITAL_ZOOM_MIN, max: DIGITAL_ZOOM_MAX }
     const next = start.zoom * (distance / start.distance)
-    setZoom(Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, next)))
+    applyZoom(Math.max(range.min, Math.min(range.max, next)))
   }
 
   function handleTouchEnd(e: React.TouchEvent) {
@@ -123,14 +203,19 @@ export default function CameraCapture({
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    // Crop to the same region the zoomed preview is showing (centred), then scale back up
-    // to full resolution - the capture has to match what's on screen, not the raw camera
-    // frame, otherwise zooming in visually would do nothing to the saved photo.
-    const sw = video.videoWidth / zoom
-    const sh = video.videoHeight / zoom
-    const sx = (video.videoWidth - sw) / 2
-    const sy = (video.videoHeight - sh) / 2
-    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height)
+    if (nativeZoomRange) {
+      // The camera hardware/driver already zoomed the frame itself - what the video element
+      // shows is exactly what to capture, no extra cropping needed.
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+    } else {
+      // Digital fallback: crop to the same region the zoomed preview is showing (centred),
+      // then scale back up to full resolution - the capture has to match what's on screen.
+      const sw = video.videoWidth / zoom
+      const sh = video.videoHeight / zoom
+      const sx = (video.videoWidth - sw) / 2
+      const sy = (video.videoHeight - sh) / 2
+      ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height)
+    }
 
     const beta = latestBetaRef.current
     const orientation: OrientationHint | null =
@@ -146,6 +231,11 @@ export default function CameraCapture({
       0.9
     )
   }
+
+  const zoomRange = nativeZoomRange || { min: DIGITAL_ZOOM_MIN, max: DIGITAL_ZOOM_MAX, step: 0.1 }
+  // Only scale the preview ourselves in the digital-zoom fallback - native zoom already
+  // changes what the video element renders, so scaling it again would double the effect.
+  const previewScale = nativeZoomRange ? 1 : zoom
 
   return (
     <div
@@ -166,7 +256,10 @@ export default function CameraCapture({
         <>
           <div
             className="relative flex-1 overflow-hidden"
-            onTouchStart={handleTouchStart}
+            onTouchStart={(e) => {
+              handleTouchStart(e)
+              if (e.touches.length === 1) handleTapFocus(e)
+            }}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
           >
@@ -175,10 +268,31 @@ export default function CameraCapture({
               playsInline
               muted
               className="h-full w-full object-cover"
-              style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
+              style={{ transform: `scale(${previewScale})`, transformOrigin: 'center center' }}
             />
 
-            {zoom > 1 && (
+            {focusPoint && (
+              <span
+                className="pointer-events-none absolute h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-lg border-2 border-yellow-300"
+                style={{ left: focusPoint.x, top: focusPoint.y }}
+              />
+            )}
+
+            <div className="absolute left-3 top-3 flex gap-2">
+              {torchSupported && (
+                <button
+                  onClick={toggleTorch}
+                  aria-label="Toggle flash"
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+                    torchOn ? 'bg-yellow-300 text-black' : 'bg-black/60 text-white'
+                  }`}
+                >
+                  ⚡ {torchOn ? 'On' : 'Off'}
+                </button>
+              )}
+            </div>
+
+            {zoom > zoomRange.min && (
               <span className="absolute right-3 top-3 rounded-full bg-black/60 px-2 py-1 text-xs font-semibold text-white">
                 {zoom.toFixed(1)}x
               </span>
@@ -187,11 +301,11 @@ export default function CameraCapture({
             <div className="absolute bottom-4 right-3 flex h-40 items-center">
               <input
                 type="range"
-                min={MIN_ZOOM}
-                max={MAX_ZOOM}
-                step={0.1}
+                min={zoomRange.min}
+                max={zoomRange.max}
+                step={zoomRange.step}
                 value={zoom}
-                onChange={(e) => setZoom(parseFloat(e.target.value))}
+                onChange={(e) => applyZoom(parseFloat(e.target.value))}
                 className="h-40 w-8"
                 style={{
                   writingMode: 'vertical-lr' as any,
@@ -201,6 +315,12 @@ export default function CameraCapture({
                 aria-label="Zoom"
               />
             </div>
+
+            {tapFocusSupported && (
+              <p className="pointer-events-none absolute bottom-4 left-3 max-w-[55%] text-[11px] text-white/70">
+                Tap anywhere to focus
+              </p>
+            )}
           </div>
           <div className="flex items-center justify-between gap-4 bg-black p-4 pb-[env(safe-area-inset-bottom)]">
             <button
