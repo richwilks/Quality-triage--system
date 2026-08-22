@@ -117,14 +117,26 @@ export default function NewDefectVideoPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    const { data: projectData } = await supabase
-      .from('project_members')
-      .select('projects(id, name)')
-      .eq('user_id', user.id)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_platform_admin')
+      .eq('id', user.id)
+      .single()
 
-    const projectList = (projectData || []).flatMap((row: any) =>
-      Array.isArray(row.projects) ? row.projects : row.projects ? [row.projects] : []
-    )
+    let projectList: Project[]
+    if (profile?.is_platform_admin) {
+      const { data: allProjects } = await supabase.from('projects').select('id, name')
+      projectList = allProjects || []
+    } else {
+      const { data: projectData } = await supabase
+        .from('project_members')
+        .select('projects(id, name)')
+        .eq('user_id', user.id)
+
+      projectList = (projectData || []).flatMap((row: any) =>
+        Array.isArray(row.projects) ? row.projects : row.projects ? [row.projects] : []
+      )
+    }
     setProjects(projectList)
     if (projectList.length > 0) setProjectId(projectList[0].id)
 

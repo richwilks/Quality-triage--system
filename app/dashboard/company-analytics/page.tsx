@@ -45,22 +45,26 @@ export default function CompanyAnalyticsPage() {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('company_admin, company_name')
+      .select('company_admin, company_name, is_platform_admin')
       .eq('id', user.id)
       .single()
 
-    if (!profile?.company_admin || !profile.company_name) {
+    const isPlatformAdmin = !!profile?.is_platform_admin
+
+    if (!isPlatformAdmin && (!profile?.company_admin || !profile.company_name)) {
       setAllowed(false)
       setLoading(false)
       return
     }
     setAllowed(true)
-    setCompanyName(profile.company_name)
+    setCompanyName(isPlatformAdmin ? 'All companies' : profile!.company_name!)
 
-    const { data: projectData } = await supabase
-      .from('projects')
-      .select('id, name')
-      .ilike('company_name', profile.company_name)
+    // Platform admins already see everything at the database level - mirror
+    // that here instead of scoping to their own company, so this page works
+    // for them too rather than only ever showing their own company's data.
+    const { data: projectData } = isPlatformAdmin
+      ? await supabase.from('projects').select('id, name')
+      : await supabase.from('projects').select('id, name').ilike('company_name', profile!.company_name!)
 
     const projectIds = (projectData || []).map((p) => p.id)
 
