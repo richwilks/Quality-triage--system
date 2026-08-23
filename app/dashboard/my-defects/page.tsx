@@ -71,25 +71,12 @@ export default function MyDefectsPage() {
       return
     }
 
-    const { data: colleagues } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('company_name', myProfile.company_name)
-      .eq('role', 'partner')
-
-    const colleagueIds = (colleagues || []).map((c) => c.id)
-    if (colleagueIds.length === 0) {
-      setDefects([])
-      setLoading(false)
-      return
-    }
-
     const { data } = await supabase
       .from('defects')
       .select(
         'id, title, location, photo_url, status, target_close_date, ncr_number, element_type, classification, created_at, projects(name)'
       )
-      .in('assigned_partner_id', colleagueIds)
+      .eq('assigned_company_name', myProfile.company_name)
       .order('target_close_date', { ascending: true })
 
     setDefects((data || []) as unknown as Defect[])

@@ -24,6 +24,7 @@ type Defect = {
   standard_reference: string | null
   description: string | null
   assigned_partner_id: string | null
+  assigned_company_name: string | null
   target_close_date: string | null
   bounding_box: LegacyRect | Point[] | null
   classification: string | null
@@ -96,7 +97,7 @@ export default function ReviewDefectsPage() {
     const { data } = await supabase
       .from('defects')
       .select(
-        'id, project_id, title, photo_url, ai_description, ai_confidence, standard_reference, description, assigned_partner_id, target_close_date, bounding_box, classification, ncr_number, element_type, root_cause, corrective_action, projects(name, company_name, country)'
+        'id, project_id, title, photo_url, ai_description, ai_confidence, standard_reference, description, assigned_partner_id, assigned_company_name, target_close_date, bounding_box, classification, ncr_number, element_type, root_cause, corrective_action, projects(name, company_name, country)'
       )
       .eq('status', 'draft')
       .order('created_at', { ascending: false })
@@ -113,7 +114,7 @@ export default function ReviewDefectsPage() {
     const initialCorrective: Record<string, string> = {}
     list.forEach((d) => {
       initialText[d.id] = d.description || d.ai_description || ''
-      initialPartner[d.id] = d.assigned_partner_id || ''
+      initialPartner[d.id] = d.assigned_company_name || ''
       initialDate[d.id] = d.target_close_date || ''
       initialBoxes[d.id] = normalizeToPolygon(d.bounding_box)
       initialClass[d.id] = d.classification || 'snag'
@@ -305,8 +306,10 @@ export default function ReviewDefectsPage() {
         data: { user },
       } = await supabase.auth.getUser()
 
-      const partnerId = assignedPartner[defect.id] || null
-      const newStatus = partnerId ? 'assigned' : 'confirmed'
+      const companyName = assignedPartner[defect.id] || null
+      const companyPartners = companyName ? partners.filter((p) => p.company_name === companyName) : []
+      const partnerId = companyPartners[0]?.id || null
+      const newStatus = companyName ? 'assigned' : 'confirmed'
       const box = boxes[defect.id] || DEFAULT_POLYGON
       const finalClassification = classification[defect.id] || 'snag'
 
@@ -336,6 +339,7 @@ export default function ReviewDefectsPage() {
           status: newStatus,
           description: editedText[defect.id],
           assigned_partner_id: partnerId,
+          assigned_company_name: companyName,
           target_close_date: targetDate[defect.id] || null,
           confirmed_at: new Date().toISOString(),
           bounding_box: box,
@@ -364,15 +368,18 @@ export default function ReviewDefectsPage() {
         user?.id
       )
 
-      if (partnerId) {
-        await supabase.from('notifications').insert({
-          user_id: partnerId,
-          defect_id: defect.id,
-          is_read: false,
-          message: `You've been assigned a ${finalClassification === 'ncr' ? 'non-conformance (NCR)' : 'defect'}: ${defect.title || editedText[defect.id]}${
-            targetDate[defect.id] ? ` (due ${targetDate[defect.id]})` : ''
-          }`,
-        })
+      if (companyPartners.length > 0) {
+        const message = `Your company has been assigned a ${finalClassification === 'ncr' ? 'non-conformance (NCR)' : 'defect'}: ${defect.title || editedText[defect.id]}${
+          targetDate[defect.id] ? ` (due ${targetDate[defect.id]})` : ''
+        }`
+        await supabase.from('notifications').insert(
+          companyPartners.map((p) => ({
+            user_id: p.id,
+            defect_id: defect.id,
+            is_read: false,
+            message,
+          }))
+        )
       }
 
       setDefects((prev) => prev.filter((d) => d.id !== defect.id))
@@ -569,7 +576,7 @@ export default function ReviewDefectsPage() {
                 )}
 
                 <div className="mt-3">
-                  <label className="block text-sm font-medium text-deck-body">Assigned</label>
+                  <label className="block text-sm font-medium text-deck-body">Assign to company</label>
                   <select
                     value={assignedPartner[defect.id] || ''}
                     onChange={(e) =>
@@ -578,12 +585,15 @@ export default function ReviewDefectsPage() {
                     className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                   >
                     <option value="">Unassigned</option>
-                    {partners.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.company_name || p.full_name || 'Partner'}
+                    {Array.from(new Set(partners.map((p) => p.company_name).filter(Boolean))).map((c) => (
+                      <option key={c as string} value={c as string}>
+                        {c}
                       </option>
                     ))}
                   </select>
+                  <p className="mt-1 text-xs text-deck-dim">
+                    Everyone at the chosen company will be notified.
+                  </p>
                 </div>
 
                 <div className="mt-3">

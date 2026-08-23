@@ -1,9 +1,10 @@
-type Status = 'draft' | 'confirmed' | 'assigned' | 'closed' | 'rejected'
+type Status = 'draft' | 'confirmed' | 'assigned' | 'pending_approval' | 'closed' | 'rejected'
 
 const LABELS: Record<Status, string> = {
   draft: 'Draft',
   confirmed: 'Confirmed',
   assigned: 'Assigned',
+  pending_approval: 'Pending approval',
   closed: 'Closed',
   rejected: 'Rejected',
 }
@@ -12,6 +13,7 @@ const COLORS: Record<Status, string> = {
   draft: 'bg-status-draft/10 text-status-draft',
   confirmed: 'bg-status-confirmed/10 text-status-confirmed',
   assigned: 'bg-status-assigned/10 text-status-assigned',
+  pending_approval: 'bg-status-pendingApproval/10 text-status-pendingApproval',
   closed: 'bg-status-closed/10 text-status-closed',
   rejected: 'bg-status-rejected/10 text-status-rejected',
 }

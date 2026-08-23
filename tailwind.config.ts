@@ -18,6 +18,7 @@ const config: Config = {
           draft: '#94A3B8',
           confirmed: '#3B82F6',
           assigned: '#D97706',
+          pendingApproval: '#7C3AED',
           closed: '#15803D',
           rejected: '#B91C1C',
         },

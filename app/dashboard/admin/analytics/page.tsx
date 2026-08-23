@@ -11,6 +11,7 @@ type CompanyStats = {
   draft: number
   confirmed: number
   assigned: number
+  pendingApproval: number
   closed: number
   rejected: number
   photoCount: number
@@ -69,6 +70,7 @@ export default function PlatformAnalyticsPage() {
           draft: 0,
           confirmed: 0,
           assigned: 0,
+          pendingApproval: 0,
           closed: 0,
           rejected: 0,
           photoCount: 0,
@@ -87,6 +89,7 @@ export default function PlatformAnalyticsPage() {
       if (d.status === 'draft') c.draft++
       if (d.status === 'confirmed') c.confirmed++
       if (d.status === 'assigned') c.assigned++
+      if (d.status === 'pending_approval') c.pendingApproval++
       if (d.status === 'closed') c.closed++
       if (d.status === 'rejected') c.rejected++
     })
@@ -132,7 +135,7 @@ export default function PlatformAnalyticsPage() {
     .map((c) => ({
       key: c.company_name,
       label: c.company_name,
-      value: c.draft + c.confirmed + c.assigned,
+      value: c.draft + c.confirmed + c.assigned + c.pendingApproval,
       colorClass: 'bg-status-assigned',
     }))
     .sort((a, b) => b.value - a.value)
@@ -150,7 +153,7 @@ export default function PlatformAnalyticsPage() {
 
         <div className="mt-4 rounded-xl border border-deck-border bg-deck-surface p-4">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-deck-dim">Backlog by company</h2>
-          <p className="mt-0.5 text-xs text-deck-dim">Open defects (draft, confirmed or assigned) not yet closed out.</p>
+          <p className="mt-0.5 text-xs text-deck-dim">Open defects (draft, confirmed, assigned or pending approval) not yet closed out.</p>
           <div className="mt-3">
             <BarList rows={backlogRows} />
           </div>
