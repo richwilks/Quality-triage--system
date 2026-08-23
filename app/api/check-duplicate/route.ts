@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
       .from('defects')
       .select('id, description, ai_description, location')
       .eq('project_id', projectId)
-      .in('status', ['draft', 'confirmed', 'assigned'])
+      .in('status', ['draft', 'confirmed', 'assigned', 'pending_approval'])
       .limit(30)
 
     const existingDefects = (existing || []).map((d: any) => ({

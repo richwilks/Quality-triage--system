@@ -30,9 +30,22 @@ type Defect = {
   element_type: string | null
   root_cause: string | null
   corrective_action: string | null
+  assigned_partner_id: string | null
+  assigned_company_name: string | null
 }
 
-const STATUS_OPTIONS = ['draft', 'confirmed', 'assigned', 'closed', 'rejected']
+type Partner = { id: string; full_name: string | null; company_name: string | null }
+
+const STATUS_OPTIONS = ['draft', 'confirmed', 'assigned', 'pending_approval', 'closed', 'rejected']
+
+const STATUS_LABELS: Record<string, string> = {
+  draft: 'Draft',
+  confirmed: 'Confirmed',
+  assigned: 'Assigned',
+  pending_approval: 'Pending approval',
+  closed: 'Closed',
+  rejected: 'Rejected',
+}
 
 const ELEMENT_TYPE_LABELS: Record<string, string> = {
   floor: 'Floor',
@@ -66,16 +79,39 @@ export default function DefectDetailPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [myRole, setMyRole] = useState('')
+  const [partners, setPartners] = useState<Partner[]>([])
+  const [assignedCompany, setAssignedCompany] = useState('')
+  const isPartnerViewer = myRole === 'partner'
 
   useEffect(() => {
     load()
   }, [defectId])
 
   async function load() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+      setMyRole(profile?.role || '')
+    }
+
+    const { data: partnerData } = await supabase
+      .from('profiles')
+      .select('id, full_name, company_name')
+      .eq('role', 'partner')
+    setPartners(partnerData || [])
+
     const { data } = await supabase
       .from('defects')
       .select(
-        'id, project_id, title, location, photo_url, annotated_photo_url, description, standard_reference, status, target_close_date, closure_notes, closure_photo_url, requires_measurement, measured_gap_mm, tested_detail_reference, manufacturer_system, classification, ncr_number, element_type, root_cause, corrective_action'
+        'id, project_id, title, location, photo_url, annotated_photo_url, description, standard_reference, status, target_close_date, closure_notes, closure_photo_url, requires_measurement, measured_gap_mm, tested_detail_reference, manufacturer_system, classification, ncr_number, element_type, root_cause, corrective_action, assigned_partner_id, assigned_company_name'
       )
       .eq('id', defectId)
       .single()
@@ -91,12 +127,44 @@ export default function DefectDetailPage() {
       })
       setRootCause(data.root_cause || '')
       setCorrectiveAction(data.corrective_action || '')
+      setAssignedCompany(data.assigned_company_name || '')
     }
     setLoading(false)
   }
 
-  async function handleSave() {
+  async function notifyCompany(companyName: string, message: string) {
+    const recipients = partners.filter((p) => p.company_name === companyName)
+    if (recipients.length === 0) return
+    await supabase.from('notifications').insert(
+      recipients.map((p) => ({
+        user_id: p.id,
+        defect_id: defectId,
+        is_read: false,
+        message,
+      }))
+    )
+  }
+
+  async function notifyProjectOwners(projectId: string, message: string) {
+    const { data: owners } = await supabase
+      .from('project_members')
+      .select('user_id')
+      .eq('project_id', projectId)
+      .eq('project_role', 'owner')
+    if (!owners || owners.length === 0) return
+    await supabase.from('notifications').insert(
+      owners.map((o) => ({
+        user_id: o.user_id,
+        defect_id: defectId,
+        is_read: false,
+        message,
+      }))
+    )
+  }
+
+  async function handleSave(overrideStatus?: string) {
     if (!defect) return
+    const nextStatus = overrideStatus || status
     setSaving(true)
 
     const {
@@ -117,36 +185,68 @@ export default function DefectDetailPage() {
       }
     }
 
+    const reassigning = !isPartnerViewer && assignedCompany !== (defect.assigned_company_name || '')
+    const newPartnerId = reassigning
+      ? partners.find((p) => p.company_name === assignedCompany)?.id || null
+      : defect.assigned_partner_id
+
     await supabase
       .from('defects')
       .update({
-        status,
+        status: nextStatus,
         closure_notes: closureNotes || null,
         closure_photo_url: closurePhotoUrl,
-        closed_at: status === 'closed' ? new Date().toISOString() : null,
+        closed_at: nextStatus === 'closed' ? new Date().toISOString() : null,
         measured_gap_mm: measurement.measuredGapMm ? parseFloat(measurement.measuredGapMm) : null,
         tested_detail_reference: measurement.testedDetailReference || null,
         manufacturer_system: measurement.manufacturerSystem || null,
         root_cause: defect.classification === 'ncr' ? rootCause || null : defect.root_cause,
         corrective_action: defect.classification === 'ncr' ? correctiveAction || null : defect.corrective_action,
+        ...(reassigning
+          ? { assigned_company_name: assignedCompany || null, assigned_partner_id: newPartnerId }
+          : {}),
       })
       .eq('id', defect.id)
 
-    if (status !== defect.status) {
+    if (nextStatus !== defect.status) {
       await supabase.from('defect_history').insert({
         defect_id: defect.id,
         changed_by: user?.id,
         old_status: defect.status,
-        new_status: status,
+        new_status: nextStatus,
         notes: closureNotes || null,
       })
+    }
+
+    if (reassigning && assignedCompany) {
+      await notifyCompany(
+        assignedCompany,
+        `Your company has been assigned a ${defect.classification === 'ncr' ? 'non-conformance (NCR)' : 'defect'}: ${defect.title || 'Untitled'}`
+      )
+    }
+
+    if (nextStatus === 'pending_approval' && defect.status !== 'pending_approval') {
+      await notifyProjectOwners(
+        defect.project_id,
+        `${defect.assigned_company_name || 'The assigned company'} marked "${defect.title || 'a defect'}" as fixed - awaiting your approval to close it.`
+      )
+    }
+
+    if (defect.status === 'pending_approval' && nextStatus !== 'pending_approval' && defect.assigned_company_name) {
+      const decisionMessage =
+        nextStatus === 'closed'
+          ? `Your fix for "${defect.title || 'a defect'}" was approved and the defect is now closed.`
+          : `Your fix for "${defect.title || 'a defect'}" was not approved - it's been sent back to you${closureNotes ? `: ${closureNotes}` : '.'}`
+      await notifyCompany(defect.assigned_company_name, decisionMessage)
     }
 
     setSaved(true)
     setSaving(false)
 
-    if (status === 'closed') {
+    if (nextStatus === 'closed') {
       setTimeout(() => router.push(`/dashboard/projects/${defect.project_id}`), 700)
+    } else {
+      load()
     }
   }
 
@@ -246,54 +346,116 @@ export default function DefectDetailPage() {
             </div>
           )}
 
-          <label className="mt-4 block text-sm font-medium text-deck-body">Status</label>
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
-          >
-            {STATUS_OPTIONS.map((s) => (
-              <option key={s} value={s}>
-                {s.charAt(0).toUpperCase() + s.slice(1)}
-              </option>
-            ))}
-          </select>
-
-          <label className="mt-4 block text-sm font-medium text-deck-body">
-            Response / closure notes
-          </label>
-          <textarea
-            value={closureNotes}
-            onChange={(e) => setClosureNotes(e.target.value)}
-            rows={3}
-            placeholder="What was done to resolve this, or why it's being rejected"
-            className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
-          />
-
-          <label className="mt-4 block text-sm font-medium text-deck-body">
-            Evidence photo (optional)
-          </label>
-          {defect.closure_photo_url && (
-            <img
-              src={defect.closure_photo_url}
-              alt="Closure evidence"
-              className="mt-2 max-h-48 w-full rounded-md object-cover"
-            />
+          <label className="mt-4 block text-sm font-medium text-deck-body">Assigned to</label>
+          {isPartnerViewer ? (
+            <p className="mt-1 rounded-md bg-deck-raised px-3 py-2 text-sm text-deck-dim">
+              {defect.assigned_company_name || 'Not assigned'}
+            </p>
+          ) : (
+            <select
+              value={assignedCompany}
+              onChange={(e) => setAssignedCompany(e.target.value)}
+              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
+            >
+              <option value="">Unassigned</option>
+              {Array.from(new Set(partners.map((p) => p.company_name).filter(Boolean))).map((c) => (
+                <option key={c as string} value={c as string}>
+                  {c}
+                </option>
+              ))}
+            </select>
           )}
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => setClosureFile(e.target.files?.[0] || null)}
-            className="mt-1 w-full text-sm"
-          />
 
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="mt-4 w-full rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
-          >
-            {saving ? 'Saving...' : 'Save changes'}
-          </button>
+          <label className="mt-4 block text-sm font-medium text-deck-body">Status</label>
+          {isPartnerViewer ? (
+            <p className="mt-1 rounded-md bg-deck-raised px-3 py-2 text-sm text-deck-dim">
+              {STATUS_LABELS[status] || status}
+              {status === 'pending_approval' && ' - waiting on the project team to approve your fix'}
+            </p>
+          ) : (
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
+            >
+              {STATUS_OPTIONS.map((s) => (
+                <option key={s} value={s}>
+                  {STATUS_LABELS[s]}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {(() => {
+            const canEditClosure = !isPartnerViewer || status === 'assigned'
+            return canEditClosure ? (
+              <>
+                <label className="mt-4 block text-sm font-medium text-deck-body">
+                  Response / closure notes
+                </label>
+                <textarea
+                  value={closureNotes}
+                  onChange={(e) => setClosureNotes(e.target.value)}
+                  rows={3}
+                  placeholder="What was done to resolve this, or why it's being rejected"
+                  className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
+                />
+
+                <label className="mt-4 block text-sm font-medium text-deck-body">
+                  Evidence photo (optional)
+                </label>
+                {defect.closure_photo_url && (
+                  <img
+                    src={defect.closure_photo_url}
+                    alt="Closure evidence"
+                    className="mt-2 max-h-48 w-full rounded-md object-cover"
+                  />
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setClosureFile(e.target.files?.[0] || null)}
+                  className="mt-1 w-full text-sm"
+                />
+              </>
+            ) : (
+              closureNotes && (
+                <>
+                  <label className="mt-4 block text-sm font-medium text-deck-body">
+                    Response / closure notes
+                  </label>
+                  <p className="mt-1 text-sm text-deck-body">{closureNotes}</p>
+                  {defect.closure_photo_url && (
+                    <img
+                      src={defect.closure_photo_url}
+                      alt="Closure evidence"
+                      className="mt-2 max-h-48 w-full rounded-md object-cover"
+                    />
+                  )}
+                </>
+              )
+            )
+          })()}
+
+          {isPartnerViewer ? (
+            status === 'assigned' && (
+              <button
+                onClick={() => handleSave('pending_approval')}
+                disabled={saving}
+                className="mt-4 w-full rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
+              >
+                {saving ? 'Submitting...' : 'Mark as fixed - send for approval'}
+              </button>
+            )
+          ) : (
+            <button
+              onClick={() => handleSave()}
+              disabled={saving}
+              className="mt-4 w-full rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
+            >
+              {saving ? 'Saving...' : 'Save changes'}
+            </button>
+          )}
           {saved && <p className="mt-2 text-sm text-emerald-700">Saved.</p>}
         </div>
       </div>

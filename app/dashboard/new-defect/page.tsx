@@ -59,6 +59,7 @@ function NewDefectPageInner() {
   const [projects, setProjects] = useState<Project[]>([])
   const [projectId, setProjectId] = useState(initialProjectId)
   const [partners, setPartners] = useState<Partner[]>([])
+  const [assignedCompany, setAssignedCompany] = useState('')
 
   const [location, setLocation] = useState(initialLocation)
   const [finishGrade, setFinishGrade] = useState('')
@@ -363,6 +364,9 @@ function NewDefectPageInner() {
       } = await supabase.auth.getUser()
       if (!user) throw new Error('Not logged in')
 
+      const companyPartners = assignedCompany ? partners.filter((p) => p.company_name === assignedCompany) : []
+      const partnerId = companyPartners[0]?.id || null
+
       const filePath = `${projectId}/${Date.now()}-${file.name}`
       const { error: uploadError } = await supabase.storage
         .from('defect-photos')
@@ -397,7 +401,10 @@ function NewDefectPageInner() {
         measured_gap_mm: it.measurement.measuredGapMm ? parseFloat(it.measurement.measuredGapMm) : null,
         tested_detail_reference: it.measurement.testedDetailReference || null,
         manufacturer_system: it.measurement.manufacturerSystem || null,
-        assigned_partner_id: null,
+        // Pre-fills the reviewer's assignment picker on the /review confirm screen -
+        // the actual "assigned" status flip and notification happen there, not here.
+        assigned_partner_id: partnerId,
+        assigned_company_name: assignedCompany || null,
         target_close_date: targetDate || null,
         status: 'draft',
         created_by: user.id,
@@ -419,6 +426,7 @@ function NewDefectPageInner() {
         setLocation('')
         setFinishGrade('')
         setTargetDate('')
+        setAssignedCompany('')
         setDuplicateWarning(null)
         setSaved(false)
         setError(null)
@@ -676,6 +684,23 @@ function NewDefectPageInner() {
               ))}
             </div>
           )}
+
+          <div>
+            <label className="block text-sm font-medium text-deck-body">Assign to company</label>
+            <select
+              value={assignedCompany}
+              onChange={(e) => setAssignedCompany(e.target.value)}
+              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
+            >
+              <option value="">Unassigned</option>
+              {Array.from(new Set(partners.map((p) => p.company_name).filter(Boolean))).map((c) => (
+                <option key={c as string} value={c as string}>{c}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-deck-dim">
+              Confirmed on the review screen, where the company is notified.
+            </p>
+          </div>
 
           <div className="flex gap-4">
             <div className="flex-1">

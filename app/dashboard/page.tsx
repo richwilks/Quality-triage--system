@@ -13,7 +13,7 @@ type Project = { id: string; name: string }
 type StatusCounts = Record<string, number>
 
 const STATUS_ORDER = ['draft', 'confirmed', 'assigned', 'closed', 'rejected']
-const BACKLOG_STATUSES = ['draft', 'confirmed', 'assigned']
+const BACKLOG_STATUSES = ['draft', 'confirmed', 'assigned', 'pending_approval']
 
 const QUICK_LINKS = [
   { href: '/dashboard/projects/new', label: 'New Project', primary: true },
@@ -121,6 +121,7 @@ export default function DashboardPage() {
     { label: 'Draft', value: scopedCounts.reduce((s, c) => s + (c.draft || 0), 0), colorClass: 'bg-status-draft' },
     { label: 'Confirmed', value: scopedCounts.reduce((s, c) => s + (c.confirmed || 0), 0), colorClass: 'bg-status-confirmed' },
     { label: 'Assigned', value: scopedCounts.reduce((s, c) => s + (c.assigned || 0), 0), colorClass: 'bg-status-assigned' },
+    { label: 'Pending approval', value: scopedCounts.reduce((s, c) => s + (c.pending_approval || 0), 0), colorClass: 'bg-status-pendingApproval' },
     { label: 'Closed', value: scopedClosed, colorClass: 'bg-status-closed' },
     { label: 'Rejected', value: scopedCounts.reduce((s, c) => s + (c.rejected || 0), 0), colorClass: 'bg-status-rejected' },
   ]

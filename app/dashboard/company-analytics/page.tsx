@@ -14,6 +14,7 @@ type ProjectStats = {
   draft: number
   confirmed: number
   assigned: number
+  pendingApproval: number
   closed: number
   rejected: number
   snag: number
@@ -21,7 +22,7 @@ type ProjectStats = {
 }
 
 function backlogOf(p: ProjectStats) {
-  return p.draft + p.confirmed + p.assigned
+  return p.draft + p.confirmed + p.assigned + p.pendingApproval
 }
 
 export default function CompanyAnalyticsPage() {
@@ -75,7 +76,7 @@ export default function CompanyAnalyticsPage() {
 
     const stats: Record<string, ProjectStats> = {}
     ;(projectData || []).forEach((p) => {
-      stats[p.id] = { id: p.id, name: p.name, total: 0, draft: 0, confirmed: 0, assigned: 0, closed: 0, rejected: 0, snag: 0, ncr: 0 }
+      stats[p.id] = { id: p.id, name: p.name, total: 0, draft: 0, confirmed: 0, assigned: 0, pendingApproval: 0, closed: 0, rejected: 0, snag: 0, ncr: 0 }
     })
 
     let closedDaysSum = 0
@@ -88,6 +89,7 @@ export default function CompanyAnalyticsPage() {
       if (d.status === 'draft') s.draft++
       if (d.status === 'confirmed') s.confirmed++
       if (d.status === 'assigned') s.assigned++
+      if (d.status === 'pending_approval') s.pendingApproval++
       if (d.status === 'closed') {
         s.closed++
         if (d.closed_at && d.created_at) {
@@ -139,6 +141,7 @@ export default function CompanyAnalyticsPage() {
     { label: 'Draft', value: projects.reduce((s, p) => s + p.draft, 0), colorClass: 'bg-status-draft' },
     { label: 'Confirmed', value: projects.reduce((s, p) => s + p.confirmed, 0), colorClass: 'bg-status-confirmed' },
     { label: 'Assigned', value: projects.reduce((s, p) => s + p.assigned, 0), colorClass: 'bg-status-assigned' },
+    { label: 'Pending approval', value: projects.reduce((s, p) => s + p.pendingApproval, 0), colorClass: 'bg-status-pendingApproval' },
     { label: 'Closed', value: totalClosed, colorClass: 'bg-status-closed' },
     { label: 'Rejected', value: projects.reduce((s, p) => s + p.rejected, 0), colorClass: 'bg-status-rejected' },
   ]

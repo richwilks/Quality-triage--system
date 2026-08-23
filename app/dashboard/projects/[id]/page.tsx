@@ -19,7 +19,7 @@ type Defect = {
   created_at: string
 }
 
-const STATUS_ORDER = ['draft', 'confirmed', 'assigned', 'closed', 'rejected']
+const STATUS_ORDER = ['draft', 'confirmed', 'assigned', 'pending_approval', 'closed', 'rejected']
 
 const ELEMENT_TYPE_LABELS: Record<string, string> = {
   floor: 'Floor',
