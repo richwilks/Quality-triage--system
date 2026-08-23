@@ -182,6 +182,12 @@ export default function ProjectDetailPage() {
           >
             Regulation 38 / Golden Thread
           </Link>
+          <Link
+            href={`/dashboard/projects/${projectId}/inspect`}
+            className="inline-block rounded-md border border-deck-border px-4 py-2 text-sm font-medium text-deck-body"
+          >
+            Inspection path
+          </Link>
         </div>
 
 
