@@ -616,7 +616,7 @@ function NewDefectPageInner() {
                         checked={it.included}
                         onChange={(e) => updateItem(it.localId, { included: e.target.checked })}
                       />
-                      Include
+                      Approve
                     </label>
                   </div>
                   <textarea
@@ -685,59 +685,69 @@ function NewDefectPageInner() {
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-deck-body">Assign to company</label>
-            <select
-              value={assignedCompany}
-              onChange={(e) => setAssignedCompany(e.target.value)}
-              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
-            >
-              <option value="">Unassigned</option>
-              {Array.from(new Set(partners.map((p) => p.company_name).filter(Boolean))).map((c) => (
-                <option key={c as string} value={c as string}>{c}</option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-deck-dim">
-              Confirmed on the review screen, where the company is notified.
-            </p>
-          </div>
-
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-deck-body">
-                Date created
-              </label>
-              <p className="mt-1 rounded-md bg-deck-raised px-3 py-2 text-sm text-deck-dim">
-                {todayLabel}
-              </p>
-            </div>
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-deck-body">
-                Target completion
-              </label>
-              <input
-                type="date"
-                value={targetDate}
-                onChange={(e) => setTargetDate(e.target.value)}
-                className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
-              />
-            </div>
-          </div>
-
           {error && <p className="text-sm text-red-600">{error}</p>}
 
-          {!saved ? (
-            <button
-              onClick={handleSave}
-              disabled={saving || items.filter((i) => i.included).length === 0}
-              className="w-full rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
-            >
-              {saving ? 'Saving...' : 'Save selected defects'}
-            </button>
-          ) : (
-            <p className="text-sm font-medium text-emerald-700">
-              Saved. Ready for the next one.
+          {items.length > 0 && items.every((it) => !it.included) && (
+            <p className="text-sm text-deck-dim">
+              Approve at least one defect description above to assign it and set a completion date.
             </p>
+          )}
+
+          {items.some((it) => it.included) && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-deck-body">Assign to company</label>
+                <select
+                  value={assignedCompany}
+                  onChange={(e) => setAssignedCompany(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
+                >
+                  <option value="">Unassigned</option>
+                  {Array.from(new Set(partners.map((p) => p.company_name).filter(Boolean))).map((c) => (
+                    <option key={c as string} value={c as string}>{c}</option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-deck-dim">
+                  Confirmed on the review screen, where the company is notified.
+                </p>
+              </div>
+
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-deck-body">
+                    Date created
+                  </label>
+                  <p className="mt-1 rounded-md bg-deck-raised px-3 py-2 text-sm text-deck-dim">
+                    {todayLabel}
+                  </p>
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-deck-body">
+                    Target completion
+                  </label>
+                  <input
+                    type="date"
+                    value={targetDate}
+                    onChange={(e) => setTargetDate(e.target.value)}
+                    className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
+                  />
+                </div>
+              </div>
+
+              {!saved ? (
+                <button
+                  onClick={handleSave}
+                  disabled={saving || items.filter((i) => i.included).length === 0}
+                  className="w-full rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
+                >
+                  {saving ? 'Saving...' : 'Save selected defects'}
+                </button>
+              ) : (
+                <p className="text-sm font-medium text-emerald-700">
+                  Saved. Ready for the next one.
+                </p>
+              )}
+            </>
           )}
         </div>
       </div>
