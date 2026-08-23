@@ -1,6 +1,8 @@
 import BottomNav from '@/components/BottomNav'
 import Sidebar from '@/components/Sidebar'
 import { BrandingProvider } from '@/components/BrandingContext'
+import { ActiveInspectionProvider } from '@/components/ActiveInspectionContext'
+import ActiveInspectionBanner from '@/components/ActiveInspectionBanner'
 import { loadBranding } from '@/lib/branding'
 import { syncCompanyAccess } from '@/lib/companySync'
 import { createClient } from '@/lib/supabase/server'
@@ -25,9 +27,12 @@ export default async function DashboardLayout({
     <div className="dashboard-shell pb-20 lg:pb-0 lg:pl-56 print:pb-0 print:pl-0">
       {accentColor && <style>{`:root { --deck-accent-color: ${accentColor}; }`}</style>}
       <BrandingProvider value={branding}>
-        <Sidebar />
-        {children}
-        <BottomNav />
+        <ActiveInspectionProvider>
+          <Sidebar />
+          <ActiveInspectionBanner />
+          {children}
+          <BottomNav />
+        </ActiveInspectionProvider>
       </BrandingProvider>
     </div>
   )

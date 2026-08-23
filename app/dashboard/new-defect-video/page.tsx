@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
+import { useActiveInspection } from '@/components/ActiveInspectionContext'
 
 type Project = { id: string; name: string }
 type Partner = { id: string; full_name: string | null; company_name: string | null }
@@ -90,6 +91,7 @@ function extractFrames(file: File, frameCount: number): Promise<Frame[]> {
 
 export default function NewDefectVideoPage() {
   const supabase = createClient()
+  const { activeInspection, getCurrentPositionForPhoto } = useActiveInspection()
 
   const [projects, setProjects] = useState<Project[]>([])
   const [projectId, setProjectId] = useState('')
@@ -276,6 +278,9 @@ export default function NewDefectVideoPage() {
       const companyPartners = assignedCompany ? partners.filter((p) => p.company_name === assignedCompany) : []
       const partnerId = companyPartners[0]?.id || null
 
+      const geoTag =
+        activeInspection?.projectId === projectId ? await getCurrentPositionForPhoto() : null
+
       const rows = []
       for (const it of included) {
         const frame = frames[it.frameIndex]
@@ -312,6 +317,11 @@ export default function NewDefectVideoPage() {
           assigned_company_name: assignedCompany || null,
           target_close_date: targetDate || null,
           status: 'draft',
+          inspection_id: activeInspection?.projectId === projectId ? activeInspection.id : null,
+          photo_lat: geoTag?.lat ?? null,
+          photo_lng: geoTag?.lng ?? null,
+          photo_accuracy_m: geoTag?.accuracyM ?? null,
+          photo_level_label: activeInspection?.projectId === projectId ? activeInspection.levelLabel || null : null,
           created_by: user.id,
         })
       }

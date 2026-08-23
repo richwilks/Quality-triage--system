@@ -8,6 +8,7 @@ import PageHeader from '@/components/PageHeader'
 import MeasurementFields, { MeasurementData } from '@/components/MeasurementFields'
 import ClauseViewer from '@/components/ClauseViewer'
 import CameraCapture, { OrientationHint } from '@/components/CameraCapture'
+import { useActiveInspection } from '@/components/ActiveInspectionContext'
 
 type Project = { id: string; name: string }
 type Partner = { id: string; full_name: string | null; company_name: string | null }
@@ -49,6 +50,7 @@ const EMPTY_MEASUREMENT: MeasurementData = { measuredGapMm: '', testedDetailRefe
 function NewDefectPageInner() {
   const supabase = createClient()
   const searchParams = useSearchParams()
+  const { activeInspection, getCurrentPositionForPhoto } = useActiveInspection()
 
   const initialProjectId = searchParams.get('projectId') || ''
   const initialLocation = searchParams.get('location') || ''
@@ -367,6 +369,9 @@ function NewDefectPageInner() {
       const companyPartners = assignedCompany ? partners.filter((p) => p.company_name === assignedCompany) : []
       const partnerId = companyPartners[0]?.id || null
 
+      const geoTag =
+        activeInspection?.projectId === projectId ? await getCurrentPositionForPhoto() : null
+
       const filePath = `${projectId}/${Date.now()}-${file.name}`
       const { error: uploadError } = await supabase.storage
         .from('defect-photos')
@@ -408,6 +413,11 @@ function NewDefectPageInner() {
         target_close_date: targetDate || null,
         status: 'draft',
         created_by: user.id,
+        inspection_id: activeInspection?.projectId === projectId ? activeInspection.id : null,
+        photo_lat: geoTag?.lat ?? null,
+        photo_lng: geoTag?.lng ?? null,
+        photo_accuracy_m: geoTag?.accuracyM ?? null,
+        photo_level_label: activeInspection?.projectId === projectId ? activeInspection.levelLabel || null : null,
       }))
 
       const { error: insertError } = await supabase.from('defects').insert(rows)
