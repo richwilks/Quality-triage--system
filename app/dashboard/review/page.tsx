@@ -547,8 +547,8 @@ export default function ReviewDefectsPage() {
                   onChange={(e) =>
                     setEditedText((prev) => ({ ...prev, [defect.id]: e.target.value }))
                   }
-                  rows={3}
-                  className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
+                  rows={6}
+                  className="mt-1 w-full resize-y overflow-y-auto rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                 />
 
                 {isNcr && (

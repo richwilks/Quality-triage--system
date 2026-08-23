@@ -465,8 +465,8 @@ export default function NewDefectVideoPage() {
                         <textarea
                           value={it.description}
                           onChange={(e) => updateItem(it.localId, { description: e.target.value })}
-                          rows={2}
-                          className="mt-2 w-full rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
+                          rows={6}
+                          className="mt-2 w-full resize-y overflow-y-auto rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                         />
                         <p className="mt-1 text-xs text-deck-dim">
                           Confidence: {Math.round(it.confidence * 100)}%
