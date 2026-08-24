@@ -60,7 +60,13 @@ export async function middleware(request: NextRequest) {
 
   const isResetPage = request.nextUrl.pathname.startsWith('/reset-password')
 
-  if (!user && !isAuthPage && !isResetPage) {
+  // The marketing site at /site is private (signed-in accounts only) until this
+  // is set to 'true' in the environment - no code change needed to go live,
+  // just flip the env var and redeploy.
+  const isPublicMarketingPage =
+    process.env.MARKETING_SITE_PUBLIC === 'true' && request.nextUrl.pathname.startsWith('/site')
+
+  if (!user && !isAuthPage && !isResetPage && !isPublicMarketingPage) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     url.searchParams.set('redirect', request.nextUrl.pathname)
