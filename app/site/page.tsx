@@ -22,18 +22,21 @@ const CHAPTERS = [
     label: 'Detection',
     title: 'Every photo, verified',
     body: 'Photograph or walk-video a defect. The AI identifies the element, checks it against your project spec, the applicable standard, and plain trade-quality judgement, all in one pass, and drafts the write-up for you to approve. Every finding cites the actual clause it fails, not a generic guess.',
+    Illustration: DetectionIllustration,
   },
   {
     n: '02',
     label: 'Workflow',
     title: 'Routed, not lost',
     body: 'Route a defect to the responsible company in one step and everyone there is notified immediately. When they mark it fixed, it waits for your sign-off before it can close, so nothing gets marked done without you seeing it.',
+    Illustration: RoutingIllustration,
   },
   {
     n: '03',
     label: 'Site record',
     title: 'The whole picture',
     body: 'Start an inspection and InspectIQ tracks the route you walked and geo-tags every photo against it. Live dashboards roll everything up by status, by project, and by company, so a backlog shows up before it becomes a problem on handover day.',
+    Illustration: PathIllustration,
   },
 ]
 
@@ -50,6 +53,94 @@ const GOLDEN_THREAD_ITEMS = [
   'Generated status reports and a final handover pack',
   'Your own report template, or a standard one out of the box',
 ]
+
+// Original line-art illustrations, in the same monochrome/blueprint hand
+// rather than photography or stock icons - ink-on-paper strokes, no fill,
+// each one a small diagram of what that section is actually describing.
+const INK = '#111111'
+const INK_DIM = '#A6A296'
+
+function HeroIllustration() {
+  return (
+    <svg viewBox="0 0 600 230" className="h-auto w-full" fill="none">
+      <rect x="1" y="1" width="598" height="228" stroke={INK_DIM} strokeWidth="1" />
+      <rect x="230" y="60" width="150" height="110" stroke={INK} strokeWidth="1.5" strokeDasharray="5 4" />
+      <circle cx="230" cy="60" r="11" stroke={INK} strokeWidth="1.5" />
+      <text x="230" y="64" textAnchor="middle" fontSize="11" fill={INK} fontFamily="sans-serif">1</text>
+      <line x1="380" y1="90" x2="470" y2="70" stroke={INK} strokeWidth="1" />
+      <circle cx="470" cy="70" r="2" fill={INK} />
+      <text x="478" y="74" fontSize="12" fill={INK} fontFamily="sans-serif">BS 8204&#8211;1, 10.3</text>
+      <line x1="290" y1="170" x2="330" y2="196" stroke={INK} strokeWidth="1" />
+      <circle cx="330" cy="196" r="2" fill={INK} />
+      <text x="338" y="200" fontSize="12" fill={INK} fontFamily="sans-serif">Assigned &#8211; Acme Ltd</text>
+    </svg>
+  )
+}
+
+function DetectionIllustration() {
+  return (
+    <svg viewBox="0 0 600 150" className="h-auto w-full" fill="none">
+      <circle cx="150" cy="75" r="46" stroke={INK} strokeWidth="1.25" strokeDasharray="3 3" />
+      <text x="150" y="66" textAnchor="middle" fontSize="11" fill={INK_DIM} fontFamily="sans-serif">standard</text>
+      <circle cx="230" cy="75" r="46" stroke={INK} strokeWidth="1.25" strokeDasharray="3 3" />
+      <text x="230" y="66" textAnchor="middle" fontSize="11" fill={INK_DIM} fontFamily="sans-serif">spec</text>
+      <circle cx="190" cy="105" r="46" stroke={INK} strokeWidth="1.25" strokeDasharray="3 3" />
+      <text x="190" y="140" textAnchor="middle" fontSize="11" fill={INK_DIM} fontFamily="sans-serif">workmanship</text>
+      <circle cx="190" cy="88" r="3" fill={INK} />
+      <line x1="260" y1="88" x2="330" y2="88" stroke={INK} strokeWidth="1" />
+      <path d="M323 82 L330 88 L323 94" stroke={INK} strokeWidth="1.25" fill="none" />
+      <rect x="345" y="52" width="150" height="72" stroke={INK} strokeWidth="1.25" />
+      <text x="365" y="78" fontSize="12" fill={INK} fontFamily="sans-serif">Snag / NCR</text>
+      <text x="365" y="96" fontSize="12" fill={INK} fontFamily="sans-serif">Cited clause</text>
+      <text x="365" y="114" fontSize="12" fill={INK} fontFamily="sans-serif">Confidence</text>
+    </svg>
+  )
+}
+
+function RoutingIllustration() {
+  return (
+    <svg viewBox="0 0 600 130" className="h-auto w-full" fill="none">
+      <rect x="30" y="45" width="110" height="40" stroke={INK} strokeWidth="1.25" />
+      <text x="85" y="69" textAnchor="middle" fontSize="12" fill={INK} fontFamily="sans-serif">Defect raised</text>
+      <line x1="140" y1="65" x2="230" y2="65" stroke={INK} strokeWidth="1" />
+      <path d="M223 59 L230 65 L223 71" stroke={INK} strokeWidth="1.25" fill="none" />
+      <circle cx="290" cy="65" r="40" stroke={INK} strokeWidth="1.25" strokeDasharray="3 3" />
+      <text x="290" y="61" textAnchor="middle" fontSize="12" fill={INK} fontFamily="sans-serif">Company</text>
+      <text x="290" y="76" textAnchor="middle" fontSize="11" fill={INK_DIM} fontFamily="sans-serif">notified</text>
+      <line x1="330" y1="65" x2="420" y2="65" stroke={INK} strokeWidth="1" />
+      <path d="M413 59 L420 65 L413 71" stroke={INK} strokeWidth="1.25" fill="none" />
+      <rect x="430" y="45" width="140" height="40" stroke={INK} strokeWidth="1.25" />
+      <text x="500" y="63" textAnchor="middle" fontSize="12" fill={INK} fontFamily="sans-serif">Approved &amp;</text>
+      <text x="500" y="78" textAnchor="middle" fontSize="12" fill={INK} fontFamily="sans-serif">closed</text>
+    </svg>
+  )
+}
+
+function PathIllustration() {
+  const points = [
+    [40, 100],
+    [90, 60],
+    [150, 80],
+    [210, 40],
+    [270, 55],
+    [330, 30],
+    [400, 45],
+  ]
+  return (
+    <svg viewBox="0 0 600 140" className="h-auto w-full" fill="none">
+      <polyline points={points.map((p) => p.join(',')).join(' ')} stroke={INK} strokeWidth="1.25" strokeDasharray="2 5" strokeLinecap="round" />
+      {points.map(([x, y], i) => (
+        <circle key={i} cx={x} cy={y} r={i === 0 || i === points.length - 1 ? 4 : 2.5} fill={i === 0 || i === points.length - 1 ? 'white' : INK} stroke={INK} strokeWidth="1.25" />
+      ))}
+      <rect x="460" y="20" width="120" height="95" stroke={INK} strokeWidth="1.25" />
+      <text x="475" y="42" fontSize="12" fill={INK} fontFamily="sans-serif">Level 2</text>
+      <line x1="475" y1="52" x2="565" y2="52" stroke={INK_DIM} strokeWidth="1" />
+      <text x="475" y="68" fontSize="11" fill={INK_DIM} fontFamily="sans-serif">14 points</text>
+      <text x="475" y="84" fontSize="11" fill={INK_DIM} fontFamily="sans-serif">&#177;6m accuracy</text>
+      <text x="475" y="100" fontSize="11" fill={INK_DIM} fontFamily="sans-serif">2 photos pinned</text>
+    </svg>
+  )
+}
 
 export default function MarketingSitePage() {
   return (
@@ -82,6 +173,10 @@ export default function MarketingSitePage() {
           >
             Precision on site
           </h1>
+
+          <div className="mt-10 max-w-2xl">
+            <HeroIllustration />
+          </div>
 
           <div className="mt-16 grid grid-cols-1 gap-8 border-t border-[#111111] pt-8 sm:grid-cols-2">
             <p style={{ fontFamily: 'var(--font-serif)' }} className="text-xl leading-relaxed text-[#111111] sm:text-2xl">
@@ -125,7 +220,10 @@ export default function MarketingSitePage() {
               >
                 {c.title}
               </h2>
-              <p style={{ fontFamily: 'var(--font-serif)' }} className="mt-5 max-w-2xl text-lg leading-relaxed text-[#111111]">
+              <div className="mt-8 max-w-2xl">
+                <c.Illustration />
+              </div>
+              <p style={{ fontFamily: 'var(--font-serif)' }} className="mt-8 max-w-2xl text-lg leading-relaxed text-[#111111]">
                 {c.body}
               </p>
             </div>
