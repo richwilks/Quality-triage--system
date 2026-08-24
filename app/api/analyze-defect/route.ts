@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { analyzeDefectImage, ExtraStandardText, FeedbackExample, KnowledgeEntry, OrientationHint } from '@/lib/anthropic'
+import { analyzeDefectImage, classifyElementType, ExtraStandardText, FeedbackExample, KnowledgeEntry, OrientationHint } from '@/lib/anthropic'
 
 export const maxDuration = 60
 const MAX_FEEDBACK_EXAMPLES = 12
@@ -13,23 +13,6 @@ const MAX_KNOWLEDGE_ENTRIES = 50
 // Sonnet 5 pricing per 1M tokens (adjust if pricing changes)
 const INPUT_COST_PER_M = 2.0
 const OUTPUT_COST_PER_M = 10.0
-
-// Coarse keyword buckets used to soft-filter the knowledge base against a device orientation
-// guess: an entry is only ever dropped if its free-text element_type clearly names a *different*
-// bucket than the guess - anything ambiguous or unrelated to these keywords is kept (fail open).
-const ELEMENT_KEYWORDS: Record<'floor' | 'wall' | 'ceiling', string[]> = {
-  floor: ['floor', 'flooring', 'slab', 'screed'],
-  wall: ['wall', 'partition', 'cladding'],
-  ceiling: ['ceiling', 'soffit'],
-}
-
-function conflictsWithOrientation(entryElementType: string | null, guess: 'floor' | 'wall' | 'ceiling') {
-  if (!entryElementType) return false
-  const normalized = entryElementType.toLowerCase()
-  if (ELEMENT_KEYWORDS[guess].some((kw) => normalized.includes(kw))) return false
-  const otherGuesses = (['floor', 'wall', 'ceiling'] as const).filter((g) => g !== guess)
-  return otherGuesses.some((other) => ELEMENT_KEYWORDS[other].some((kw) => normalized.includes(kw)))
-}
 
 function normalizeCode(code: string) {
   return code.toLowerCase().replace(/[\s.\-_/]/g, '')
@@ -95,6 +78,22 @@ export async function POST(req: NextRequest) {
       matches.forEach((m) => extraStandards.push({ code: m.code, text: m.extracted_text }))
     }
 
+    // Cheap pre-classification so the reference material below (knowledge base,
+    // past feedback) can be filtered to the same element type as this photo,
+    // instead of potentially mixing in irrelevant history from a different kind
+    // of element. This only classifies what's in the photo, not whether
+    // anything is a defect - the actual defect judgement stays a single call.
+    let classifiedElementType: string | null = null
+    let classifyUsage: { input_tokens: number; output_tokens: number } | null = null
+    try {
+      const classified = await classifyElementType(imageBase64, mimeType, orientationHint || null)
+      classifiedElementType = classified.elementType
+      classifyUsage = classified.usage
+    } catch {
+      // Classification is a soft filter, not a gate - fall back to unfiltered
+      // reference material (previous behaviour) if it fails for any reason.
+    }
+
     // Pull master defect knowledge base entries relevant to this project's country/standards
     const knowledgeEntries: KnowledgeEntry[] = []
     const { data: knowledgeRows } = await supabase
@@ -108,9 +107,6 @@ export async function POST(req: NextRequest) {
       const projectCountry = (project?.country || 'UK').toLowerCase().trim()
       const projectStandardsNormalized = project?.standards ? normalizeCode(project.standards) : ''
 
-      const orientationGuess =
-        orientationHint && orientationHint.guess !== 'uncertain' ? orientationHint.guess : null
-
       const relevantEntries = knowledgeRows.filter((k) => {
         const countryMatches = !k.country || k.country.toLowerCase().trim() === projectCountry
         const standardsMatch =
@@ -119,10 +115,10 @@ export async function POST(req: NextRequest) {
           projectStandardsNormalized.includes(normalizeCode(k.applicable_standards))
         // Include if country matches AND (no standards restriction OR standards match)
         if (!countryMatches || (k.applicable_standards && !standardsMatch)) return false
-        // Drop entries that clearly target a different element type than the device's
-        // orientation at capture suggests (e.g. a flooring entry when the phone was tilted
-        // down at a wall) - anything ambiguous or unmatched stays in.
-        if (orientationGuess && conflictsWithOrientation(k.element_type, orientationGuess)) return false
+        // Drop entries tagged for a clearly different element type than this photo was
+        // classified as (e.g. a floor-finish entry when this photo is a fire-stopping
+        // seal) - entries with no element_type set stay in (fail open on missing data).
+        if (classifiedElementType && k.element_type && k.element_type !== classifiedElementType) return false
         return true
       })
 
@@ -164,15 +160,20 @@ export async function POST(req: NextRequest) {
     if (project?.company_name) {
       const { data: history } = await supabase
         .from('defect_history')
-        .select('new_status, notes, defects(description, ai_description, project_id, projects(company_name))')
+        .select('new_status, notes, defects(description, ai_description, project_id, element_type, projects(company_name))')
         .in('new_status', ['confirmed', 'rejected'])
         .order('changed_at', { ascending: false })
-        .limit(30)
+        .limit(80)
 
       const relevant = (history || [])
         .filter((h: any) => {
           const d = Array.isArray(h.defects) ? h.defects[0] : h.defects
-          return d?.project_id === projectId
+          if (d?.project_id !== projectId) return false
+          // Same fail-open rule as the knowledge base filter above: only drop an
+          // example when we're confident about both this photo's element type and
+          // the past example's - otherwise keep it rather than risk losing context.
+          if (classifiedElementType && d?.element_type && d.element_type !== classifiedElementType) return false
+          return true
         })
         .slice(0, MAX_FEEDBACK_EXAMPLES)
 
@@ -201,16 +202,18 @@ export async function POST(req: NextRequest) {
     )
 
     if (usage) {
+      const totalInputTokens = usage.input_tokens + (classifyUsage?.input_tokens || 0)
+      const totalOutputTokens = usage.output_tokens + (classifyUsage?.output_tokens || 0)
       const cost =
-        (usage.input_tokens / 1_000_000) * INPUT_COST_PER_M +
-        (usage.output_tokens / 1_000_000) * OUTPUT_COST_PER_M
+        (totalInputTokens / 1_000_000) * INPUT_COST_PER_M +
+        (totalOutputTokens / 1_000_000) * OUTPUT_COST_PER_M
 
       await supabase.from('analysis_log').insert({
         project_id: projectId,
         company_name: project?.company_name || null,
         kind: 'photo',
-        input_tokens: usage.input_tokens,
-        output_tokens: usage.output_tokens,
+        input_tokens: totalInputTokens,
+        output_tokens: totalOutputTokens,
         estimated_cost: cost,
       })
     }

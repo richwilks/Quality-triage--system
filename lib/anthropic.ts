@@ -100,6 +100,72 @@ Be concise - a few short bullets or a short paragraph, not a repeat of the sourc
   return textBlock?.text || ''
 }
 
+const ELEMENT_TYPES = [
+  'floor',
+  'wall',
+  'ceiling',
+  'structural_steel',
+  'cladding_envelope',
+  'fire_penetration',
+  'movement_joint',
+  'mep',
+  'other',
+] as const
+
+// A small, cheap pre-classification pass so the reference material fed into
+// the main analysis call (past feedback, knowledge base entries) can be
+// filtered to the same element type as the photo, rather than potentially
+// mixing in irrelevant history (e.g. cosmetic floor-finish feedback showing
+// up alongside a fire-stopping photo). This only classifies what's in the
+// photo - it does not decide whether anything is a defect, so it doesn't
+// split the actual defect-finding judgement into two phases, just curates
+// what context that single judgement call sees.
+export async function classifyElementType(
+  base64Image: string,
+  mimeType: string,
+  orientationHint?: OrientationHint | null
+): Promise<{ elementType: string; usage: { input_tokens: number; output_tokens: number } | null }> {
+  const orientationText =
+    orientationHint && orientationHint.guess !== 'uncertain'
+      ? ` A device tilt sensor at capture suggests ${orientationHint.guess} (camera pointed ${orientationHint.guess === 'floor' ? 'downward' : orientationHint.guess === 'ceiling' ? 'upward' : 'roughly level'}) - use this only as a tiebreaker if it agrees with the photo; trust the photo if they conflict.`
+      : ''
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': process.env.ANTHROPIC_API_KEY as string,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-5',
+      max_tokens: 20,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64Image } },
+            {
+              type: 'text',
+              text: `Classify the main building element shown in this construction site photo into exactly one of: ${ELEMENT_TYPES.join(', ')}.${orientationText} Respond with ONLY the single matching word from that list, nothing else.`,
+            },
+          ],
+        },
+      ],
+    }),
+  })
+
+  const data = await response.json()
+  const textBlock = data.content?.find((c: any) => c.type === 'text')
+  const raw = (textBlock?.text || '').trim().toLowerCase()
+  const elementType = (ELEMENT_TYPES as readonly string[]).includes(raw) ? raw : 'other'
+  const usage = data.usage
+    ? { input_tokens: data.usage.input_tokens || 0, output_tokens: data.usage.output_tokens || 0 }
+    : null
+
+  return { elementType, usage }
+}
+
 export async function analyzeDefectImage(
   base64Image: string,
   mimeType: string,
