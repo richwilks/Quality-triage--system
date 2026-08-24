@@ -50,7 +50,7 @@ export default function InspectPage() {
     setDrawings(drawingData || [])
 
     const { data: sessions } = await supabase
-      .from('inspection_sessions')
+      .from('gps_inspection_sessions')
       .select('id, started_at, ended_at, level_label')
       .eq('project_id', projectId)
       .not('ended_at', 'is', null)
@@ -60,7 +60,7 @@ export default function InspectPage() {
     const withCounts = await Promise.all(
       (sessions || []).map(async (s) => {
         const { count } = await supabase
-          .from('inspection_points')
+          .from('gps_inspection_points')
           .select('id', { count: 'exact', head: true })
           .eq('inspection_id', s.id)
         return { ...s, pointCount: count || 0 }

@@ -86,7 +86,7 @@ export function ActiveInspectionProvider({ children }: { children: React.ReactNo
       }
 
       const { data } = await supabase
-        .from('inspection_sessions')
+        .from('gps_inspection_sessions')
         .select('id, project_id, level_label, started_at, projects(name)')
         .eq('started_by', user.id)
         .is('ended_at', null)
@@ -96,7 +96,7 @@ export function ActiveInspectionProvider({ children }: { children: React.ReactNo
 
       if (data) {
         const { count } = await supabase
-          .from('inspection_points')
+          .from('gps_inspection_points')
           .select('id', { count: 'exact', head: true })
           .eq('inspection_id', data.id)
 
@@ -141,7 +141,7 @@ export function ActiveInspectionProvider({ children }: { children: React.ReactNo
 
         lastLoggedRef.current = { lat: point.lat, lng: point.lng, at: Date.now() }
         supabase
-          .from('inspection_points')
+          .from('gps_inspection_points')
           .insert({
             inspection_id: inspectionId,
             lat: point.lat,
@@ -176,7 +176,7 @@ export function ActiveInspectionProvider({ children }: { children: React.ReactNo
       if (!user) throw new Error('Not logged in')
 
       const { data, error } = await supabase
-        .from('inspection_sessions')
+        .from('gps_inspection_sessions')
         .insert({ project_id: projectId, started_by: user.id, level_label: levelLabel || null })
         .select('id, started_at')
         .single()
@@ -198,7 +198,7 @@ export function ActiveInspectionProvider({ children }: { children: React.ReactNo
   const endInspection = useCallback(async () => {
     if (!activeInspection) return
     await supabase
-      .from('inspection_sessions')
+      .from('gps_inspection_sessions')
       .update({ ended_at: new Date().toISOString() })
       .eq('id', activeInspection.id)
     setActiveInspection(null)
@@ -208,7 +208,7 @@ export function ActiveInspectionProvider({ children }: { children: React.ReactNo
   const setLevel = useCallback(
     async (levelLabel: string) => {
       if (!activeInspection) return
-      await supabase.from('inspection_sessions').update({ level_label: levelLabel || null }).eq('id', activeInspection.id)
+      await supabase.from('gps_inspection_sessions').update({ level_label: levelLabel || null }).eq('id', activeInspection.id)
       setActiveInspection((prev) => (prev ? { ...prev, levelLabel } : prev))
     },
     [activeInspection]
