@@ -66,14 +66,14 @@ export default function InspectionPathPage() {
 
   async function load() {
     const { data: sessionData } = await supabase
-      .from('inspection_sessions')
+      .from('gps_inspection_sessions')
       .select('id, project_id, started_at, ended_at, level_label')
       .eq('id', inspectionId)
       .single()
     setSession(sessionData)
 
     const { data: pointData } = await supabase
-      .from('inspection_points')
+      .from('gps_inspection_points')
       .select('lat, lng, accuracy_m, altitude_m, level_label, recorded_at')
       .eq('inspection_id', inspectionId)
       .order('recorded_at', { ascending: true })
