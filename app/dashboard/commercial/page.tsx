@@ -96,6 +96,7 @@ export default function CommercialPage() {
   const [entryQuantity, setEntryQuantity] = useState('1')
   const [savingEntry, setSavingEntry] = useState(false)
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   useEffect(() => {
     load()
@@ -130,8 +131,8 @@ export default function CommercialPage() {
       { data: projectData },
       { data: logData },
       { data: entryData },
-      { data: billingData },
-      { data: settingsData },
+      { data: billingData, error: billingLoadError },
+      { data: settingsData, error: settingsLoadError },
       { data: projectBillingData },
     ] = await Promise.all([
       supabase.from('projects').select('id, name, company_name'),
@@ -141,6 +142,13 @@ export default function CommercialPage() {
       supabase.from('commercial_settings').select('default_markup_percent, manual_markup_percent').maybeSingle(),
       supabase.from('project_billing').select('project_id, markup_percent'),
     ])
+
+    if (billingLoadError || settingsLoadError) {
+      console.error('Commercial page load error:', billingLoadError, settingsLoadError)
+      setSaveError(
+        `Could not load billing data: ${billingLoadError?.message || settingsLoadError?.message}. If you just ran the SQL migration, double-check the RLS policies on company_billing / commercial_settings.`
+      )
+    }
 
     setProjects(projectData || [])
     setLogs(logData || [])
@@ -185,16 +193,25 @@ export default function CommercialPage() {
 
   async function handleSaveBilling(companyName: string) {
     setSavingCompany(companyName)
+    setSaveError(null)
     const draft = billingDraft[companyName] || { retainer: '0', vatRate: String(DEFAULT_VAT_RATE) }
     const retainer = parseFloat(draft.retainer) || 0
     const vatRate = parseFloat(draft.vatRate) || 0
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('company_billing')
       .upsert(
         { company_name: companyName, monthly_retainer: retainer, vat_rate_percent: vatRate },
         { onConflict: 'company_name' }
       )
-    if (!error) {
+      .select()
+    if (error || !data || data.length === 0) {
+      console.error('Save billing error:', error, 'rows returned:', data?.length)
+      setSaveError(
+        error
+          ? `Could not save ${companyName}'s retainer/VAT: ${error.message}`
+          : `${companyName}'s retainer/VAT didn't actually save (0 rows written) - likely an RLS policy blocking it. Check the commercial_billing policies and that your account has is_commercial_admin set.`
+      )
+    } else {
       setBilling((prev) => ({
         ...prev,
         [companyName]: {
@@ -210,11 +227,20 @@ export default function CommercialPage() {
 
   async function handleSaveDefaultMarkup() {
     setSavingDefaultMarkup(true)
+    setSaveError(null)
     const value = parseFloat(defaultMarkupDraft) || 0
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('commercial_settings')
       .upsert({ id: true, default_markup_percent: value }, { onConflict: 'id' })
-    if (!error) {
+      .select()
+    if (error || !data || data.length === 0) {
+      console.error('Save default markup error:', error, 'rows returned:', data?.length)
+      setSaveError(
+        error
+          ? `Could not save the AI cost markup default: ${error.message}`
+          : `The AI cost markup default didn't actually save (0 rows written) - likely an RLS policy blocking it.`
+      )
+    } else {
       setDefaultMarkupPercent(value)
     }
     setSavingDefaultMarkup(false)
@@ -222,11 +248,20 @@ export default function CommercialPage() {
 
   async function handleSaveManualMarkup() {
     setSavingManualMarkup(true)
+    setSaveError(null)
     const value = parseFloat(manualMarkupDraft) || 0
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('commercial_settings')
       .upsert({ id: true, manual_markup_percent: value }, { onConflict: 'id' })
-    if (!error) {
+      .select()
+    if (error || !data || data.length === 0) {
+      console.error('Save manual markup error:', error, 'rows returned:', data?.length)
+      setSaveError(
+        error
+          ? `Could not save the manual cost markup: ${error.message}`
+          : `The manual cost markup didn't actually save (0 rows written) - likely an RLS policy blocking it.`
+      )
+    } else {
       setManualMarkupPercent(value)
     }
     setSavingManualMarkup(false)
@@ -234,12 +269,21 @@ export default function CommercialPage() {
 
   async function handleSaveProjectMarkup(projectId: string) {
     setSavingProjectMarkupId(projectId)
+    setSaveError(null)
     const raw = (projectMarkupDraft[projectId] ?? '').trim()
     const value = raw === '' ? null : parseFloat(raw)
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('project_billing')
       .upsert({ project_id: projectId, markup_percent: value }, { onConflict: 'project_id' })
-    if (!error) {
+      .select()
+    if (error || !data || data.length === 0) {
+      console.error('Save project markup error:', error, 'rows returned:', data?.length)
+      setSaveError(
+        error
+          ? `Could not save that project's markup override: ${error.message}`
+          : `That project's markup override didn't actually save (0 rows written) - likely an RLS policy blocking it.`
+      )
+    } else {
       setProjectBilling((prev) => ({ ...prev, [projectId]: value }))
     }
     setSavingProjectMarkupId(null)
@@ -248,6 +292,7 @@ export default function CommercialPage() {
   async function handleAddCostEntry() {
     if (!entryProjectId || !entryLabel || !entryAmount) return
     setSavingEntry(true)
+    setSaveError(null)
 
     const {
       data: { user },
@@ -267,7 +312,10 @@ export default function CommercialPage() {
       .select()
       .single()
 
-    if (!error && data) {
+    if (error || !data) {
+      console.error('Add cost entry error:', error)
+      setSaveError(`Could not add that cost entry: ${error?.message || 'unknown error'}`)
+    } else {
       setCostEntries((prev) => [...prev, data as CostEntry])
       setEntryLabel('')
       setEntryAmount('')
@@ -279,7 +327,13 @@ export default function CommercialPage() {
   }
 
   async function handleDeleteCostEntry(id: string) {
-    await supabase.from('project_cost_entries').delete().eq('id', id)
+    setSaveError(null)
+    const { error } = await supabase.from('project_cost_entries').delete().eq('id', id)
+    if (error) {
+      console.error('Delete cost entry error:', error)
+      setSaveError(`Could not remove that cost entry: ${error.message}`)
+      return
+    }
     setCostEntries((prev) => prev.filter((e) => e.id !== id))
   }
 
@@ -455,6 +509,10 @@ export default function CommercialPage() {
         <p className="mt-1 text-sm text-deck-dim">
           Spend, billing, and forecasts across every company and project - visible only to you.
         </p>
+
+        {saveError && (
+          <p className="mt-3 rounded-md border border-red-300 bg-red-50 p-2.5 text-sm text-red-600">{saveError}</p>
+        )}
 
         <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
           <div className="rounded-xl border border-deck-border bg-deck-surface p-4">
