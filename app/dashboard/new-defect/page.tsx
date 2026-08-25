@@ -22,6 +22,8 @@ type DetectedDefect = {
   classification_reason: string
   element_type: string
   box: { x: number; y: number; width: number; height: number }
+  level_abbrev: string
+  headline: string
 }
 
 const ELEMENT_TYPE_LABELS: Record<string, string> = {
@@ -308,13 +310,19 @@ function NewDefectPageInner() {
         .select('id', { count: 'exact', head: true })
         .eq('project_id', projectId)
 
-      const mapped: ReviewItem[] = result.defects.map((d: DetectedDefect, i: number) => ({
-        ...d,
-        localId: `${Date.now()}-${i}`,
-        title: `Defect ${(existingCount || 0) + i + 1}`,
-        included: true,
-        measurement: { ...EMPTY_MEASUREMENT },
-      }))
+      const mapped: ReviewItem[] = result.defects.map((d: DetectedDefect, i: number) => {
+        const seq = String((existingCount || 0) + i + 1).padStart(2, '0')
+        const title = d.headline
+          ? `${d.level_abbrev ? `${d.level_abbrev} ` : ''}${seq} ${d.headline}`
+          : `Defect ${(existingCount || 0) + i + 1}`
+        return {
+          ...d,
+          localId: `${Date.now()}-${i}`,
+          title,
+          included: true,
+          measurement: { ...EMPTY_MEASUREMENT },
+        }
+      })
       setItems(mapped)
       stopProgressSimulation(true)
 

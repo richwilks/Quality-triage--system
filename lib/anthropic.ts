@@ -5,6 +5,8 @@ export type DetectedDefect = {
   requires_measurement: boolean
   element_type: string
   box: { x: number; y: number; width: number; height: number }
+  level_abbrev: string
+  headline: string
 }
 
 export type OrientationHint = { betaDeg: number; guess: 'floor' | 'wall' | 'ceiling' | 'uncertain' }
@@ -250,6 +252,9 @@ Your task, in order:
 9. Movement joints and expansion joint cover plates: if the reference text above includes a figure description of correct installation for a movement joint product (e.g. an Inpro-style anchor plate with a floating top cover plate), compare the photo carefully against that described correct configuration - check whether components are positioned, covered, or concealed exactly as the figure describes, not just whether a joint is generally present. A movement joint that is physically installed but incorrectly positioned (e.g. installed at maximum expansion with no remaining movement allowance, indicated by fixing/anchor screw holes being visible rather than concealed by the top cover plate as the correct-installation figure describes) is a real, high-priority defect - correct presence of a joint is not sufficient, correct positioning per the reference figure is required. If no matching product figure is available in the reference text, still visually check for obvious movement joint installation issues (missing cover plate, cover plate not seated, visible fixings where none should show) using general good-practice judgement, and note in the description that this is based on general visual judgement rather than a specific manufacturer detail.
 10. If the organisational defect knowledge base above lists any entries, actively check the photo against each one that's relevant to the element identified in step 1 - these are known, previously-confirmed defect patterns from real inspections and should be checked as specifically and rigorously as the numbered rules above, not treated as general background context.
 11. Confidence must reflect how well-grounded the finding is, not just how visually obvious the defect looks. A defect you can tie to an explicit, specific requirement in the reference text above - the project specification, an extracted standard, or a knowledge base entry, e.g. this location's spec-defined finish grade is exceeded, or a cited clause's tolerance is failed - is strong evidence and should score confidence higher than an equally visible defect you are flagging on general construction judgement alone with nothing in the reference text to cite. When you cite a standard_reference or clearly rely on a spec-defined requirement from step 2, say so in the description and let that grounding lift confidence accordingly; when there is no such backing, confidence should be moderate at most, however visually clear the defect appears.
+12. For each defect, also produce two short fields used to build a title (the caller prepends its own running number - never include a number yourself):
+   - level_abbrev: a short level/floor abbreviation, taken only from the inspector-entered location text above (e.g. "Level 1" or "L1" in the location text becomes "L1"; "Ground Floor" becomes "G"; "Level 2" becomes "L2"). If the location text names no identifiable level/floor, leave this an empty string - never guess one from the photo.
+   - headline: a short 2-5 word phrase of "room/area reference then element of work", e.g. "Plant Room Concrete" or "Corridor 2 Skirting" - the room/area reference from the location text if it names one (else a short visual description of the space shown in the photo), followed by the building element/material this defect is on. Keep it terse, title-case, no punctuation - this is a label, not a sentence.
 
 Respond with ONLY a JSON array, no markdown, no other text:
 
@@ -260,7 +265,9 @@ Respond with ONLY a JSON array, no markdown, no other text:
     "standard_reference": "full reference including standard, part, and section/clause where available - e.g. 'BS 8204-1, Section 10.3' - or empty string if none applies",
     "requires_measurement": true or false,
     "element_type": "one of: floor, wall, ceiling, structural_steel, cladding_envelope, fire_penetration, movement_joint, mep, other - from step 1",
-    "box": { "x": 0-100, "y": 0-100, "width": 0-100, "height": 0-100 }
+    "box": { "x": 0-100, "y": 0-100, "width": 0-100, "height": 0-100 },
+    "level_abbrev": "short level abbreviation from step 12, or empty string",
+    "headline": "short room/area + element phrase from step 12"
   }
 ]
 
@@ -322,6 +329,8 @@ If no defects, respond with: []`
           requires_measurement: !!d.requires_measurement,
           element_type: typeof d.element_type === 'string' ? d.element_type : 'other',
           box: clampBox(d.box),
+          level_abbrev: typeof d.level_abbrev === 'string' ? d.level_abbrev.trim() : '',
+          headline: typeof d.headline === 'string' ? d.headline.trim() : '',
         }))
       : []
     return { defects, usage }

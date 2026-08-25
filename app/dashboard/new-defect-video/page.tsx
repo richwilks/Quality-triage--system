@@ -14,6 +14,8 @@ type DetectedDefect = {
   standard_reference: string
   element_type: string
   box: { x: number; y: number; width: number; height: number }
+  level_abbrev: string
+  headline: string
 }
 
 const ELEMENT_TYPE_LABELS: Record<string, string> = {
@@ -207,10 +209,14 @@ export default function NewDefectVideoPage() {
           } else {
             const result: { defects: DetectedDefect[] } = await res.json()
             result.defects?.forEach((d, j) => {
+              const seq = String((existingCount || 0) + allItems.length + 1).padStart(2, '0')
+              const title = d.headline
+                ? `${d.level_abbrev ? `${d.level_abbrev} ` : ''}${seq} ${d.headline}`
+                : `Defect ${(existingCount || 0) + allItems.length + 1}`
               allItems.push({
                 ...d,
                 localId: `${i}-${j}`,
-                title: `Defect ${(existingCount || 0) + allItems.length + 1}`,
+                title,
                 included: true,
                 frameIndex: i,
               })
