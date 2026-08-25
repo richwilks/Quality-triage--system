@@ -25,6 +25,13 @@ function money(n: number) {
   return `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
+// Per-analysis AI cost is often well under a penny, where money()'s 2dp
+// rounds straight to £0.00 - show it in pence with more precision instead.
+function unitCost(n: number) {
+  if (n < 1) return `${(n * 100).toFixed(3)}p`
+  return money(n)
+}
+
 export default function CommercialPage() {
   const supabase = createClient()
   const [checked, setChecked] = useState(false)
@@ -296,6 +303,9 @@ export default function CommercialPage() {
     const usageRevenueAll = rows.reduce((sum, r) => sum + r.usageRevenueAll, 0)
     const totalCost30 = rows.reduce((sum, r) => sum + r.totalCost30, 0)
     const usageRevenue30 = rows.reduce((sum, r) => sum + r.usageRevenue30, 0)
+    const aiCostAll = rows.reduce((sum, r) => sum + r.aiCostAll, 0)
+    const analysisCountAll = rows.reduce((sum, r) => sum + r.countAll, 0)
+    const avgCostPerAnalysis = analysisCountAll > 0 ? aiCostAll / analysisCountAll : null
     const b = billing[name]
     const retainer = b?.monthly_retainer || 0
     const vatRate = b?.vat_rate_percent ?? DEFAULT_VAT_RATE
@@ -308,6 +318,9 @@ export default function CommercialPage() {
       name,
       projectCount: rows.length,
       totalCostAll,
+      aiCostAll,
+      analysisCountAll,
+      avgCostPerAnalysis,
       usageRevenueAll,
       totalRevenueAll,
       vatRate,
@@ -327,6 +340,9 @@ export default function CommercialPage() {
   const projectedMonthlyMarginAll = mrr - projectedMonthlyCostAll
   const totalCostAllTime = companyRows.reduce((sum, c) => sum + c.totalCostAll, 0)
   const totalRevenueAllTime = companyRows.reduce((sum, c) => sum + c.totalRevenueAll, 0)
+  const totalAnalysesAllTime = logs.length
+  const totalAiCostAllTime = logs.reduce((sum, l) => sum + (l.estimated_cost || 0), 0)
+  const avgCostPerAnalysis = totalAnalysesAllTime > 0 ? totalAiCostAllTime / totalAnalysesAllTime : null
 
   return (
     <div className="min-h-screen px-4 py-8">
@@ -341,6 +357,15 @@ export default function CommercialPage() {
           <p className="mt-0.5 text-xs text-deck-dim">
             Usage revenue = total cost (AI + manual) &times; (1 + markup%). Applies to every project unless that
             project sets its own markup below, overriding this default.
+          </p>
+          <p className="mt-2 rounded-md bg-deck-raised px-3 py-2 text-sm text-deck-body">
+            Actual average AI cost right now:{' '}
+            <strong className="text-deck-text">
+              {avgCostPerAnalysis === null ? 'no analyses yet' : `${unitCost(avgCostPerAnalysis)} per analysis`}
+            </strong>
+            {avgCostPerAnalysis !== null && (
+              <span className="text-deck-mute"> ({money(totalAiCostAllTime)} across {totalAnalysesAllTime} analyses, all time)</span>
+            )}
           </p>
           <div className="mt-2 flex items-center gap-2">
             <input
@@ -401,7 +426,7 @@ export default function CommercialPage() {
           InspectIQ's money.
         </p>
         <div className="mt-2 overflow-x-auto rounded-lg border border-deck-border">
-          <table className="w-full min-w-[980px] border-collapse text-left text-sm">
+          <table className="w-full min-w-[1140px] border-collapse text-left text-sm">
             <thead>
               <tr className="border-b border-deck-border bg-deck-raised text-xs uppercase tracking-wide text-deck-mute">
                 <th className="px-3 py-2.5 font-medium">Company</th>
@@ -411,6 +436,7 @@ export default function CommercialPage() {
                 <th className="px-3 py-2.5 font-medium">VAT</th>
                 <th className="px-3 py-2.5 font-medium">Revenue inc VAT</th>
                 <th className="px-3 py-2.5 font-medium">Cost (all time)</th>
+                <th className="px-3 py-2.5 font-medium">Avg AI cost / analysis</th>
                 <th className="px-3 py-2.5 font-medium">Margin</th>
                 <th className="px-3 py-2.5 font-medium"></th>
               </tr>
@@ -454,6 +480,12 @@ export default function CommercialPage() {
                   <td className="px-3 py-2.5 text-deck-dim">{money(c.vatAll)}</td>
                   <td className="px-3 py-2.5 text-deck-body">{money(c.totalRevenueAll + c.vatAll)}</td>
                   <td className="px-3 py-2.5 text-deck-body">{money(c.totalCostAll)}</td>
+                  <td className="px-3 py-2.5 text-deck-dim">
+                    {c.avgCostPerAnalysis === null ? '-' : unitCost(c.avgCostPerAnalysis)}
+                    {c.avgCostPerAnalysis !== null && (
+                      <span className="ml-1 text-xs text-deck-mute">({c.analysisCountAll})</span>
+                    )}
+                  </td>
                   <td className={`px-3 py-2.5 font-medium ${c.marginAll >= 0 ? 'text-deck-success' : 'text-red-600'}`}>
                     {money(c.marginAll)}
                     {c.marginPctAll !== null && <span className="ml-1 text-xs text-deck-mute">({c.marginPctAll.toFixed(0)}%)</span>}
@@ -471,7 +503,7 @@ export default function CommercialPage() {
               ))}
               {companyRows.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-3 py-4 text-center text-sm text-deck-dim">
+                  <td colSpan={10} className="px-3 py-4 text-center text-sm text-deck-dim">
                     No companies yet.
                   </td>
                 </tr>
@@ -502,7 +534,12 @@ export default function CommercialPage() {
                   <tr className="border-b border-deck-border bg-deck-surface last:border-b-0">
                     <td className="px-3 py-2.5 font-medium text-deck-text">{r.project.name}</td>
                     <td className="px-3 py-2.5 text-deck-dim">{r.company}</td>
-                    <td className="px-3 py-2.5 text-deck-body">{money(r.aiCostAll)}</td>
+                    <td className="px-3 py-2.5 text-deck-body">
+                      {money(r.aiCostAll)}
+                      {r.countAll > 0 && (
+                        <p className="text-[10px] text-deck-mute">{unitCost(r.aiCostAll / r.countAll)}/analysis &middot; {r.countAll}</p>
+                      )}
+                    </td>
                     <td className="px-3 py-2.5 text-deck-body">{money(r.manualCostAll)}</td>
                     <td className="px-3 py-2.5 font-medium text-deck-text">{money(r.totalCostAll)}</td>
                     <td className="px-3 py-2.5">
