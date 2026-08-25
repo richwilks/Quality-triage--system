@@ -110,11 +110,18 @@ export default function DefectDetailPage() {
   const [assignedCompany, setAssignedCompany] = useState('')
   const [history, setHistory] = useState<HistoryEntry[]>([])
   const [historyNames, setHistoryNames] = useState<Record<string, string>>({})
+  const [historyError, setHistoryError] = useState('')
   const isPartnerViewer = myRole === 'partner'
 
   useEffect(() => {
     load()
   }, [defectId])
+
+  useEffect(() => {
+    if (!loading && typeof window !== 'undefined' && window.location.hash === '#history') {
+      document.getElementById('history')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [loading])
 
   async function load() {
     const {
@@ -158,13 +165,16 @@ export default function DefectDetailPage() {
       setAssignedCompany(data.assigned_company_name || '')
     }
 
-    const { data: historyData } = await supabase
+    const { data: historyData, error: historyErr } = await supabase
       .from('defect_history')
       .select(
         'id, changed_by, old_status, new_status, notes, action, ai_description, final_description, ai_standard_reference, changed_at'
       )
       .eq('defect_id', defectId)
       .order('changed_at', { ascending: false })
+    if (historyErr) {
+      setHistoryError(historyErr.message)
+    }
     setHistory(historyData || [])
 
     const changerIds = Array.from(
@@ -513,9 +523,15 @@ export default function DefectDetailPage() {
           {saved && <p className="mt-2 text-sm text-emerald-700">Saved.</p>}
         </div>
 
-        {history.length > 0 && (
-          <div id="history" className="mt-4 scroll-mt-4 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-deck-dim">History</h2>
+        <div id="history" className="mt-4 scroll-mt-4 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-deck-dim">History</h2>
+          {historyError && (
+            <p className="mt-2 text-xs text-red-600">Could not load history: {historyError}</p>
+          )}
+          {!historyError && history.length === 0 && (
+            <p className="mt-2 text-sm text-deck-dim">No history recorded for this defect yet.</p>
+          )}
+          {history.length > 0 && (
             <div className="mt-3 space-y-3">
               {history.map((h) => (
                 <div key={h.id} className="border-l-2 border-deck-border pl-3">
@@ -556,8 +572,8 @@ export default function DefectDetailPage() {
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   )
