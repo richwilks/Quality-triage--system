@@ -11,6 +11,7 @@ type Project = { id: string; name: string; description: string | null }
 type Defect = {
   id: string
   title: string | null
+  description: string | null
   status: string
   target_close_date: string | null
   ncr_number: string | null
@@ -76,7 +77,7 @@ export default function ProjectDetailPage() {
 
     const { data: defectData } = await supabase
       .from('defects')
-      .select('id, title, status, target_close_date, ncr_number, element_type, classification, created_at')
+      .select('id, title, description, status, target_close_date, ncr_number, element_type, classification, created_at')
       .eq('project_id', projectId)
       .order('created_at', { ascending: false })
     setDefects(defectData || [])
@@ -324,6 +325,7 @@ export default function ProjectDetailPage() {
                     {sortColumn === col.key && (sortDir === 'asc' ? ' ↑' : ' ↓')}
                   </th>
                 ))}
+                <th className="px-3 py-2 font-medium">Description</th>
               </tr>
             </thead>
             <tbody>
@@ -353,11 +355,16 @@ export default function ProjectDetailPage() {
                     <StatusBadge status={d.status} />
                   </td>
                   <td className="px-3 py-2 text-xs text-deck-dim">{d.target_close_date || '-'}</td>
+                  <td className="px-3 py-2 text-xs text-deck-dim">
+                    <span className="block max-w-xs truncate" title={d.description || ''}>
+                      {d.description || '-'}
+                    </span>
+                  </td>
                 </tr>
               ))}
               {sortedDefects.length === 0 && defects.length > 0 && (
                 <tr>
-                  <td colSpan={COLUMNS.length + 1} className="px-3 py-6 text-center text-sm text-deck-dim">
+                  <td colSpan={COLUMNS.length + 2} className="px-3 py-6 text-center text-sm text-deck-dim">
                     No defects match these filters.
                   </td>
                 </tr>
