@@ -471,6 +471,18 @@ export default function ReviewDefectsPage() {
                   <p className="mt-1 text-sm font-semibold text-deck-text">{defect.title}</p>
                 )}
 
+                <label className="mt-2 block text-sm font-medium text-deck-body">
+                  Description
+                </label>
+                <textarea
+                  value={editedText[defect.id] || ''}
+                  onChange={(e) =>
+                    setEditedText((prev) => ({ ...prev, [defect.id]: e.target.value }))
+                  }
+                  rows={6}
+                  className="mt-1 w-full resize-y overflow-y-auto rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
+                />
+
                 {defect.photo_url && (
                   <div className="relative mt-2 w-full select-none">
                     <img
@@ -538,18 +550,6 @@ export default function ReviewDefectsPage() {
                     </span>
                   )}
                 </div>
-
-                <label className="mt-3 block text-sm font-medium text-deck-body">
-                  Description
-                </label>
-                <textarea
-                  value={editedText[defect.id] || ''}
-                  onChange={(e) =>
-                    setEditedText((prev) => ({ ...prev, [defect.id]: e.target.value }))
-                  }
-                  rows={6}
-                  className="mt-1 w-full resize-y overflow-y-auto rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
-                />
 
                 {isNcr && (
                   <div className="mt-3 rounded-md border border-red-300 bg-red-50 p-3">
