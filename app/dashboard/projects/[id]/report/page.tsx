@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { Suspense, useEffect, useState } from 'react'
+import { useParams, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 type Project = { id: string; name: string; description: string | null; company_name: string | null }
@@ -30,14 +30,17 @@ const STATUS_LABEL: Record<string, string> = {
   draft: 'Draft',
   confirmed: 'Confirmed',
   assigned: 'Assigned',
+  pending_approval: 'Pending approval',
   closed: 'Closed',
   rejected: 'Rejected',
 }
 
-export default function ProjectReportPage() {
+function ProjectReportPageInner() {
   const supabase = createClient()
   const params = useParams()
+  const searchParams = useSearchParams()
   const projectId = params.id as string
+  const selectedIds = searchParams.get('ids')?.split(',').filter(Boolean) || null
 
   const [project, setProject] = useState<Project | null>(null)
   const [defects, setDefects] = useState<Defect[]>([])
@@ -57,11 +60,14 @@ export default function ProjectReportPage() {
       .single()
     setProject(projectData)
 
-    const { data: defectData } = await supabase
+    let query = supabase
       .from('defects')
       .select('id, title, location, photo_url, annotated_photo_url, description, standard_reference, status, target_close_date, closure_notes, created_at, ncr_number')
       .eq('project_id', projectId)
       .order('created_at', { ascending: true })
+    if (selectedIds) query = query.in('id', selectedIds)
+
+    const { data: defectData } = await query
     setDefects(defectData || [])
 
     if (projectData?.company_name) {
@@ -109,21 +115,23 @@ export default function ProjectReportPage() {
     <div className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 print:bg-white print:px-0 print:py-0">
       <div className="mx-auto max-w-3xl">
         <div className="mb-4 flex items-center justify-between print:hidden">
-          <div>
-            <label className="text-xs font-medium text-slate-600">Filter by status</label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="ml-2 rounded-md border border-slate-300 px-2 py-1 text-sm"
-            >
-              <option value="all">All statuses</option>
-              <option value="draft">Draft</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="assigned">Assigned</option>
-              <option value="closed">Closed</option>
-              <option value="rejected">Rejected</option>
-            </select>
-          </div>
+          {selectedIds ? (
+            <p className="text-sm text-slate-600">Showing {defects.length} selected defect{defects.length === 1 ? '' : 's'}</p>
+          ) : (
+            <div>
+              <label className="text-xs font-medium text-slate-600">Filter by status</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="ml-2 rounded-md border border-slate-300 px-2 py-1 text-sm"
+              >
+                <option value="all">All statuses</option>
+                {Object.entries(STATUS_LABEL).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <button
             onClick={() => window.print()}
             className="rounded-md px-4 py-2 text-sm font-medium text-white"
@@ -230,5 +238,19 @@ export default function ProjectReportPage() {
         }
       `}</style>
     </div>
+  )
+}
+
+export default function ProjectReportPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-50 p-8 text-slate-900">
+          <p className="text-sm text-slate-500">Loading...</p>
+        </div>
+      }
+    >
+      <ProjectReportPageInner />
+    </Suspense>
   )
 }
