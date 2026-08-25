@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
       location,
       finishGrade,
       orientationHint,
+      source,
     }: {
       imageBase64: string
       mimeType: string
@@ -34,6 +35,7 @@ export async function POST(req: NextRequest) {
       location?: string
       finishGrade?: string
       orientationHint?: OrientationHint | null
+      source?: 'photo' | 'video_frame'
     } = await req.json()
 
     const supabase = await createClient()
@@ -214,7 +216,7 @@ export async function POST(req: NextRequest) {
       await supabase.from('analysis_log').insert({
         project_id: projectId,
         company_name: project?.company_name || null,
-        kind: 'photo',
+        kind: source === 'video_frame' ? 'video_frame' : 'photo',
         input_tokens: totalInputTokens,
         output_tokens: totalOutputTokens,
         estimated_cost: cost,

@@ -197,7 +197,7 @@ export default function NewDefectVideoPage() {
           const res = await fetch('/api/analyze-defect', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ imageBase64: base64, mimeType: 'image/jpeg', projectId }),
+            body: JSON.stringify({ imageBase64: base64, mimeType: 'image/jpeg', projectId, source: 'video_frame' }),
           })
 
           if (!res.ok) {
