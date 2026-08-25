@@ -37,6 +37,19 @@ type Defect = {
 
 type Partner = { id: string; full_name: string | null; company_name: string | null }
 
+type HistoryEntry = {
+  id: string
+  changed_by: string | null
+  old_status: string | null
+  new_status: string | null
+  notes: string | null
+  action: string | null
+  ai_description: string | null
+  final_description: string | null
+  ai_standard_reference: string | null
+  changed_at: string
+}
+
 const STATUS_OPTIONS = ['draft', 'confirmed', 'assigned', 'pending_approval', 'closed', 'rejected']
 
 const STATUS_LABELS: Record<string, string> = {
@@ -58,6 +71,18 @@ const ELEMENT_TYPE_LABELS: Record<string, string> = {
   movement_joint: 'Movement joint',
   mep: 'MEP',
   other: 'Other',
+}
+
+const HISTORY_ACTION_LABELS: Record<string, string> = {
+  confirmed: 'Confirmed as AI-detected',
+  edited: 'Edited before confirming',
+  rejected: 'Rejected',
+}
+
+const HISTORY_ACTION_COLORS: Record<string, string> = {
+  confirmed: 'text-emerald-700',
+  edited: 'text-amber-700',
+  rejected: 'text-red-700',
 }
 
 export default function DefectDetailPage() {
@@ -83,6 +108,8 @@ export default function DefectDetailPage() {
   const [myRole, setMyRole] = useState('')
   const [partners, setPartners] = useState<Partner[]>([])
   const [assignedCompany, setAssignedCompany] = useState('')
+  const [history, setHistory] = useState<HistoryEntry[]>([])
+  const [historyNames, setHistoryNames] = useState<Record<string, string>>({})
   const isPartnerViewer = myRole === 'partner'
 
   useEffect(() => {
@@ -130,6 +157,31 @@ export default function DefectDetailPage() {
       setCorrectiveAction(data.corrective_action || '')
       setAssignedCompany(data.assigned_company_name || '')
     }
+
+    const { data: historyData } = await supabase
+      .from('defect_history')
+      .select(
+        'id, changed_by, old_status, new_status, notes, action, ai_description, final_description, ai_standard_reference, changed_at'
+      )
+      .eq('defect_id', defectId)
+      .order('changed_at', { ascending: false })
+    setHistory(historyData || [])
+
+    const changerIds = Array.from(
+      new Set((historyData || []).map((h) => h.changed_by).filter(Boolean))
+    ) as string[]
+    if (changerIds.length > 0) {
+      const { data: changerProfiles } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', changerIds)
+      const map: Record<string, string> = {}
+      ;(changerProfiles || []).forEach((p) => {
+        map[p.id] = p.full_name || 'Unknown user'
+      })
+      setHistoryNames(map)
+    }
+
     setLoading(false)
   }
 
@@ -460,6 +512,52 @@ export default function DefectDetailPage() {
           )}
           {saved && <p className="mt-2 text-sm text-emerald-700">Saved.</p>}
         </div>
+
+        {history.length > 0 && (
+          <div id="history" className="mt-4 scroll-mt-4 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-deck-dim">History</h2>
+            <div className="mt-3 space-y-3">
+              {history.map((h) => (
+                <div key={h.id} className="border-l-2 border-deck-border pl-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`text-xs font-semibold ${HISTORY_ACTION_COLORS[h.action || ''] || 'text-deck-dim'}`}>
+                      {HISTORY_ACTION_LABELS[h.action || ''] ||
+                        (h.old_status && h.new_status ? `${h.old_status} → ${h.new_status}` : 'Updated')}
+                    </span>
+                    <span className="whitespace-nowrap text-xs text-deck-mute">
+                      {new Date(h.changed_at).toLocaleString()}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-xs text-deck-dim">
+                    {h.changed_by ? historyNames[h.changed_by] || 'Unknown user' : 'System'}
+                    {h.action && h.old_status && h.new_status && h.old_status !== h.new_status
+                      ? ` · ${h.old_status} → ${h.new_status}`
+                      : ''}
+                  </p>
+                  {h.action === 'edited' && h.ai_description && h.final_description && (
+                    <div className="mt-1.5 space-y-1 text-xs">
+                      <p className="text-deck-mute">
+                        <span className="font-medium text-deck-dim">AI original:</span> {h.ai_description}
+                      </p>
+                      <p className="text-deck-body">
+                        <span className="font-medium text-deck-dim">Edited to:</span> {h.final_description}
+                      </p>
+                    </div>
+                  )}
+                  {h.action === 'rejected' && h.notes && (
+                    <p className="mt-1.5 text-xs text-deck-body">
+                      <span className="font-medium text-deck-dim">Reason:</span> {h.notes}
+                    </p>
+                  )}
+                  {h.action === 'confirmed' && h.ai_standard_reference && (
+                    <p className="mt-1.5 text-xs text-deck-dim">Standard: {h.ai_standard_reference}</p>
+                  )}
+                  {!h.action && h.notes && <p className="mt-1.5 text-xs text-deck-body">{h.notes}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
