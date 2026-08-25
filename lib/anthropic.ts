@@ -752,7 +752,7 @@ export type Reg38ItemStatus = {
   label: string
   regime: 'reg38' | 'golden_thread'
   status: 'missing' | 'uploaded' | 'approved'
-  documentName: string | null
+  documentNames: string[]
   notes: string | null
 }
 
@@ -774,7 +774,7 @@ export async function generateReg38Report(
     .map(
       (i) =>
         `- [${i.regime === 'reg38' ? 'Reg 38' : 'Golden Thread'}] ${i.label}: ${i.status}${
-          i.documentName ? ` (document: ${i.documentName})` : ''
+          i.documentNames.length > 0 ? ` (documents: ${i.documentNames.join(', ')})` : ''
         }${i.notes ? ` - note: ${i.notes}` : ''}`
     )
     .join('\n')

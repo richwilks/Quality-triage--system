@@ -28,12 +28,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
 
-    const { data: itemRows } = await supabase
-      .from('project_reg38_items')
-      .select('item_key, status, document_name, notes')
-      .eq('project_id', projectId)
+    const [{ data: itemRows }, { data: documentRows }] = await Promise.all([
+      supabase.from('project_reg38_items').select('item_key, status, notes').eq('project_id', projectId),
+      supabase.from('project_reg38_documents').select('item_key, document_name').eq('project_id', projectId),
+    ])
 
     const itemsByKey = new Map((itemRows || []).map((r) => [r.item_key, r]))
+    const documentNamesByKey = new Map<string, string[]>()
+    ;(documentRows || []).forEach((d: any) => {
+      const list = documentNamesByKey.get(d.item_key) || []
+      list.push(d.document_name)
+      documentNamesByKey.set(d.item_key, list)
+    })
 
     const items: Reg38ItemStatus[] = REG38_ALL_ITEMS.map((def) => {
       const row = itemsByKey.get(def.key)
@@ -41,7 +47,7 @@ export async function POST(req: NextRequest) {
         label: def.label,
         regime: def.regime,
         status: (row?.status as Reg38ItemStatus['status']) || 'missing',
-        documentName: row?.document_name || null,
+        documentNames: documentNamesByKey.get(def.key) || [],
         notes: row?.notes || null,
       }
     })
