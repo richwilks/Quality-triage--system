@@ -14,7 +14,9 @@ type CostEntry = {
   category: string | null
   entered_at: string
 }
-type Billing = { company_name: string; monthly_retainer: number; usage_rate_per_analysis: number; notes: string | null }
+type Billing = { company_name: string; monthly_retainer: number; notes: string | null }
+type CommercialSettings = { default_markup_percent: number }
+type ProjectBillingRow = { project_id: string; markup_percent: number | null }
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
 
@@ -33,8 +35,16 @@ export default function CommercialPage() {
   const [costEntries, setCostEntries] = useState<CostEntry[]>([])
   const [billing, setBilling] = useState<Record<string, Billing>>({})
 
-  const [billingDraft, setBillingDraft] = useState<Record<string, { retainer: string; rate: string }>>({})
+  const [billingDraft, setBillingDraft] = useState<Record<string, string>>({})
   const [savingCompany, setSavingCompany] = useState<string | null>(null)
+
+  const [defaultMarkupPercent, setDefaultMarkupPercent] = useState(0)
+  const [defaultMarkupDraft, setDefaultMarkupDraft] = useState('0')
+  const [savingDefaultMarkup, setSavingDefaultMarkup] = useState(false)
+
+  const [projectBilling, setProjectBilling] = useState<Record<string, number | null>>({})
+  const [projectMarkupDraft, setProjectMarkupDraft] = useState<Record<string, string>>({})
+  const [savingProjectMarkupId, setSavingProjectMarkupId] = useState<string | null>(null)
 
   const [entryProjectId, setEntryProjectId] = useState('')
   const [entryLabel, setEntryLabel] = useState('')
@@ -72,11 +82,20 @@ export default function CommercialPage() {
     setAllowed(true)
     setChecked(true)
 
-    const [{ data: projectData }, { data: logData }, { data: entryData }, { data: billingData }] = await Promise.all([
+    const [
+      { data: projectData },
+      { data: logData },
+      { data: entryData },
+      { data: billingData },
+      { data: settingsData },
+      { data: projectBillingData },
+    ] = await Promise.all([
       supabase.from('projects').select('id, name, company_name'),
       supabase.from('analysis_log').select('project_id, company_name, estimated_cost, created_at'),
       supabase.from('project_cost_entries').select('id, project_id, label, amount, category, entered_at'),
-      supabase.from('company_billing').select('company_name, monthly_retainer, usage_rate_per_analysis, notes'),
+      supabase.from('company_billing').select('company_name, monthly_retainer, notes'),
+      supabase.from('commercial_settings').select('default_markup_percent').maybeSingle(),
+      supabase.from('project_billing').select('project_id, markup_percent'),
     ])
 
     setProjects(projectData || [])
@@ -84,13 +103,27 @@ export default function CommercialPage() {
     setCostEntries(entryData || [])
 
     const billingMap: Record<string, Billing> = {}
-    const draft: Record<string, { retainer: string; rate: string }> = {}
+    const draft: Record<string, string> = {}
     ;(billingData || []).forEach((b: any) => {
       billingMap[b.company_name] = b
-      draft[b.company_name] = { retainer: String(b.monthly_retainer), rate: String(b.usage_rate_per_analysis) }
+      draft[b.company_name] = String(b.monthly_retainer)
     })
     setBilling(billingMap)
     setBillingDraft(draft)
+
+    const markup = (settingsData as CommercialSettings | null)?.default_markup_percent ?? 0
+    setDefaultMarkupPercent(markup)
+    setDefaultMarkupDraft(String(markup))
+
+    const projectBillingMap: Record<string, number | null> = {}
+    const projectDraft: Record<string, string> = {}
+    ;(projectBillingData || []).forEach((row: ProjectBillingRow) => {
+      projectBillingMap[row.project_id] = row.markup_percent
+      projectDraft[row.project_id] = row.markup_percent === null ? '' : String(row.markup_percent)
+    })
+    setProjectBilling(projectBillingMap)
+    setProjectMarkupDraft(projectDraft)
+
     if (entryProjectId === '' && (projectData || []).length > 0) setEntryProjectId(projectData![0].id)
 
     setLoading(false)
@@ -98,27 +131,46 @@ export default function CommercialPage() {
 
   async function handleSaveBilling(companyName: string) {
     setSavingCompany(companyName)
-    const draft = billingDraft[companyName] || { retainer: '0', rate: '0' }
-    const { error } = await supabase.from('company_billing').upsert(
-      {
-        company_name: companyName,
-        monthly_retainer: parseFloat(draft.retainer) || 0,
-        usage_rate_per_analysis: parseFloat(draft.rate) || 0,
-      },
-      { onConflict: 'company_name' }
-    )
+    const retainer = parseFloat(billingDraft[companyName] ?? '0') || 0
+    const { error } = await supabase
+      .from('company_billing')
+      .upsert({ company_name: companyName, monthly_retainer: retainer }, { onConflict: 'company_name' })
     if (!error) {
       setBilling((prev) => ({
         ...prev,
         [companyName]: {
           company_name: companyName,
-          monthly_retainer: parseFloat(draft.retainer) || 0,
-          usage_rate_per_analysis: parseFloat(draft.rate) || 0,
+          monthly_retainer: retainer,
           notes: prev[companyName]?.notes || null,
         },
       }))
     }
     setSavingCompany(null)
+  }
+
+  async function handleSaveDefaultMarkup() {
+    setSavingDefaultMarkup(true)
+    const value = parseFloat(defaultMarkupDraft) || 0
+    const { error } = await supabase
+      .from('commercial_settings')
+      .upsert({ id: true, default_markup_percent: value }, { onConflict: 'id' })
+    if (!error) {
+      setDefaultMarkupPercent(value)
+    }
+    setSavingDefaultMarkup(false)
+  }
+
+  async function handleSaveProjectMarkup(projectId: string) {
+    setSavingProjectMarkupId(projectId)
+    const raw = (projectMarkupDraft[projectId] ?? '').trim()
+    const value = raw === '' ? null : parseFloat(raw)
+    const { error } = await supabase
+      .from('project_billing')
+      .upsert({ project_id: projectId, markup_percent: value }, { onConflict: 'project_id' })
+    if (!error) {
+      setProjectBilling((prev) => ({ ...prev, [projectId]: value }))
+    }
+    setSavingProjectMarkupId(null)
   }
 
   async function handleAddCostEntry() {
@@ -207,21 +259,25 @@ export default function CommercialPage() {
   const projectRows = projects.map((p) => {
     const s = projectStats[p.id] || { aiCostAll: 0, aiCost30: 0, countAll: 0, count30: 0, manualCostAll: 0, manualCost30: 0 }
     const company = p.company_name || 'Unassigned'
-    const rate = billing[company]?.usage_rate_per_analysis || 0
+    const markup = projectBilling[p.id] ?? defaultMarkupPercent
+    const usesDefault = projectBilling[p.id] === undefined || projectBilling[p.id] === null
     const totalCostAll = s.aiCostAll + s.manualCostAll
-    const usageRevenueAll = s.countAll * rate
+    const totalCost30 = s.aiCost30 + s.manualCost30
+    const usageRevenueAll = totalCostAll * (1 + markup / 100)
+    const usageRevenue30 = totalCost30 * (1 + markup / 100)
     return {
       project: p,
       company,
+      markup,
+      usesDefault,
       aiCostAll: s.aiCostAll,
       manualCostAll: s.manualCostAll,
       totalCostAll,
       countAll: s.countAll,
       usageRevenueAll,
       marginAll: usageRevenueAll - totalCostAll,
-      aiCost30: s.aiCost30,
-      manualCost30: s.manualCost30,
-      count30: s.count30,
+      totalCost30,
+      usageRevenue30,
     }
   })
 
@@ -231,14 +287,12 @@ export default function CommercialPage() {
     const rows = projectRows.filter((r) => r.company === name)
     const totalCostAll = rows.reduce((sum, r) => sum + r.totalCostAll, 0)
     const usageRevenueAll = rows.reduce((sum, r) => sum + r.usageRevenueAll, 0)
-    const totalCost30 = rows.reduce((sum, r) => sum + r.aiCost30 + r.manualCost30, 0)
-    const count30 = rows.reduce((sum, r) => sum + r.count30, 0)
+    const totalCost30 = rows.reduce((sum, r) => sum + r.totalCost30, 0)
+    const usageRevenue30 = rows.reduce((sum, r) => sum + r.usageRevenue30, 0)
     const b = billing[name]
     const retainer = b?.monthly_retainer || 0
-    const rate = b?.usage_rate_per_analysis || 0
     const totalRevenueAll = retainer + usageRevenueAll
     const marginAll = totalRevenueAll - totalCostAll
-    const usageRevenue30 = count30 * rate
     const projectedMonthlyRevenue = retainer + usageRevenue30
     const projectedMonthlyCost = totalCost30
     return {
@@ -250,7 +304,6 @@ export default function CommercialPage() {
       marginAll,
       marginPctAll: totalRevenueAll > 0 ? (marginAll / totalRevenueAll) * 100 : null,
       retainer,
-      rate,
       projectedMonthlyRevenue,
       projectedMonthlyCost,
       projectedMonthlyMargin: projectedMonthlyRevenue - projectedMonthlyCost,
@@ -271,6 +324,31 @@ export default function CommercialPage() {
         <p className="mt-1 text-sm text-deck-dim">
           Spend, billing, and forecasts across every company and project - visible only to you.
         </p>
+
+        <div className="mt-4 rounded-xl border border-deck-border bg-deck-surface p-4">
+          <p className="text-sm font-medium text-deck-body">Default markup</p>
+          <p className="mt-0.5 text-xs text-deck-dim">
+            Usage revenue = total cost (AI + manual) &times; (1 + markup%). Applies to every project unless that
+            project sets its own markup below, overriding this default.
+          </p>
+          <div className="mt-2 flex items-center gap-2">
+            <input
+              type="number"
+              step="0.1"
+              value={defaultMarkupDraft}
+              onChange={(e) => setDefaultMarkupDraft(e.target.value)}
+              className="w-24 rounded-md border border-deck-border px-2 py-1.5 text-sm bg-deck-surface text-deck-text"
+            />
+            <span className="text-sm text-deck-dim">%</span>
+            <button
+              onClick={handleSaveDefaultMarkup}
+              disabled={savingDefaultMarkup}
+              className="rounded-md bg-deck-accent px-3 py-1.5 text-xs font-medium text-deck-bg disabled:opacity-50"
+            >
+              {savingDefaultMarkup ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        </div>
 
         <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <div className="rounded-xl bg-brand-ink p-4 text-white">
@@ -311,7 +389,6 @@ export default function CommercialPage() {
               <tr className="border-b border-deck-border bg-deck-raised text-xs uppercase tracking-wide text-deck-mute">
                 <th className="px-3 py-2.5 font-medium">Company</th>
                 <th className="px-3 py-2.5 font-medium">Monthly retainer</th>
-                <th className="px-3 py-2.5 font-medium">Usage rate / analysis</th>
                 <th className="px-3 py-2.5 font-medium">Revenue (all time)</th>
                 <th className="px-3 py-2.5 font-medium">Cost (all time)</th>
                 <th className="px-3 py-2.5 font-medium">Margin</th>
@@ -329,21 +406,8 @@ export default function CommercialPage() {
                     <input
                       type="number"
                       step="0.01"
-                      value={billingDraft[c.name]?.retainer ?? '0'}
-                      onChange={(e) =>
-                        setBillingDraft((prev) => ({ ...prev, [c.name]: { retainer: e.target.value, rate: prev[c.name]?.rate ?? '0' } }))
-                      }
-                      className="w-24 rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text"
-                    />
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={billingDraft[c.name]?.rate ?? '0'}
-                      onChange={(e) =>
-                        setBillingDraft((prev) => ({ ...prev, [c.name]: { retainer: prev[c.name]?.retainer ?? '0', rate: e.target.value } }))
-                      }
+                      value={billingDraft[c.name] ?? '0'}
+                      onChange={(e) => setBillingDraft((prev) => ({ ...prev, [c.name]: e.target.value }))}
                       className="w-24 rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text"
                     />
                   </td>
@@ -366,7 +430,7 @@ export default function CommercialPage() {
               ))}
               {companyRows.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-3 py-4 text-center text-sm text-deck-dim">
+                  <td colSpan={6} className="px-3 py-4 text-center text-sm text-deck-dim">
                     No companies yet.
                   </td>
                 </tr>
@@ -385,7 +449,7 @@ export default function CommercialPage() {
                 <th className="px-3 py-2.5 font-medium">AI cost</th>
                 <th className="px-3 py-2.5 font-medium">Manual cost</th>
                 <th className="px-3 py-2.5 font-medium">Total cost</th>
-                <th className="px-3 py-2.5 font-medium">Analyses</th>
+                <th className="px-3 py-2.5 font-medium">Markup %</th>
                 <th className="px-3 py-2.5 font-medium">Usage revenue</th>
                 <th className="px-3 py-2.5 font-medium">Margin</th>
                 <th className="px-3 py-2.5 font-medium"></th>
@@ -400,7 +464,28 @@ export default function CommercialPage() {
                     <td className="px-3 py-2.5 text-deck-body">{money(r.aiCostAll)}</td>
                     <td className="px-3 py-2.5 text-deck-body">{money(r.manualCostAll)}</td>
                     <td className="px-3 py-2.5 font-medium text-deck-text">{money(r.totalCostAll)}</td>
-                    <td className="px-3 py-2.5 text-deck-dim">{r.countAll}</td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="number"
+                          step="0.1"
+                          placeholder={`${defaultMarkupPercent}`}
+                          value={projectMarkupDraft[r.project.id] ?? ''}
+                          onChange={(e) =>
+                            setProjectMarkupDraft((prev) => ({ ...prev, [r.project.id]: e.target.value }))
+                          }
+                          className="w-16 rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
+                        />
+                        <button
+                          onClick={() => handleSaveProjectMarkup(r.project.id)}
+                          disabled={savingProjectMarkupId === r.project.id}
+                          className="text-xs font-medium text-deck-accent underline disabled:opacity-50"
+                        >
+                          {savingProjectMarkupId === r.project.id ? '...' : 'Save'}
+                        </button>
+                      </div>
+                      {r.usesDefault && <p className="mt-0.5 text-[10px] text-deck-mute">using default</p>}
+                    </td>
                     <td className="px-3 py-2.5 text-deck-body">{money(r.usageRevenueAll)}</td>
                     <td className={`px-3 py-2.5 font-medium ${r.marginAll >= 0 ? 'text-deck-success' : 'text-red-600'}`}>
                       {money(r.marginAll)}
