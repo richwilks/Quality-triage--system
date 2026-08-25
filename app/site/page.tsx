@@ -269,36 +269,41 @@ export default function MarketingSitePage() {
 
         {/* Compliance */}
         <section id="compliance" className="mx-auto max-w-6xl px-6 py-20">
-          <div className="grid grid-cols-1 gap-12 lg:grid-cols-2">
-            <div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-[#9C9686]">
-                Building Safety Act era
-              </span>
-              <h2 className="mt-3 text-3xl font-bold tracking-tight text-[#24221D] sm:text-4xl">
-                Regulation 38 and the Golden Thread, built in
-              </h2>
-              <p className="mt-5 text-base leading-relaxed text-[#4A473F]">
-                Handing over accurate fire safety information is now a legal duty, not a box you tick at the
-                end of a job. InspectIQ keeps the record building the whole way through, not assembled the
-                week before completion - every assignment, approval, and closure timestamped and attributed.
-              </p>
-            </div>
-            <div className="rounded-xl border border-[#C9D8CE] bg-[#E1E9E4] p-8 shadow-sm">
+          <span className="text-xs font-semibold uppercase tracking-wider text-[#9C9686]">
+            Building Safety Act era
+          </span>
+          <h2 className="mt-3 max-w-2xl text-3xl font-bold tracking-tight text-[#24221D] sm:text-4xl">
+            Regulation 38 and the Golden Thread, built in
+          </h2>
+          <p className="mt-5 max-w-2xl text-base leading-relaxed text-[#4A473F]">
+            Two distinct regimes, both handled on the same record - not assembled the week before completion.
+          </p>
+
+          <div className="mt-10 grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <Link
+              href="/site/regulation-38"
+              className="block rounded-xl border border-[#DCD8CE] bg-white p-8 shadow-sm hover:border-[#2A6F77]"
+            >
               <ComplianceIllustration />
-              <ul className="mt-4 space-y-4 text-sm text-[#4A473F]">
-                {[
-                  'Guided checklist covering Reg 38 and Golden Thread requirements',
-                  'Upload evidence directly against each checklist item',
-                  'Generated status reports and a final handover pack',
-                  'Your own report template, or a standard one out of the box',
-                ].map((item) => (
-                  <li key={item} className="flex items-start gap-3">
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#2A6F77]" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
+              <h3 className="mt-6 text-xl font-semibold text-[#24221D]">Regulation 38</h3>
+              <p className="mt-2 text-sm leading-relaxed text-[#767162]">
+                The fire safety information handover pack every project owes its Responsible Person - fire
+                strategy, O&amp;M manuals, commissioning certs, and more.
+              </p>
+              <span className="mt-4 inline-block text-sm font-medium text-[#2A6F77]">Learn more &rarr;</span>
+            </Link>
+            <Link
+              href="/site/golden-thread"
+              className="block rounded-xl border border-[#DCD8CE] bg-white p-8 shadow-sm hover:border-[#2A6F77]"
+            >
+              <ComplianceIllustration />
+              <h3 className="mt-6 text-xl font-semibold text-[#24221D]">Golden Thread</h3>
+              <p className="mt-2 text-sm leading-relaxed text-[#767162]">
+                Design, construction, and safety records for Higher-Risk Buildings under the Building Safety
+                Act - accurate and accessible throughout, not reconstructed afterward.
+              </p>
+              <span className="mt-4 inline-block text-sm font-medium text-[#2A6F77]">Learn more &rarr;</span>
+            </Link>
           </div>
         </section>
 
