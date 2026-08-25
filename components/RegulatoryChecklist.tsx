@@ -90,13 +90,16 @@ export default function RegulatoryChecklist({ regime }: { regime: Reg38Regime })
       data: { user },
     } = await supabase.auth.getUser()
     if (user) {
-      const { data: membership } = await supabase
-        .from('project_members')
-        .select('project_role')
-        .eq('project_id', projectId)
-        .eq('user_id', user.id)
-        .maybeSingle()
-      setIsOwner(membership?.project_role === 'owner')
+      const [{ data: membership }, { data: profile }] = await Promise.all([
+        supabase
+          .from('project_members')
+          .select('project_role')
+          .eq('project_id', projectId)
+          .eq('user_id', user.id)
+          .maybeSingle(),
+        supabase.from('profiles').select('is_platform_admin').eq('id', user.id).single(),
+      ])
+      setIsOwner(membership?.project_role === 'owner' || !!profile?.is_platform_admin)
     }
 
     setLoading(false)
