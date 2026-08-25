@@ -14,14 +14,15 @@ type CostEntry = {
   category: string | null
   entered_at: string
 }
-type Billing = { company_name: string; monthly_retainer: number; notes: string | null }
+type Billing = { company_name: string; monthly_retainer: number; vat_rate_percent: number; notes: string | null }
 type CommercialSettings = { default_markup_percent: number }
 type ProjectBillingRow = { project_id: string; markup_percent: number | null }
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
+const DEFAULT_VAT_RATE = 20 // UK standard rate - InspectIQ is UK-based
 
 function money(n: number) {
-  return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 export default function CommercialPage() {
@@ -35,7 +36,7 @@ export default function CommercialPage() {
   const [costEntries, setCostEntries] = useState<CostEntry[]>([])
   const [billing, setBilling] = useState<Record<string, Billing>>({})
 
-  const [billingDraft, setBillingDraft] = useState<Record<string, string>>({})
+  const [billingDraft, setBillingDraft] = useState<Record<string, { retainer: string; vatRate: string }>>({})
   const [savingCompany, setSavingCompany] = useState<string | null>(null)
 
   const [defaultMarkupPercent, setDefaultMarkupPercent] = useState(0)
@@ -93,7 +94,7 @@ export default function CommercialPage() {
       supabase.from('projects').select('id, name, company_name'),
       supabase.from('analysis_log').select('project_id, company_name, estimated_cost, created_at'),
       supabase.from('project_cost_entries').select('id, project_id, label, amount, category, entered_at'),
-      supabase.from('company_billing').select('company_name, monthly_retainer, notes'),
+      supabase.from('company_billing').select('company_name, monthly_retainer, vat_rate_percent, notes'),
       supabase.from('commercial_settings').select('default_markup_percent').maybeSingle(),
       supabase.from('project_billing').select('project_id, markup_percent'),
     ])
@@ -103,10 +104,10 @@ export default function CommercialPage() {
     setCostEntries(entryData || [])
 
     const billingMap: Record<string, Billing> = {}
-    const draft: Record<string, string> = {}
+    const draft: Record<string, { retainer: string; vatRate: string }> = {}
     ;(billingData || []).forEach((b: any) => {
       billingMap[b.company_name] = b
-      draft[b.company_name] = String(b.monthly_retainer)
+      draft[b.company_name] = { retainer: String(b.monthly_retainer), vatRate: String(b.vat_rate_percent) }
     })
     setBilling(billingMap)
     setBillingDraft(draft)
@@ -131,16 +132,22 @@ export default function CommercialPage() {
 
   async function handleSaveBilling(companyName: string) {
     setSavingCompany(companyName)
-    const retainer = parseFloat(billingDraft[companyName] ?? '0') || 0
+    const draft = billingDraft[companyName] || { retainer: '0', vatRate: String(DEFAULT_VAT_RATE) }
+    const retainer = parseFloat(draft.retainer) || 0
+    const vatRate = parseFloat(draft.vatRate) || 0
     const { error } = await supabase
       .from('company_billing')
-      .upsert({ company_name: companyName, monthly_retainer: retainer }, { onConflict: 'company_name' })
+      .upsert(
+        { company_name: companyName, monthly_retainer: retainer, vat_rate_percent: vatRate },
+        { onConflict: 'company_name' }
+      )
     if (!error) {
       setBilling((prev) => ({
         ...prev,
         [companyName]: {
           company_name: companyName,
           monthly_retainer: retainer,
+          vat_rate_percent: vatRate,
           notes: prev[companyName]?.notes || null,
         },
       }))
@@ -291,7 +298,9 @@ export default function CommercialPage() {
     const usageRevenue30 = rows.reduce((sum, r) => sum + r.usageRevenue30, 0)
     const b = billing[name]
     const retainer = b?.monthly_retainer || 0
+    const vatRate = b?.vat_rate_percent ?? DEFAULT_VAT_RATE
     const totalRevenueAll = retainer + usageRevenueAll
+    const vatAll = totalRevenueAll * (vatRate / 100)
     const marginAll = totalRevenueAll - totalCostAll
     const projectedMonthlyRevenue = retainer + usageRevenue30
     const projectedMonthlyCost = totalCost30
@@ -301,6 +310,8 @@ export default function CommercialPage() {
       totalCostAll,
       usageRevenueAll,
       totalRevenueAll,
+      vatRate,
+      vatAll,
       marginAll,
       marginPctAll: totalRevenueAll > 0 ? (marginAll / totalRevenueAll) * 100 : null,
       retainer,
@@ -353,11 +364,11 @@ export default function CommercialPage() {
         <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <div className="rounded-xl bg-brand-ink p-4 text-white">
             <p className="text-2xl font-semibold">{money(mrr)}</p>
-            <p className="mt-0.5 text-xs text-white/70">Projected MRR (retainers + trailing 30d usage)</p>
+            <p className="mt-0.5 text-xs text-white/70">Projected MRR, ex VAT (retainers + trailing 30d usage)</p>
           </div>
           <div className="rounded-xl border border-deck-border bg-deck-surface p-4">
             <p className="text-2xl font-semibold text-deck-text">{money(arr)}</p>
-            <p className="mt-0.5 text-xs text-deck-dim">Projected ARR (MRR &times; 12)</p>
+            <p className="mt-0.5 text-xs text-deck-dim">Projected ARR, ex VAT (MRR &times; 12)</p>
           </div>
           <div className="rounded-xl border border-deck-border bg-deck-surface p-4">
             <p className="text-2xl font-semibold text-deck-text">{money(projectedMonthlyCostAll)}</p>
@@ -383,13 +394,22 @@ export default function CommercialPage() {
         </div>
 
         <h2 className="mt-8 text-sm font-semibold uppercase tracking-wide text-deck-dim">Billing by company</h2>
+        <p className="mt-1 text-xs text-deck-dim">
+          VAT defaults to {DEFAULT_VAT_RATE}% (UK standard rate, since InspectIQ is UK-based) - set it to 0% for an
+          overseas client not subject to UK VAT, or adjust per company once you've confirmed what actually applies.
+          Revenue and margin figures throughout this page are always ex-VAT; VAT is shown separately since it isn't
+          InspectIQ's money.
+        </p>
         <div className="mt-2 overflow-x-auto rounded-lg border border-deck-border">
-          <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+          <table className="w-full min-w-[980px] border-collapse text-left text-sm">
             <thead>
               <tr className="border-b border-deck-border bg-deck-raised text-xs uppercase tracking-wide text-deck-mute">
                 <th className="px-3 py-2.5 font-medium">Company</th>
                 <th className="px-3 py-2.5 font-medium">Monthly retainer</th>
-                <th className="px-3 py-2.5 font-medium">Revenue (all time)</th>
+                <th className="px-3 py-2.5 font-medium">VAT %</th>
+                <th className="px-3 py-2.5 font-medium">Revenue ex VAT</th>
+                <th className="px-3 py-2.5 font-medium">VAT</th>
+                <th className="px-3 py-2.5 font-medium">Revenue inc VAT</th>
                 <th className="px-3 py-2.5 font-medium">Cost (all time)</th>
                 <th className="px-3 py-2.5 font-medium">Margin</th>
                 <th className="px-3 py-2.5 font-medium"></th>
@@ -406,12 +426,33 @@ export default function CommercialPage() {
                     <input
                       type="number"
                       step="0.01"
-                      value={billingDraft[c.name] ?? '0'}
-                      onChange={(e) => setBillingDraft((prev) => ({ ...prev, [c.name]: e.target.value }))}
+                      value={billingDraft[c.name]?.retainer ?? '0'}
+                      onChange={(e) =>
+                        setBillingDraft((prev) => ({
+                          ...prev,
+                          [c.name]: { retainer: e.target.value, vatRate: prev[c.name]?.vatRate ?? String(DEFAULT_VAT_RATE) },
+                        }))
+                      }
                       className="w-24 rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text"
                     />
                   </td>
+                  <td className="px-3 py-2.5">
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={billingDraft[c.name]?.vatRate ?? String(DEFAULT_VAT_RATE)}
+                      onChange={(e) =>
+                        setBillingDraft((prev) => ({
+                          ...prev,
+                          [c.name]: { retainer: prev[c.name]?.retainer ?? '0', vatRate: e.target.value },
+                        }))
+                      }
+                      className="w-16 rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text"
+                    />
+                  </td>
                   <td className="px-3 py-2.5 text-deck-body">{money(c.totalRevenueAll)}</td>
+                  <td className="px-3 py-2.5 text-deck-dim">{money(c.vatAll)}</td>
+                  <td className="px-3 py-2.5 text-deck-body">{money(c.totalRevenueAll + c.vatAll)}</td>
                   <td className="px-3 py-2.5 text-deck-body">{money(c.totalCostAll)}</td>
                   <td className={`px-3 py-2.5 font-medium ${c.marginAll >= 0 ? 'text-deck-success' : 'text-red-600'}`}>
                     {money(c.marginAll)}
@@ -430,7 +471,7 @@ export default function CommercialPage() {
               ))}
               {companyRows.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-3 py-4 text-center text-sm text-deck-dim">
+                  <td colSpan={9} className="px-3 py-4 text-center text-sm text-deck-dim">
                     No companies yet.
                   </td>
                 </tr>
