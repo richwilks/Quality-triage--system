@@ -44,6 +44,12 @@ type ReviewItem = DetectedDefect & {
   title: string
   included: boolean
   measurement: MeasurementData
+  // The model's own description, captured once when the API responds and
+  // never touched again - `description` is the editable copy the inspector
+  // works with. Keeping both lets confirm-time logging tell a straight
+  // confirmation apart from a correction, against the AI's real output
+  // rather than whatever happened to be on screen at first save.
+  ai_description: string
 }
 
 const BOX_COLORS = ['#ef4444', '#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899']
@@ -311,6 +317,7 @@ function NewDefectPageInner() {
           : `Defect ${(existingCount || 0) + i + 1}`
         return {
           ...d,
+          ai_description: d.description,
           localId: `${Date.now()}-${i}`,
           title,
           included: true,
@@ -397,7 +404,7 @@ function NewDefectPageInner() {
         pin_x: pinX,
         pin_y: pinY,
         photo_url: publicUrl,
-        ai_description: it.description,
+        ai_description: it.ai_description,
         ai_confidence: it.confidence,
         standard_reference: it.standard_reference,
         description: it.description,

@@ -39,6 +39,9 @@ type ReviewItem = DetectedDefect & {
   included: boolean
   frameIndex: number
   classification?: 'snag' | 'ncr'
+  // The model's own description, captured once and never touched again -
+  // `description` is the editable copy. See new-defect/page.tsx for why.
+  ai_description: string
 }
 
 const BOX_COLORS = ['#ef4444', '#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899']
@@ -214,6 +217,7 @@ export default function NewDefectVideoPage() {
                 : `Defect ${(existingCount || 0) + allItems.length + 1}`
               allItems.push({
                 ...d,
+                ai_description: d.description,
                 localId: `${i}-${j}`,
                 title,
                 included: true,
@@ -309,7 +313,7 @@ export default function NewDefectVideoPage() {
           location,
           photo_url: photoUrl,
           video_url: videoUrl,
-          ai_description: it.description,
+          ai_description: it.ai_description,
           ai_confidence: it.confidence,
           standard_reference: it.standard_reference,
           description: it.description,
