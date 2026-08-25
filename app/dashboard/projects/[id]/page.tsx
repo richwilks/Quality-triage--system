@@ -332,6 +332,7 @@ export default function ProjectDetailPage() {
                   </th>
                 ))}
                 <th className="px-3 py-2 font-medium">Description</th>
+                <th className="px-3 py-2 font-medium">History</th>
               </tr>
             </thead>
             <tbody>
@@ -366,11 +367,19 @@ export default function ProjectDetailPage() {
                       {d.description || '-'}
                     </span>
                   </td>
+                  <td className="px-3 py-2 text-xs">
+                    <Link
+                      href={`/dashboard/defects/${d.id}#history`}
+                      className="font-medium text-deck-accent hover:underline"
+                    >
+                      View &rarr;
+                    </Link>
+                  </td>
                 </tr>
               ))}
               {sortedDefects.length === 0 && defects.length > 0 && (
                 <tr>
-                  <td colSpan={COLUMNS.length + 2} className="px-3 py-6 text-center text-sm text-deck-dim">
+                  <td colSpan={COLUMNS.length + 3} className="px-3 py-6 text-center text-sm text-deck-dim">
                     No defects match these filters.
                   </td>
                 </tr>
