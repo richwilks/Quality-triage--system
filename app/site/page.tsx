@@ -77,6 +77,74 @@ const STEPS = [
 
 const AUDIENCES = ['Main contractors', 'Developers & clients', 'Building inspectors', 'Supply chain partners']
 
+// Literal, building-themed line art (skyline, floor plan, elevation) rather
+// than abstract diagrams - dropped in colored panels so the page gets real
+// colour without scattering a bold accent through every piece of UI text.
+const CREAM = '#FBF6EE'
+
+function SkylineIllustration() {
+  return (
+    <svg viewBox="0 0 700 240" className="h-auto w-full" fill="none">
+      <line x1="20" y1="210" x2="680" y2="210" stroke={CREAM} strokeWidth="2" />
+      <rect x="60" y="120" width="80" height="90" stroke={CREAM} strokeWidth="2" />
+      <rect x="76" y="140" width="14" height="14" stroke={CREAM} strokeWidth="1.5" />
+      <rect x="100" y="140" width="14" height="14" stroke={CREAM} strokeWidth="1.5" />
+      <rect x="76" y="164" width="14" height="14" stroke={CREAM} strokeWidth="1.5" />
+      <rect x="100" y="164" width="14" height="14" stroke={CREAM} strokeWidth="1.5" />
+      <rect x="160" y="70" width="100" height="140" stroke={CREAM} strokeWidth="2" />
+      {[0, 1, 2, 3].map((row) =>
+        [0, 1, 2].map((col) => (
+          <rect key={`${row}-${col}`} x={178 + col * 24} y={90 + row * 26} width="14" height="16" stroke={CREAM} strokeWidth="1.25" />
+        ))
+      )}
+      <rect x="280" y="150" width="70" height="60" stroke={CREAM} strokeWidth="2" />
+      <line x1="440" y1="210" x2="440" y2="40" stroke={CREAM} strokeWidth="2.5" strokeLinecap="round" />
+      <line x1="440" y1="50" x2="560" y2="50" stroke={CREAM} strokeWidth="2.5" strokeLinecap="round" />
+      <line x1="440" y1="50" x2="405" y2="65" stroke={CREAM} strokeWidth="1.5" />
+      <line x1="530" y1="50" x2="530" y2="95" stroke={CREAM} strokeWidth="1.5" strokeDasharray="3 3" />
+      <rect x="480" y="120" width="120" height="90" stroke={CREAM} strokeWidth="2" strokeDasharray="4 4" />
+      <rect x="620" y="160" width="55" height="50" stroke={CREAM} strokeWidth="2" />
+    </svg>
+  )
+}
+
+function BlueprintPinIllustration() {
+  return (
+    <svg viewBox="0 0 700 240" className="h-auto w-full" fill="none">
+      <rect x="40" y="30" width="620" height="180" stroke={CREAM} strokeWidth="2" />
+      <line x1="40" y1="110" x2="380" y2="110" stroke={CREAM} strokeWidth="1.25" />
+      <line x1="230" y1="30" x2="230" y2="110" stroke={CREAM} strokeWidth="1.25" />
+      <line x1="380" y1="30" x2="380" y2="210" stroke={CREAM} strokeWidth="1.25" />
+      <line x1="380" y1="140" x2="660" y2="140" stroke={CREAM} strokeWidth="1.25" />
+      <line x1="530" y1="30" x2="530" y2="140" stroke={CREAM} strokeWidth="1.25" />
+      <circle cx="490" cy="90" r="34" stroke={CREAM} strokeWidth="1" strokeDasharray="3 4" />
+      <path
+        d="M490 68c14 0 24 10 24 22 0 16-24 34-24 34s-24-18-24-34c0-12 10-22 24-22z"
+        stroke={CREAM}
+        strokeWidth="2"
+      />
+      <circle cx="490" cy="90" r="6" fill={CREAM} />
+    </svg>
+  )
+}
+
+function ComplianceIllustration() {
+  return (
+    <svg viewBox="0 0 400 150" className="h-auto w-full" fill="none">
+      <rect x="150" y="30" width="90" height="100" stroke={CREAM} strokeWidth="2" />
+      <line x1="150" y1="30" x2="195" y2="8" stroke={CREAM} strokeWidth="2" />
+      <line x1="195" y1="8" x2="240" y2="30" stroke={CREAM} strokeWidth="2" />
+      <line x1="168" y1="52" x2="180" y2="52" stroke={CREAM} strokeWidth="1.5" />
+      <line x1="168" y1="72" x2="180" y2="72" stroke={CREAM} strokeWidth="1.5" />
+      <line x1="168" y1="92" x2="180" y2="92" stroke={CREAM} strokeWidth="1.5" />
+      <line x1="210" y1="52" x2="222" y2="52" stroke={CREAM} strokeWidth="1.5" />
+      <line x1="210" y1="72" x2="222" y2="72" stroke={CREAM} strokeWidth="1.5" />
+      <circle cx="255" cy="105" r="26" fill="#4A473F" stroke={CREAM} strokeWidth="2" />
+      <path d="M244 105l8 8 14-16" stroke={CREAM} strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 export default function MarketingSitePage() {
   return (
     <div className="min-h-screen bg-[#F5F3EE] font-sans text-[#24221D] antialiased">
@@ -155,21 +223,29 @@ export default function MarketingSitePage() {
               </a>
             </div>
           </div>
+
+          <div className="mx-auto mt-14 max-w-4xl overflow-hidden rounded-2xl bg-[#C97A4A] p-8 sm:p-12">
+            <SkylineIllustration />
+          </div>
         </section>
 
         {/* Bento feature grid */}
         <section id="product" className="mx-auto max-w-6xl px-6 py-16">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {BENTO.map((b) => (
-              <div
-                key={b.title}
-                className={`${b.span} rounded-xl border border-[#DCD8CE] bg-white p-8 shadow-sm`}
-              >
-                <p className="text-2xl font-bold text-[#24221D]">{b.stat}</p>
-                <h3 className="mt-4 text-lg font-semibold tracking-tight text-[#24221D]">{b.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-[#767162]">{b.body}</p>
-              </div>
-            ))}
+            {BENTO.map((b, i) => {
+              const tint = i === 0 ? 'bg-[#F3E4D8] border-[#E5CBB2]' : i === 3 ? 'bg-[#E1E9E4] border-[#C9D8CE]' : 'bg-white border-[#DCD8CE]'
+              return (
+                <div key={b.title} className={`${b.span} ${tint} rounded-xl border p-8 shadow-sm`}>
+                  <p className="text-2xl font-bold text-[#24221D]">{b.stat}</p>
+                  <h3 className="mt-4 text-lg font-semibold tracking-tight text-[#24221D]">{b.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-[#767162]">{b.body}</p>
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="mt-4 overflow-hidden rounded-2xl bg-[#5E8299] p-8 sm:p-12">
+            <BlueprintPinIllustration />
           </div>
         </section>
 
@@ -207,8 +283,9 @@ export default function MarketingSitePage() {
                 week before completion - every assignment, approval, and closure timestamped and attributed.
               </p>
             </div>
-            <div className="rounded-xl border border-[#DCD8CE] bg-white p-8 shadow-sm">
-              <ul className="space-y-4 text-sm text-[#4A473F]">
+            <div className="rounded-xl border border-[#C9D8CE] bg-[#E1E9E4] p-8 shadow-sm">
+              <ComplianceIllustration />
+              <ul className="mt-4 space-y-4 text-sm text-[#4A473F]">
                 {[
                   'Guided checklist covering Reg 38 and Golden Thread requirements',
                   'Upload evidence directly against each checklist item',
