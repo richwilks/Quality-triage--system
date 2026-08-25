@@ -275,6 +275,7 @@ function NewDefectPageInner() {
             location,
             finishGrade,
             orientationHint,
+            source: 'photo',
           }),
         })
       } catch (err: any) {

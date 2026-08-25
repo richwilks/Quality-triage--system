@@ -5,6 +5,26 @@ import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
 import BarList from '@/components/charts/BarList'
 
+type CallStats = {
+  count: number
+  totalInputTokens: number
+  totalOutputTokens: number
+  minTotalTokens: number
+  maxTotalTokens: number
+  totalCost: number
+}
+
+function emptyCallStats(): CallStats {
+  return {
+    count: 0,
+    totalInputTokens: 0,
+    totalOutputTokens: 0,
+    minTotalTokens: Infinity,
+    maxTotalTokens: 0,
+    totalCost: 0,
+  }
+}
+
 type CompanyStats = {
   company_name: string
   totalDefects: number
@@ -26,6 +46,7 @@ export default function PlatformAnalyticsPage() {
   const [loading, setLoading] = useState(true)
   const [companies, setCompanies] = useState<CompanyStats[]>([])
   const [totalCostAllTime, setTotalCostAllTime] = useState(0)
+  const [callStatsByKind, setCallStatsByKind] = useState<Record<string, CallStats>>({})
 
   useEffect(() => {
     load()
@@ -52,7 +73,9 @@ export default function PlatformAnalyticsPage() {
 
     const { data: projects } = await supabase.from('projects').select('id, company_name')
     const { data: defects } = await supabase.from('defects').select('project_id, status')
-    const { data: logs } = await supabase.from('analysis_log').select('company_name, kind, estimated_cost')
+    const { data: logs } = await supabase
+      .from('analysis_log')
+      .select('company_name, kind, estimated_cost, input_tokens, output_tokens')
     const { data: users } = await supabase.from('profiles').select('company_name')
 
     const projectToCompany: Record<string, string> = {}
@@ -95,6 +118,7 @@ export default function PlatformAnalyticsPage() {
     })
 
     let allTimeCost = 0
+    const kindStats: Record<string, CallStats> = { photo: emptyCallStats(), video_frame: emptyCallStats() }
     ;(logs || []).forEach((l: any) => {
       const name = l.company_name || 'Unassigned'
       const c = ensure(name)
@@ -102,8 +126,21 @@ export default function PlatformAnalyticsPage() {
       if (l.kind === 'video_frame') c.videoFrameCount++
       c.totalCost += l.estimated_cost || 0
       allTimeCost += l.estimated_cost || 0
+
+      const kind = l.kind === 'video_frame' ? 'video_frame' : 'photo'
+      const s = kindStats[kind]
+      const inputTokens = l.input_tokens || 0
+      const outputTokens = l.output_tokens || 0
+      const total = inputTokens + outputTokens
+      s.count++
+      s.totalInputTokens += inputTokens
+      s.totalOutputTokens += outputTokens
+      s.totalCost += l.estimated_cost || 0
+      if (total < s.minTotalTokens) s.minTotalTokens = total
+      if (total > s.maxTotalTokens) s.maxTotalTokens = total
     })
     setTotalCostAllTime(allTimeCost)
+    setCallStatsByKind(kindStats)
 
     ;(users || []).forEach((u: any) => {
       const name = u.company_name || 'Unassigned'
@@ -149,6 +186,52 @@ export default function PlatformAnalyticsPage() {
         <div className="mt-4 rounded-xl bg-brand-ink p-4 text-white">
           <p className="text-2xl font-semibold">${totalCostAllTime.toFixed(2)}</p>
           <p className="mt-0.5 text-xs text-white/70">Total estimated AI cost, all time</p>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-deck-border bg-deck-surface p-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-deck-dim">AI usage per analysis call</h2>
+          <p className="mt-0.5 text-xs text-deck-dim">
+            Measured token usage from actual Anthropic API responses, not an estimate - use this to set usage-cap thresholds.
+          </p>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[520px] border-collapse text-left text-sm">
+              <thead>
+                <tr className="border-b border-deck-border text-xs text-deck-dim">
+                  <th className="py-1.5 pr-3 font-medium">Call type</th>
+                  <th className="py-1.5 pr-3 font-medium">Calls</th>
+                  <th className="py-1.5 pr-3 font-medium">Avg input tokens</th>
+                  <th className="py-1.5 pr-3 font-medium">Avg output tokens</th>
+                  <th className="py-1.5 pr-3 font-medium">Avg total tokens</th>
+                  <th className="py-1.5 pr-3 font-medium">Min / Max total</th>
+                  <th className="py-1.5 font-medium">Avg cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(['photo', 'video_frame'] as const).map((kind) => {
+                  const s = callStatsByKind[kind] || emptyCallStats()
+                  const avgInput = s.count > 0 ? s.totalInputTokens / s.count : 0
+                  const avgOutput = s.count > 0 ? s.totalOutputTokens / s.count : 0
+                  const avgTotal = avgInput + avgOutput
+                  const avgCost = s.count > 0 ? s.totalCost / s.count : 0
+                  return (
+                    <tr key={kind} className="border-b border-deck-border last:border-b-0">
+                      <td className="py-1.5 pr-3 font-medium text-deck-text">
+                        {kind === 'photo' ? 'Photo' : 'Video frame'}
+                      </td>
+                      <td className="py-1.5 pr-3 text-deck-body">{s.count}</td>
+                      <td className="py-1.5 pr-3 text-deck-body">{s.count > 0 ? Math.round(avgInput).toLocaleString() : '-'}</td>
+                      <td className="py-1.5 pr-3 text-deck-body">{s.count > 0 ? Math.round(avgOutput).toLocaleString() : '-'}</td>
+                      <td className="py-1.5 pr-3 text-deck-body">{s.count > 0 ? Math.round(avgTotal).toLocaleString() : '-'}</td>
+                      <td className="py-1.5 pr-3 text-deck-body">
+                        {s.count > 0 ? `${s.minTotalTokens.toLocaleString()} / ${s.maxTotalTokens.toLocaleString()}` : '-'}
+                      </td>
+                      <td className="py-1.5 text-deck-body">{s.count > 0 ? `$${avgCost.toFixed(4)}` : '-'}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div className="mt-4 rounded-xl border border-deck-border bg-deck-surface p-4">
