@@ -47,7 +47,7 @@ type HistoryEntry = {
   ai_description: string | null
   final_description: string | null
   ai_standard_reference: string | null
-  changed_at: string
+  created_at: string
 }
 
 const STATUS_OPTIONS = ['draft', 'confirmed', 'assigned', 'pending_approval', 'closed', 'rejected']
@@ -168,10 +168,10 @@ export default function DefectDetailPage() {
     const { data: historyData, error: historyErr } = await supabase
       .from('defect_history')
       .select(
-        'id, changed_by, old_status, new_status, notes, action, ai_description, final_description, ai_standard_reference, changed_at'
+        'id, changed_by, old_status, new_status, notes, action, ai_description, final_description, ai_standard_reference, created_at'
       )
       .eq('defect_id', defectId)
-      .order('changed_at', { ascending: false })
+      .order('created_at', { ascending: false })
     if (historyErr) {
       setHistoryError(historyErr.message)
     }
@@ -541,7 +541,7 @@ export default function DefectDetailPage() {
                         (h.old_status && h.new_status ? `${h.old_status} → ${h.new_status}` : 'Updated')}
                     </span>
                     <span className="whitespace-nowrap text-xs text-deck-mute">
-                      {new Date(h.changed_at).toLocaleString()}
+                      {new Date(h.created_at).toLocaleString()}
                     </span>
                   </div>
                   <p className="mt-0.5 text-xs text-deck-dim">

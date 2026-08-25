@@ -158,12 +158,15 @@ export async function POST(req: NextRequest) {
 
     let feedbackExamples: FeedbackExample[] = []
     if (project?.company_name) {
-      const { data: history } = await supabase
+      const { data: history, error: historyError } = await supabase
         .from('defect_history')
         .select('new_status, notes, defects(description, ai_description, project_id, element_type, projects(company_name))')
         .in('new_status', ['confirmed', 'rejected'])
-        .order('changed_at', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(80)
+      if (historyError) {
+        console.error('Failed to load defect_history feedback examples:', historyError)
+      }
 
       const relevant = (history || [])
         .filter((h: any) => {
