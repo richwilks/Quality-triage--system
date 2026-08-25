@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import PageHeader from '@/components/PageHeader'
+import FileDropZone from '@/components/FileDropZone'
 
 type Project = { id: string; name: string }
 type Drawing = { id: string; name: string | null; image_url: string | null }
@@ -151,12 +152,13 @@ function DrawingsPageInner() {
             placeholder="e.g. Level 2 Floor Plan"
             className="mt-2 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
           />
-          <input
-            type="file"
+          <FileDropZone
+            onFiles={(files) => setFile(files[0])}
             accept="image/*"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
-            className="mt-2 w-full text-sm"
-          />
+            className="mt-2 flex cursor-pointer items-center justify-center rounded-md border-2 border-dashed border-deck-border px-3 py-4 text-center text-sm text-deck-dim"
+          >
+            {file ? file.name : 'Choose a drawing, or drag and drop it here'}
+          </FileDropZone>
           <button
             onClick={handleUpload}
             disabled={uploading || !file || !projectId}

@@ -9,6 +9,7 @@ import MeasurementFields, { MeasurementData } from '@/components/MeasurementFiel
 import ClauseViewer from '@/components/ClauseViewer'
 import CameraCapture, { OrientationHint } from '@/components/CameraCapture'
 import { useActiveInspection } from '@/components/ActiveInspectionContext'
+import FileDropZone from '@/components/FileDropZone'
 
 type Project = { id: string; name: string }
 type Partner = { id: string; full_name: string | null; company_name: string | null }
@@ -180,13 +181,6 @@ function NewDefectPageInner() {
     setError(null)
     setDuplicateWarning(null)
     setPreview(URL.createObjectURL(selected))
-  }
-
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const selected = e.target.files?.[0]
-    if (!selected) return
-    // Photo picked from the gallery rather than taken live - no orientation-at-capture signal available.
-    applySelectedFile(selected, null)
   }
 
   function handleCameraCapture(captured: File, orientation: OrientationHint | null) {
@@ -531,16 +525,15 @@ function NewDefectPageInner() {
               >
                 Take photo
               </button>
-              <label className="flex-1 cursor-pointer rounded-md border border-deck-border px-3 py-2 text-center text-sm font-medium text-deck-text">
+              <FileDropZone
+                onFiles={(files) => applySelectedFile(files[0], null)}
+                accept="image/*"
+                className="flex-1 cursor-pointer rounded-md border border-deck-border px-3 py-2 text-center text-sm font-medium text-deck-text"
+              >
                 Choose from library
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-              </label>
+              </FileDropZone>
             </div>
+            <p className="mt-1 text-xs text-deck-mute">You can also drag and drop a photo onto "Choose from library".</p>
             {orientationHint && (
               <p className="mt-1 text-xs text-deck-dim">
                 Camera orientation captured - will be used as a supporting signal for analysis.

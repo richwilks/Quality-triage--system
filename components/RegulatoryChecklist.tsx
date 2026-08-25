@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
 import StackedBar from '@/components/charts/StackedBar'
+import FileDropZone from '@/components/FileDropZone'
 import { REG38_ITEMS, GOLDEN_THREAD_ITEMS, Reg38ItemDef, Reg38Regime } from '@/lib/reg38Checklist'
 
 type Project = { id: string; name: string; higher_risk_building: boolean }
@@ -218,18 +219,13 @@ export default function RegulatoryChecklist({ regime }: { regime: Reg38Regime })
         )}
 
         <div className="mt-2 flex items-center gap-3">
-          <label className="cursor-pointer text-xs font-medium text-deck-accent underline">
-            {uploadingKey === def.key ? 'Uploading...' : row ? 'Replace document' : 'Upload document'}
-            <input
-              type="file"
-              className="hidden"
-              disabled={uploadingKey === def.key}
-              onChange={(e) => {
-                const f = e.target.files?.[0]
-                if (f) handleUpload(def, f)
-              }}
-            />
-          </label>
+          <FileDropZone
+            onFiles={(files) => handleUpload(def, files[0])}
+            disabled={uploadingKey === def.key}
+            className="cursor-pointer text-xs font-medium text-deck-accent underline"
+          >
+            {uploadingKey === def.key ? 'Uploading...' : row ? 'Replace document (or drag and drop)' : 'Upload document (or drag and drop)'}
+          </FileDropZone>
           {isOwner && status === 'uploaded' && (
             <button onClick={() => handleApprove(def.key)} className="text-xs font-medium text-deck-success underline">
               Approve

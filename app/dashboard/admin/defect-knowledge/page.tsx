@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
 import CameraCapture from '@/components/CameraCapture'
 import PolygonBoxEditor, { Point } from '@/components/PolygonBoxEditor'
+import FileDropZone from '@/components/FileDropZone'
 
 type KnowledgeRow = {
   id: string
@@ -276,8 +277,8 @@ export default function DefectKnowledgeAdminPage() {
     load()
   }
 
-  function handleCsvSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0] || null
+  function handleCsvSelect(files: File[]) {
+    const file = files[0] || null
     setCsvFile(file)
     setImportResults(null)
     setImportPreview([])
@@ -471,18 +472,13 @@ export default function DefectKnowledgeAdminPage() {
               >
                 Take photo
               </button>
-              <label className="flex-1 cursor-pointer rounded-md border border-deck-border px-3 py-2 text-center text-sm font-medium text-deck-text">
+              <FileDropZone
+                onFiles={(files) => applySelectedPhoto(files[0])}
+                accept="image/*"
+                className="flex-1 cursor-pointer rounded-md border border-deck-border px-3 py-2 text-center text-sm font-medium text-deck-text"
+              >
                 Choose from library
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0]
-                    if (f) applySelectedPhoto(f)
-                  }}
-                />
-              </label>
+              </FileDropZone>
             </div>
             {photoPreview && (
               <div className="relative mt-2 w-full">
@@ -509,12 +505,13 @@ export default function DefectKnowledgeAdminPage() {
             Columns required: <span className="font-mono">title, element_type, country, applicable_standards, defect_description</span>. Only <span className="font-mono">title</span> and <span className="font-mono">defect_description</span> are required per row - the rest can be left blank.
           </p>
 
-          <input
-            type="file"
+          <FileDropZone
+            onFiles={handleCsvSelect}
             accept=".csv"
-            onChange={handleCsvSelect}
-            className="mt-3 w-full text-sm"
-          />
+            className="mt-3 flex cursor-pointer items-center justify-center rounded-md border-2 border-dashed border-deck-border px-3 py-4 text-center text-sm text-deck-dim"
+          >
+            {csvFile ? csvFile.name : 'Choose a CSV, or drag and drop it here'}
+          </FileDropZone>
 
           {importPreview.length > 0 && (
             <div className="mt-3 rounded-md border border-deck-border bg-deck-raised p-3">
