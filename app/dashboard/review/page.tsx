@@ -352,11 +352,19 @@ export default function ReviewDefectsPage() {
         .eq('id', defect.id)
       if (updateError) throw updateError
 
+      const aiText = (defect.ai_description || '').trim()
+      const finalText = (editedText[defect.id] || '').trim()
+      const action = aiText === finalText ? 'confirmed' : 'edited'
+
       await supabase.from('defect_history').insert({
         defect_id: defect.id,
         changed_by: user?.id,
         old_status: 'draft',
         new_status: newStatus,
+        action,
+        ai_description: defect.ai_description,
+        final_description: editedText[defect.id],
+        ai_standard_reference: defect.standard_reference,
       })
 
       await addConfirmedDefectToKnowledgeBase(
@@ -418,6 +426,9 @@ export default function ReviewDefectsPage() {
         old_status: 'draft',
         new_status: 'rejected',
         notes: rejectReason || null,
+        action: 'rejected',
+        ai_description: defect.ai_description,
+        ai_standard_reference: defect.standard_reference,
       })
 
       setDefects((prev) => prev.filter((d) => d.id !== defect.id))
