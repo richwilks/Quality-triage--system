@@ -12,6 +12,7 @@ type CostEntry = {
   project_id: string
   label: string
   amount: number
+  billed_amount: number | null
   category: string | null
   frequency: CostFrequency
   quantity: number
@@ -49,6 +50,22 @@ const FREQUENCY_QUANTITY_HINT: Record<CostFrequency, string> = {
 
 function monthlyEquivalent(e: Pick<CostEntry, 'amount' | 'quantity' | 'frequency'>) {
   return e.amount * (e.quantity || 1) * FREQUENCY_MONTHLY_MULTIPLIER[e.frequency]
+}
+
+// What this entry actually bills, per occurrence: the entry's own billed
+// amount if one was set (e.g. cost £300/day, billed £350/day - a known,
+// specific margin), otherwise the manual markup % applied to cost.
+function entryBilledRate(e: Pick<CostEntry, 'amount' | 'billed_amount'>, manualMarkupPercent: number) {
+  return e.billed_amount !== null && e.billed_amount !== undefined
+    ? e.billed_amount
+    : e.amount * (1 + manualMarkupPercent / 100)
+}
+
+function entryRevenueMonthlyEquivalent(
+  e: Pick<CostEntry, 'amount' | 'billed_amount' | 'quantity' | 'frequency'>,
+  manualMarkupPercent: number
+) {
+  return entryBilledRate(e, manualMarkupPercent) * (e.quantity || 1) * FREQUENCY_MONTHLY_MULTIPLIER[e.frequency]
 }
 
 function money(n: number) {
@@ -91,6 +108,7 @@ export default function CommercialPage() {
   const [entryProjectId, setEntryProjectId] = useState('')
   const [entryLabel, setEntryLabel] = useState('')
   const [entryAmount, setEntryAmount] = useState('')
+  const [entryBilledAmount, setEntryBilledAmount] = useState('')
   const [entryCategory, setEntryCategory] = useState('')
   const [entryFrequency, setEntryFrequency] = useState<CostFrequency>('one_off')
   const [entryQuantity, setEntryQuantity] = useState('1')
@@ -137,7 +155,9 @@ export default function CommercialPage() {
     ] = await Promise.all([
       supabase.from('projects').select('id, name, company_name'),
       supabase.from('analysis_log').select('project_id, company_name, estimated_cost, created_at'),
-      supabase.from('project_cost_entries').select('id, project_id, label, amount, category, frequency, quantity, entered_at'),
+      supabase
+        .from('project_cost_entries')
+        .select('id, project_id, label, amount, billed_amount, category, frequency, quantity, entered_at'),
       supabase.from('company_billing').select('company_name, monthly_retainer, vat_rate_percent, notes'),
       supabase.from('commercial_settings').select('default_markup_percent, manual_markup_percent').maybeSingle(),
       supabase.from('project_billing').select('project_id, markup_percent'),
@@ -304,6 +324,7 @@ export default function CommercialPage() {
         project_id: entryProjectId,
         label: entryLabel,
         amount: parseFloat(entryAmount) || 0,
+        billed_amount: entryBilledAmount.trim() === '' ? null : parseFloat(entryBilledAmount) || 0,
         category: entryCategory || null,
         frequency: entryFrequency,
         quantity: entryFrequency === 'one_off' ? 1 : parseFloat(entryQuantity) || 1,
@@ -319,6 +340,7 @@ export default function CommercialPage() {
       setCostEntries((prev) => [...prev, data as CostEntry])
       setEntryLabel('')
       setEntryAmount('')
+      setEntryBilledAmount('')
       setEntryCategory('')
       setEntryFrequency('one_off')
       setEntryQuantity('1')
@@ -362,9 +384,12 @@ export default function CommercialPage() {
       aiCost30: number
       countAll: number
       count30: number
-      manualOneOffAll: number
-      manualOneOff30: number
-      manualRecurringMonthly: number
+      manualOneOffCostAll: number
+      manualOneOffCost30: number
+      manualOneOffRevenueAll: number
+      manualOneOffRevenue30: number
+      manualRecurringCostMonthly: number
+      manualRecurringRevenueMonthly: number
     }
   > = {}
   function ensureProject(id: string) {
@@ -374,9 +399,12 @@ export default function CommercialPage() {
         aiCost30: 0,
         countAll: 0,
         count30: 0,
-        manualOneOffAll: 0,
-        manualOneOff30: 0,
-        manualRecurringMonthly: 0,
+        manualOneOffCostAll: 0,
+        manualOneOffCost30: 0,
+        manualOneOffRevenueAll: 0,
+        manualOneOffRevenue30: 0,
+        manualRecurringCostMonthly: 0,
+        manualRecurringRevenueMonthly: 0,
       }
     }
     return projectStats[id]
@@ -399,13 +427,19 @@ export default function CommercialPage() {
     const s = ensureProject(e.project_id)
     if (e.frequency === 'one_off') {
       const recent = now - new Date(e.entered_at).getTime() <= THIRTY_DAYS_MS
-      s.manualOneOffAll += e.amount
-      if (recent) s.manualOneOff30 += e.amount
+      const revenue = entryBilledRate(e, manualMarkupPercent)
+      s.manualOneOffCostAll += e.amount
+      s.manualOneOffRevenueAll += revenue
+      if (recent) {
+        s.manualOneOffCost30 += e.amount
+        s.manualOneOffRevenue30 += revenue
+      }
     } else {
       // Recurring costs are an ongoing commitment, not a historical entry -
       // always counted toward the forward-looking monthly projection,
       // regardless of when they were added.
-      s.manualRecurringMonthly += monthlyEquivalent(e)
+      s.manualRecurringCostMonthly += monthlyEquivalent(e)
+      s.manualRecurringRevenueMonthly += entryRevenueMonthlyEquivalent(e, manualMarkupPercent)
     }
   })
 
@@ -416,23 +450,24 @@ export default function CommercialPage() {
         aiCost30: 0,
         countAll: 0,
         count30: 0,
-        manualOneOffAll: 0,
-        manualOneOff30: 0,
-        manualRecurringMonthly: 0,
+        manualOneOffCostAll: 0,
+        manualOneOffCost30: 0,
+        manualOneOffRevenueAll: 0,
+        manualOneOffRevenue30: 0,
+        manualRecurringCostMonthly: 0,
+        manualRecurringRevenueMonthly: 0,
       }
     const company = p.company_name || 'Unassigned'
     const aiMarkup = projectBilling[p.id] ?? defaultMarkupPercent
     const usesDefault = projectBilling[p.id] === undefined || projectBilling[p.id] === null
 
-    const totalCostAll = s.aiCostAll + s.manualOneOffAll
+    const totalCostAll = s.aiCostAll + s.manualOneOffCostAll
     const aiRevenueAll = s.aiCostAll * (1 + aiMarkup / 100)
-    const manualRevenueAll = s.manualOneOffAll * (1 + manualMarkupPercent / 100)
-    const usageRevenueAll = aiRevenueAll + manualRevenueAll
+    const usageRevenueAll = aiRevenueAll + s.manualOneOffRevenueAll
 
-    const projectedMonthlyCost = s.aiCost30 + s.manualOneOff30 + s.manualRecurringMonthly
+    const projectedMonthlyCost = s.aiCost30 + s.manualOneOffCost30 + s.manualRecurringCostMonthly
     const aiRevenue30 = s.aiCost30 * (1 + aiMarkup / 100)
-    const manualRevenue30 = (s.manualOneOff30 + s.manualRecurringMonthly) * (1 + manualMarkupPercent / 100)
-    const usageRevenue30 = aiRevenue30 + manualRevenue30
+    const usageRevenue30 = aiRevenue30 + s.manualOneOffRevenue30 + s.manualRecurringRevenueMonthly
 
     return {
       project: p,
@@ -440,8 +475,10 @@ export default function CommercialPage() {
       aiMarkup,
       usesDefault,
       aiCostAll: s.aiCostAll,
-      manualOneOffAll: s.manualOneOffAll,
-      manualRecurringMonthly: s.manualRecurringMonthly,
+      manualOneOffAll: s.manualOneOffCostAll,
+      manualOneOffRevenueAll: s.manualOneOffRevenueAll,
+      manualRecurringMonthly: s.manualRecurringCostMonthly,
+      manualRecurringRevenueMonthly: s.manualRecurringRevenueMonthly,
       totalCostAll,
       countAll: s.countAll,
       usageRevenueAll,
@@ -552,8 +589,9 @@ export default function CommercialPage() {
           <div className="rounded-xl border border-deck-border bg-deck-surface p-4">
             <p className="text-sm font-medium text-deck-body">Manual cost markup</p>
             <p className="mt-0.5 text-xs text-deck-dim">
-              Applied automatically to every manual cost entry, one-off or recurring - separate from the AI markup
-              above, and the same rate across all projects.
+              The fallback billed rate for a manual cost entry when you haven't set one directly: cost &times; (1 +
+              markup%). Set a "Billed amount" on an individual entry below to override this with a known rate
+              instead (e.g. cost £300/day, billed £350/day).
             </p>
             <div className="mt-2 flex items-center gap-2">
               <input
@@ -786,29 +824,39 @@ export default function CommercialPage() {
                         <div className="mt-1.5 space-y-1">
                           {costEntries
                             .filter((e) => e.project_id === r.project.id)
-                            .map((e) => (
-                              <div key={e.id} className="flex items-center justify-between text-xs">
-                                <span className="text-deck-body">
-                                  {e.label}
-                                  {e.category ? ` · ${e.category}` : ''}
-                                  {e.frequency !== 'one_off' && (
+                            .map((e) => {
+                              const billedRate = entryBilledRate(e, manualMarkupPercent)
+                              const marginPerOccurrence = billedRate - e.amount
+                              return (
+                                <div key={e.id} className="flex items-center justify-between text-xs">
+                                  <span className="text-deck-body">
+                                    {e.label}
+                                    {e.category ? ` · ${e.category}` : ''}
+                                    {e.frequency !== 'one_off' && (
+                                      <span className="ml-1 text-deck-mute">
+                                        ({FREQUENCY_LABELS[e.frequency]}
+                                        {e.quantity !== 1 ? ` × ${e.quantity}` : ''} &middot; &asymp; {money(entryRevenueMonthlyEquivalent(e, manualMarkupPercent))}/mo billed)
+                                      </span>
+                                    )}
                                     <span className="ml-1 text-deck-mute">
-                                      ({FREQUENCY_LABELS[e.frequency]}
-                                      {e.quantity !== 1 ? ` × ${e.quantity}` : ''} &middot; &asymp; {money(monthlyEquivalent(e))}/mo)
+                                      - cost {money(e.amount)}, billed {money(billedRate)}
+                                      {e.billed_amount === null ? ' (auto-markup)' : ' (set)'}, margin{' '}
+                                      <span className={marginPerOccurrence >= 0 ? 'text-deck-success' : 'text-red-600'}>
+                                        {money(marginPerOccurrence)}
+                                      </span>
                                     </span>
-                                  )}
-                                </span>
-                                <span className="flex items-center gap-2">
-                                  <span className="font-medium text-deck-text">{money(e.amount)}</span>
-                                  <button
-                                    onClick={() => handleDeleteCostEntry(e.id)}
-                                    className="text-red-600 underline"
-                                  >
-                                    Remove
-                                  </button>
-                                </span>
-                              </div>
-                            ))}
+                                  </span>
+                                  <span className="flex items-center gap-2">
+                                    <button
+                                      onClick={() => handleDeleteCostEntry(e.id)}
+                                      className="text-red-600 underline"
+                                    >
+                                      Remove
+                                    </button>
+                                  </span>
+                                </div>
+                              )
+                            })}
                           {costEntries.filter((e) => e.project_id === r.project.id).length === 0 && (
                             <p className="text-xs text-deck-dim">No manual cost entries on this project.</p>
                           )}
@@ -855,26 +903,42 @@ export default function CommercialPage() {
 
           <div className="mt-2 grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-xs font-medium text-deck-body">Amount</label>
+              <label className="block text-xs font-medium text-deck-body">Cost</label>
               <input
                 type="number"
                 step="0.01"
                 value={entryAmount}
                 onChange={(e) => setEntryAmount(e.target.value)}
-                className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text"
+                placeholder="What you pay"
+                className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-deck-body">Category (optional)</label>
+              <label className="block text-xs font-medium text-deck-body">Billed amount (optional)</label>
               <input
-                type="text"
-                value={entryCategory}
-                onChange={(e) => setEntryCategory(e.target.value)}
-                placeholder="e.g. labour, overhead"
+                type="number"
+                step="0.01"
+                value={entryBilledAmount}
+                onChange={(e) => setEntryBilledAmount(e.target.value)}
+                placeholder="What you charge"
                 className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
               />
             </div>
           </div>
+          <p className="mt-1 text-[10px] text-deck-mute">
+            Leave "Billed amount" blank to auto-bill at cost &times; the manual cost markup % above. Set it directly
+            when you already know the margin - e.g. cost £300/day, billed £350/day = £50 margin per day, regardless
+            of the markup setting.
+          </p>
+
+          <label className="mt-2 block text-xs font-medium text-deck-body">Category (optional)</label>
+          <input
+            type="text"
+            value={entryCategory}
+            onChange={(e) => setEntryCategory(e.target.value)}
+            placeholder="e.g. labour, overhead"
+            className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
+          />
 
           <div className="mt-2 grid grid-cols-2 gap-2">
             <div>
@@ -912,8 +976,16 @@ export default function CommercialPage() {
                 amount: parseFloat(entryAmount) || 0,
                 quantity: parseFloat(entryQuantity) || 1,
                 frequency: entryFrequency,
-              }))}/month, feeding the forecast above - excluded from the all-time cost total since it's an ongoing
-              commitment, not a fixed historical charge.
+              }))}/month cost, {money(entryRevenueMonthlyEquivalent(
+                {
+                  amount: parseFloat(entryAmount) || 0,
+                  billed_amount: entryBilledAmount.trim() === '' ? null : parseFloat(entryBilledAmount) || 0,
+                  quantity: parseFloat(entryQuantity) || 1,
+                  frequency: entryFrequency,
+                },
+                manualMarkupPercent
+              ))}/month billed - feeding the forecast above. Excluded from the all-time cost total since it's an
+              ongoing commitment, not a fixed historical charge.
             </p>
           )}
 
