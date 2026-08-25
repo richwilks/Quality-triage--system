@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
 import FileDropZone from '@/components/FileDropZone'
+import { REPORT_LAYOUTS } from '@/lib/reg38ReportLayouts'
+import { REPORT_TEMPLATE_TOKENS } from '@/lib/reg38ReportTemplate'
 
 type ProjectRow = { id: string; name: string; status: string }
 type UserRow = { id: string; full_name: string | null; email: string | null; account_type: string | null }
@@ -15,6 +17,9 @@ type BrandingRow = {
   feature_branded_reports: boolean
   feature_reg38_custom_template: boolean
   reg38_template_name: string | null
+  reg38_report_layout: string | null
+  feature_reg38_custom_layout: boolean
+  reg38_custom_html_template: string | null
 }
 
 const ACCOUNT_TYPES = ['employee', 'contractor', 'client_agent', 'client']
@@ -41,6 +46,11 @@ export default function CompanyAdminPage() {
 
   const [uploadingTemplate, setUploadingTemplate] = useState(false)
   const [templateMessage, setTemplateMessage] = useState<string | null>(null)
+
+  const [selectedLayout, setSelectedLayout] = useState('classic')
+  const [savingLayout, setSavingLayout] = useState(false)
+  const [layoutMessage, setLayoutMessage] = useState<string | null>(null)
+  const [uploadingCustomLayout, setUploadingCustomLayout] = useState(false)
 
   useEffect(() => {
     load()
@@ -82,7 +92,7 @@ export default function CompanyAdminPage() {
     const { data: brandingData } = await supabase
       .from('company_settings')
       .select(
-        'white_label_enabled, logo_url, accent_color, feature_branded_reports, feature_reg38_custom_template, reg38_template_name'
+        'white_label_enabled, logo_url, accent_color, feature_branded_reports, feature_reg38_custom_template, reg38_template_name, reg38_report_layout, feature_reg38_custom_layout, reg38_custom_html_template'
       )
       .ilike('company_name', profile.company_name)
       .maybeSingle()
@@ -90,6 +100,7 @@ export default function CompanyAdminPage() {
     if (brandingData) {
       setBranding(brandingData)
       if (brandingData.accent_color) setAccentColor(brandingData.accent_color)
+      if (brandingData.reg38_report_layout) setSelectedLayout(brandingData.reg38_report_layout)
     }
 
     setLoading(false)
@@ -196,6 +207,9 @@ export default function CompanyAdminPage() {
         feature_branded_reports: prev?.feature_branded_reports || false,
         feature_reg38_custom_template: prev?.feature_reg38_custom_template || false,
         reg38_template_name: prev?.reg38_template_name || null,
+        reg38_report_layout: prev?.reg38_report_layout || null,
+        feature_reg38_custom_layout: prev?.feature_reg38_custom_layout || false,
+        reg38_custom_html_template: prev?.reg38_custom_html_template || null,
         logo_url: logoUrl,
         accent_color: accentColor,
       }))
@@ -235,6 +249,54 @@ export default function CompanyAdminPage() {
       setTemplateMessage(result.error || 'Could not save template')
     }
     setUploadingTemplate(false)
+  }
+
+  async function handleSaveLayout(layoutKey: string) {
+    setSavingLayout(true)
+    setLayoutMessage(null)
+
+    const { error } = await supabase.rpc('update_company_reg38_layout', {
+      target_company: companyName,
+      layout_key: layoutKey,
+      custom_html: null,
+    })
+
+    if (error) {
+      setLayoutMessage(`Could not save: ${error.message}`)
+    } else {
+      setSelectedLayout(layoutKey)
+      setBranding((prev) => (prev ? { ...prev, reg38_report_layout: layoutKey } : prev))
+      setLayoutMessage('Layout saved.')
+    }
+    setSavingLayout(false)
+  }
+
+  function handleCustomLayoutFile(file: File) {
+    setUploadingCustomLayout(true)
+    setLayoutMessage(null)
+
+    const reader = new FileReader()
+    reader.onload = async (event) => {
+      const html = (event.target?.result as string) || ''
+      const { error } = await supabase.rpc('update_company_reg38_layout', {
+        target_company: companyName,
+        layout_key: selectedLayout,
+        custom_html: html,
+      })
+
+      if (error) {
+        setLayoutMessage(`Could not save custom layout: ${error.message}`)
+      } else {
+        setBranding((prev) => (prev ? { ...prev, reg38_custom_html_template: html } : prev))
+        setLayoutMessage('Custom layout saved - it will be used on your next generated Regulation 38 report.')
+      }
+      setUploadingCustomLayout(false)
+    }
+    reader.onerror = () => {
+      setLayoutMessage('Could not read that file.')
+      setUploadingCustomLayout(false)
+    }
+    reader.readAsText(file)
   }
 
   if (loading) {
@@ -424,6 +486,86 @@ export default function CompanyAdminPage() {
               Reports use InspectIQ's standard template. Contact us to unlock uploading your own report template.
             </p>
           )}
+        </div>
+
+        <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
+          <p className="text-sm font-medium text-deck-body">Report layout &amp; design</p>
+          <p className="mt-1 text-xs text-deck-dim">
+            Controls the cover page, contents page, and visual style of generated Regulation 38 / Golden Thread
+            reports (separate from the content structure above). Pick one of our layouts, or upload your own.
+          </p>
+
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {REPORT_LAYOUTS.map((l) => (
+              <button
+                key={l.key}
+                onClick={() => handleSaveLayout(l.key)}
+                disabled={savingLayout}
+                className={`rounded-lg border p-3 text-left disabled:opacity-50 ${
+                  selectedLayout === l.key && !branding?.reg38_custom_html_template
+                    ? 'border-deck-accent bg-deck-raised'
+                    : 'border-deck-border'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: l.defaultAccent }} />
+                  <span className="text-sm font-medium text-deck-text">{l.name}</span>
+                  {selectedLayout === l.key && !branding?.reg38_custom_html_template && (
+                    <span className="ml-auto text-xs font-medium text-deck-accent">Selected</span>
+                  )}
+                </div>
+                <p className="mt-1 text-xs text-deck-dim">{l.description}</p>
+              </button>
+            ))}
+          </div>
+
+          {branding?.feature_reg38_custom_layout ? (
+            <div className="mt-4 border-t border-deck-border pt-4">
+              <p className="text-sm font-medium text-deck-body">Custom HTML layout</p>
+              <p className="mt-1 text-xs text-deck-dim">
+                Upload your own HTML/CSS report design - fonts, colours, and page structure entirely your own. It
+                overrides the preset above once uploaded. Use inline &lt;style&gt; only (no external stylesheets or
+                scripts - those are stripped for security). Build it around these merge tokens, substituted with
+                real report data:
+              </p>
+              <div className="mt-2 max-h-32 overflow-y-auto rounded-md bg-deck-raised p-2">
+                {REPORT_TEMPLATE_TOKENS.map((t) => (
+                  <p key={t.token} className="text-[11px] text-deck-dim">
+                    <span className="font-mono font-medium text-deck-body">{`{{${t.token}}}`}</span> - {t.description}
+                  </p>
+                ))}
+              </div>
+              {branding.reg38_custom_html_template && (
+                <p className="mt-2 text-xs font-medium text-deck-success">Custom layout uploaded - currently in use.</p>
+              )}
+              <FileDropZone
+                onFiles={(files) => handleCustomLayoutFile(files[0])}
+                accept=".html,.htm"
+                disabled={uploadingCustomLayout}
+                className="mt-2 inline-block cursor-pointer rounded-md border border-deck-border px-4 py-2 text-sm font-medium text-deck-body"
+              >
+                {uploadingCustomLayout
+                  ? 'Uploading...'
+                  : branding.reg38_custom_html_template
+                    ? 'Replace custom layout (or drag and drop)'
+                    : 'Upload custom layout (or drag and drop)'}
+              </FileDropZone>
+              {branding.reg38_custom_html_template && (
+                <button
+                  onClick={() => handleSaveLayout(selectedLayout)}
+                  className="ml-3 text-xs font-medium text-red-600 underline"
+                >
+                  Remove custom layout, use preset
+                </button>
+              )}
+            </div>
+          ) : (
+            <p className="mt-3 text-xs text-deck-dim">
+              Contact us to unlock uploading a fully custom HTML report design.
+            </p>
+          )}
+
+          {layoutMessage && <p className="mt-3 text-sm text-deck-body">{layoutMessage}</p>}
         </div>
       </div>
     </div>

@@ -13,9 +13,13 @@ type Project = { id: string; name: string; higher_risk_building: boolean }
 type ItemRow = {
   item_key: string
   status: 'missing' | 'uploaded' | 'approved'
-  document_url: string | null
-  document_name: string | null
   notes: string | null
+}
+type DocumentRow = {
+  id: string
+  item_key: string
+  document_url: string
+  document_name: string
 }
 
 const STATUS_LABELS: Record<ItemRow['status'], string> = {
@@ -41,6 +45,7 @@ export default function RegulatoryChecklist({ regime }: { regime: Reg38Regime })
 
   const [project, setProject] = useState<Project | null>(null)
   const [items, setItems] = useState<Record<string, ItemRow>>({})
+  const [documents, setDocuments] = useState<Record<string, DocumentRow[]>>({})
   const [isOwner, setIsOwner] = useState(false)
   const [loading, setLoading] = useState(true)
   const [uploadingKey, setUploadingKey] = useState<string | null>(null)
@@ -59,15 +64,27 @@ export default function RegulatoryChecklist({ regime }: { regime: Reg38Regime })
       .single()
     setProject(projectData)
 
-    const { data: itemData } = await supabase
-      .from('project_reg38_items')
-      .select('item_key, status, document_url, document_name, notes')
-      .eq('project_id', projectId)
+    const [{ data: itemData }, { data: documentData }] = await Promise.all([
+      supabase.from('project_reg38_items').select('item_key, status, notes').eq('project_id', projectId),
+      supabase
+        .from('project_reg38_documents')
+        .select('id, item_key, document_url, document_name')
+        .eq('project_id', projectId)
+        .order('uploaded_at', { ascending: true }),
+    ])
+
     const byKey: Record<string, ItemRow> = {}
     ;(itemData || []).forEach((r: any) => {
       byKey[r.item_key] = r
     })
     setItems(byKey)
+
+    const docsByKey: Record<string, DocumentRow[]> = {}
+    ;(documentData || []).forEach((d: any) => {
+      if (!docsByKey[d.item_key]) docsByKey[d.item_key] = []
+      docsByKey[d.item_key].push(d)
+    })
+    setDocuments(docsByKey)
 
     const {
       data: { user },
@@ -85,7 +102,7 @@ export default function RegulatoryChecklist({ regime }: { regime: Reg38Regime })
     setLoading(false)
   }
 
-  async function handleUpload(item: Reg38ItemDef, file: File) {
+  async function handleUpload(item: Reg38ItemDef, files: File[]) {
     setUploadingKey(item.key)
     setError(null)
 
@@ -93,47 +110,62 @@ export default function RegulatoryChecklist({ regime }: { regime: Reg38Regime })
       data: { user },
     } = await supabase.auth.getUser()
 
-    const path = `${projectId}/${item.key}-${Date.now()}-${file.name}`
-    const { error: uploadError } = await supabase.storage.from('reg38-documents').upload(path, file)
-    if (uploadError) {
-      setError(`Upload failed: ${uploadError.message}`)
-      setUploadingKey(null)
-      return
-    }
+    const uploaded: DocumentRow[] = []
+    for (const file of files) {
+      const path = `${projectId}/${item.key}-${Date.now()}-${file.name}`
+      const { error: uploadError } = await supabase.storage.from('reg38-documents').upload(path, file)
+      if (uploadError) {
+        setError(`Upload failed for ${file.name}: ${uploadError.message}`)
+        continue
+      }
 
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from('reg38-documents').getPublicUrl(path)
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from('reg38-documents').getPublicUrl(path)
 
-    const { error: upsertError } = await supabase.from('project_reg38_items').upsert(
-      {
-        project_id: projectId,
-        item_key: item.key,
-        regime: item.regime,
-        status: 'uploaded',
-        document_url: publicUrl,
-        document_name: file.name,
-        uploaded_by: user?.id,
-        uploaded_at: new Date().toISOString(),
-      },
-      { onConflict: 'project_id,item_key' }
-    )
-
-    if (upsertError) {
-      setError(`Could not save: ${upsertError.message}`)
-    } else {
-      setItems((prev) => ({
-        ...prev,
-        [item.key]: {
+      const { data: docRow, error: insertError } = await supabase
+        .from('project_reg38_documents')
+        .insert({
+          project_id: projectId,
           item_key: item.key,
-          status: 'uploaded',
           document_url: publicUrl,
           document_name: file.name,
-          notes: prev[item.key]?.notes || null,
-        },
-      }))
+          uploaded_by: user?.id,
+        })
+        .select('id, item_key, document_url, document_name')
+        .single()
+
+      if (insertError || !docRow) {
+        setError(`Could not save ${file.name}: ${insertError?.message || 'unknown error'}`)
+        continue
+      }
+      uploaded.push(docRow as DocumentRow)
     }
+
+    if (uploaded.length > 0) {
+      setDocuments((prev) => ({ ...prev, [item.key]: [...(prev[item.key] || []), ...uploaded] }))
+
+      const currentStatus = items[item.key]?.status
+      if (!currentStatus || currentStatus === 'missing') {
+        const { error: upsertError } = await supabase.from('project_reg38_items').upsert(
+          { project_id: projectId, item_key: item.key, regime: item.regime, status: 'uploaded' },
+          { onConflict: 'project_id,item_key' }
+        )
+        if (!upsertError) {
+          setItems((prev) => ({
+            ...prev,
+            [item.key]: { item_key: item.key, status: 'uploaded', notes: prev[item.key]?.notes || null },
+          }))
+        }
+      }
+    }
+
     setUploadingKey(null)
+  }
+
+  async function handleDeleteDocument(itemKey: string, docId: string) {
+    setDocuments((prev) => ({ ...prev, [itemKey]: (prev[itemKey] || []).filter((d) => d.id !== docId) }))
+    await supabase.from('project_reg38_documents').delete().eq('id', docId)
   }
 
   async function handleApprove(itemKey: string) {
@@ -198,41 +230,73 @@ export default function RegulatoryChecklist({ regime }: { regime: Reg38Regime })
   function renderItem(def: Reg38ItemDef) {
     const row = items[def.key]
     const status = row?.status || 'missing'
+    const docs = documents[def.key] || []
+    const isUploading = uploadingKey === def.key
 
     return (
-      <div key={def.key} className="rounded-lg border border-deck-border bg-deck-surface p-3">
+      <FileDropZone
+        key={def.key}
+        onFiles={(files) => handleUpload(def, files)}
+        multiple
+        disabled={isUploading}
+        className="cursor-pointer rounded-lg border border-deck-border bg-deck-surface p-3 transition-colors"
+        dragActiveClassName="border-deck-accent bg-deck-raised ring-2 ring-deck-accent"
+      >
         <div className="flex items-start justify-between gap-2">
           <p className="text-sm font-medium text-deck-text">{def.label}</p>
           <span className={`shrink-0 text-xs font-semibold ${STATUS_COLORS[status]}`}>{STATUS_LABELS[status]}</span>
         </div>
         <p className="mt-1 text-xs text-deck-dim">{def.guidance}</p>
 
-        {row?.document_url && (
-          <a
-            href={row.document_url}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-2 inline-block truncate text-xs font-medium text-deck-accent underline"
-          >
-            {row.document_name || 'View document'}
-          </a>
+        {docs.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {docs.map((d) => (
+              <div key={d.id} className="flex items-center justify-between gap-2 rounded-md bg-deck-raised px-2 py-1">
+                <a
+                  href={d.document_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="truncate text-xs font-medium text-deck-accent underline"
+                >
+                  {d.document_name}
+                </a>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleDeleteDocument(def.key, d.id)
+                  }}
+                  aria-label={`Remove ${d.document_name}`}
+                  className="shrink-0 text-sm font-bold leading-none text-red-600"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
         )}
 
-        <div className="mt-2 flex items-center gap-3">
-          <FileDropZone
-            onFiles={(files) => handleUpload(def, files[0])}
-            disabled={uploadingKey === def.key}
-            className="cursor-pointer text-xs font-medium text-deck-accent underline"
-          >
-            {uploadingKey === def.key ? 'Uploading...' : row ? 'Replace document (or drag and drop)' : 'Upload document (or drag and drop)'}
-          </FileDropZone>
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <p className="text-xs text-deck-mute">
+            {isUploading
+              ? 'Uploading...'
+              : docs.length > 0
+                ? 'Drop more documents anywhere here, or click to browse'
+                : 'Drop documents anywhere here, or click to browse'}
+          </p>
           {isOwner && status === 'uploaded' && (
-            <button onClick={() => handleApprove(def.key)} className="text-xs font-medium text-deck-success underline">
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                handleApprove(def.key)
+              }}
+              className="shrink-0 text-xs font-medium text-deck-success underline"
+            >
               Approve
             </button>
           )}
         </div>
-      </div>
+      </FileDropZone>
     )
   }
 
@@ -307,6 +371,9 @@ export default function RegulatoryChecklist({ regime }: { regime: Reg38Regime })
             : project.higher_risk_building
               ? 'Legally required for this Higher-Risk Building under the Building Safety Act 2022.'
               : 'Recommended record-keeping - only legally mandatory for Higher-Risk Buildings.'}
+        </p>
+        <p className="mt-1 text-xs text-deck-mute">
+          Each item takes as many documents as you need - two or twenty. Drop them anywhere on that item's box.
         </p>
         <div className="mt-2 space-y-2">{regimeItems.map(renderItem)}</div>
       </div>

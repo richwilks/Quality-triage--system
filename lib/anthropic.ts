@@ -752,29 +752,35 @@ export type Reg38ItemStatus = {
   label: string
   regime: 'reg38' | 'golden_thread'
   status: 'missing' | 'uploaded' | 'approved'
-  documentName: string | null
+  documentNames: string[]
   notes: string | null
 }
 
-const REG38_STANDARD_STRUCTURE = `1. COVER - project name, address, report date, prepared for
-2. EXECUTIVE SUMMARY - overall readiness for handover, in one paragraph
-3. REGULATION 38 FIRE SAFETY INFORMATION - list each item with its status, and for anything missing, what specifically needs to be obtained and why it matters
-4. GOLDEN THREAD INFORMATION - list each item with its status, noting whether it is legally required for this building (Higher-Risk Building) or recommended good practice
-5. OUTSTANDING ITEMS - a clear, prioritised list of everything still missing before handover can complete
-6. SIGN-OFF - space for the Responsible Person's name, signature, and date of acknowledgement`
+const REG38_STANDARD_STRUCTURE = `1. REGULATION 38 FIRE SAFETY INFORMATION - list each item with its status, and for anything missing, what specifically needs to be obtained and why it matters
+2. GOLDEN THREAD INFORMATION - list each item with its status, noting whether it is legally required for this building (Higher-Risk Building) or recommended good practice
+3. OUTSTANDING ITEMS - a clear, prioritised list of everything still missing before handover can complete
+4. SIGN-OFF - space for the Responsible Person's name, signature, and date of acknowledgement`
 
+export type Reg38ReportSection = { key: string; title: string; body: string }
+export type Reg38StructuredReport = { executiveSummary: string; sections: Reg38ReportSection[] }
+
+// The cover page and table of contents are built by the layout renderer
+// from real project/report data, not by the model - the model's job is
+// just the executive summary plus each body section, returned as
+// structured JSON rather than a flat text blob so the report page can
+// build real anchors, a working contents page, and per-section styling.
 export async function generateReg38Report(
   kind: 'status' | 'handover',
   projectName: string,
   isHigherRiskBuilding: boolean,
   items: Reg38ItemStatus[],
   customTemplateText?: string | null
-): Promise<string> {
+): Promise<Reg38StructuredReport> {
   const itemsText = items
     .map(
       (i) =>
         `- [${i.regime === 'reg38' ? 'Reg 38' : 'Golden Thread'}] ${i.label}: ${i.status}${
-          i.documentName ? ` (document: ${i.documentName})` : ''
+          i.documentNames.length > 0 ? ` (documents: ${i.documentNames.join(', ')})` : ''
         }${i.notes ? ` - note: ${i.notes}` : ''}`
     )
     .join('\n')
@@ -785,12 +791,12 @@ export async function generateReg38Report(
       : "This is the FINAL HANDOVER PACK, generated once the team believes everything is ready - it should read as a completed handover document for the Responsible Person to review and sign, not a to-do list. If items are still missing, say so plainly rather than glossing over them - a handover pack presented as complete when it isn't is worse than an honest status report."
 
   const structureInstruction = customTemplateText
-    ? `Follow this company-specific report structure and section order exactly, using its headings:\n\n${customTemplateText}`
-    : `Follow this standard structure and section order exactly, using these headings:\n\n${REG38_STANDARD_STRUCTURE}`
+    ? `Follow this company-specific report structure and section order exactly, using its headings - each heading becomes one entry in the "sections" array below, in the same order:\n\n${customTemplateText}`
+    : `Follow this standard structure and section order exactly, using these headings - each becomes one entry in the "sections" array below, in the same order:\n\n${REG38_STANDARD_STRUCTURE}`
 
   const prompt = `You are producing a UK Regulation 38 (Building Regulations 2010) fire safety information and Golden Thread (Building Safety Act 2022) ${
     kind === 'status' ? 'status report' : 'handover pack'
-  } for a construction project.
+  } for a construction project. This will be rendered into a designed report with its own cover page and contents page, so you only need to produce the executive summary and body sections, not a cover or a repeated title.
 
 Project: ${projectName}${isHigherRiskBuilding ? ' (Higher-Risk Building - Golden Thread requirements are legally mandatory, not just recommended)' : ' (not flagged as a Higher-Risk Building - Golden Thread items here are recommended record-keeping, not a legal requirement, and the report should say so)'}
 
@@ -801,7 +807,15 @@ ${itemsText || 'No checklist items recorded yet.'}
 
 ${structureInstruction}
 
-Write in plain text (markdown headings ok). Be factual and specific to the checklist status given above - do not invent document content you haven't been told about, and do not claim an item is complete if its status above is "missing". Where an item is "uploaded" but not yet "approved", note that it's awaiting review, not signed off.`
+Be factual and specific to the checklist status given above - do not invent document content you haven't been told about, and do not claim an item is complete if its status above is "missing". Where an item is "uploaded" but not yet "approved", note that it's awaiting review, not signed off.
+
+Respond with ONLY this JSON, no markdown, no other text:
+{
+  "executiveSummary": "one professional paragraph on overall readiness/status - no heading, just the paragraph text",
+  "sections": [
+    { "key": "short-lowercase-hyphenated-slug-of-the-heading", "title": "The heading text, verbatim", "body": "the section's content, plain text, paragraphs separated by a blank line" }
+  ]
+}`
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -812,12 +826,30 @@ Write in plain text (markdown headings ok). Be factual and specific to the check
     },
     body: JSON.stringify({
       model: 'claude-sonnet-5',
-      max_tokens: 3000,
+      max_tokens: 3500,
       messages: [{ role: 'user', content: prompt }],
     }),
   })
 
   const data = await response.json()
   const textBlock = data.content?.find((c: any) => c.type === 'text')
-  return textBlock?.text || 'Could not generate report.'
+  const raw = textBlock?.text || '{}'
+  const cleaned = raw.replace(/```json|```/g, '').trim()
+
+  try {
+    const parsed = JSON.parse(cleaned)
+    const sections: Reg38ReportSection[] = Array.isArray(parsed.sections)
+      ? parsed.sections.map((s: any, i: number) => ({
+          key: typeof s.key === 'string' && s.key ? s.key : `section-${i + 1}`,
+          title: typeof s.title === 'string' ? s.title : `Section ${i + 1}`,
+          body: typeof s.body === 'string' ? s.body : '',
+        }))
+      : []
+    return {
+      executiveSummary: typeof parsed.executiveSummary === 'string' ? parsed.executiveSummary : '',
+      sections,
+    }
+  } catch {
+    return { executiveSummary: '', sections: [{ key: 'report', title: 'Report', body: raw }] }
+  }
 }

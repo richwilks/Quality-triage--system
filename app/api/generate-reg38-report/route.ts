@@ -5,13 +5,7 @@ import { REG38_ALL_ITEMS } from '@/lib/reg38Checklist'
 
 export const maxDuration = 90
 
-const LEGAL_NOTICE = `
-
----
-
-IMPORTANT LEGAL / SCOPE NOTE
-
-This report reflects the checklist status recorded in InspectIQ at the time of generation. It is not a statutory certificate and not legal or fire-safety advice, and it is not itself the Responsible Person's acknowledgement required under Regulation 38 or a substitute for the Building Safety Regulator's own assessment of golden thread information under the Building Safety Act 2022. The underlying checklist reflects our best understanding of these requirements, cross-checked against government and regulator guidance rather than the primary legislation directly - have a suitably qualified fire-safety or building-safety professional confirm what applies to this specific building before relying on this document for compliance purposes.`
+const LEGAL_NOTICE = `This report reflects the checklist status recorded in InspectIQ at the time of generation. It is not a statutory certificate and not legal or fire-safety advice, and it is not itself the Responsible Person's acknowledgement required under Regulation 38 or a substitute for the Building Safety Regulator's own assessment of golden thread information under the Building Safety Act 2022. The underlying checklist reflects our best understanding of these requirements, cross-checked against government and regulator guidance rather than the primary legislation directly - have a suitably qualified fire-safety or building-safety professional confirm what applies to this specific building before relying on this document for compliance purposes.`
 
 export async function POST(req: NextRequest) {
   try {
@@ -28,12 +22,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
 
-    const { data: itemRows } = await supabase
-      .from('project_reg38_items')
-      .select('item_key, status, document_name, notes')
-      .eq('project_id', projectId)
+    const [{ data: itemRows }, { data: documentRows }] = await Promise.all([
+      supabase.from('project_reg38_items').select('item_key, status, notes').eq('project_id', projectId),
+      supabase.from('project_reg38_documents').select('item_key, document_name').eq('project_id', projectId),
+    ])
 
     const itemsByKey = new Map((itemRows || []).map((r) => [r.item_key, r]))
+    const documentNamesByKey = new Map<string, string[]>()
+    ;(documentRows || []).forEach((d: any) => {
+      const list = documentNamesByKey.get(d.item_key) || []
+      list.push(d.document_name)
+      documentNamesByKey.set(d.item_key, list)
+    })
 
     const items: Reg38ItemStatus[] = REG38_ALL_ITEMS.map((def) => {
       const row = itemsByKey.get(def.key)
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
         label: def.label,
         regime: def.regime,
         status: (row?.status as Reg38ItemStatus['status']) || 'missing',
-        documentName: row?.document_name || null,
+        documentNames: documentNamesByKey.get(def.key) || [],
         notes: row?.notes || null,
       }
     })
@@ -59,24 +59,33 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const content = await generateReg38Report(
+    const structured = await generateReg38Report(
       kind,
       project.name,
       !!project.higher_risk_building,
       items,
       customTemplateText
     )
+    structured.sections.push({ key: 'legal-notice', title: 'Important Legal / Scope Note', body: LEGAL_NOTICE })
 
     const {
       data: { user },
     } = await supabase.auth.getUser()
+
+    const { count: priorCount } = await supabase
+      .from('project_reg38_reports')
+      .select('id', { count: 'exact', head: true })
+      .eq('project_id', projectId)
+      .eq('kind', kind)
+    const revision = (priorCount || 0) + 1
 
     const { data: report, error: insertError } = await supabase
       .from('project_reg38_reports')
       .insert({
         project_id: projectId,
         kind,
-        content: content + LEGAL_NOTICE,
+        content: JSON.stringify(structured),
+        revision,
         generated_by: user?.id,
       })
       .select()

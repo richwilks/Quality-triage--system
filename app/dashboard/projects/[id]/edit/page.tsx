@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
+import FileDropZone from '@/components/FileDropZone'
 
 type ProjectSpec = { id: string; name: string | null; document_url: string | null }
 type StandardDoc = { id: string; code: string; title: string | null; category: string | null }
@@ -29,6 +30,10 @@ export default function EditProjectPage() {
   const [description, setDescription] = useState('')
   const [standards, setStandards] = useState('')
   const [higherRiskBuilding, setHigherRiskBuilding] = useState(false)
+  const [principalContractor, setPrincipalContractor] = useState('')
+  const [projectAddress, setProjectAddress] = useState('')
+  const [coverPhotoUrl, setCoverPhotoUrl] = useState<string | null>(null)
+  const [uploadingCover, setUploadingCover] = useState(false)
   const [specs, setSpecs] = useState<ProjectSpec[]>([])
   const [library, setLibrary] = useState<StandardDoc[]>([])
   const [loading, setLoading] = useState(true)
@@ -43,7 +48,7 @@ export default function EditProjectPage() {
   async function load() {
     const { data: project } = await supabase
       .from('projects')
-      .select('name, description, standards, higher_risk_building')
+      .select('name, description, standards, higher_risk_building, principal_contractor, project_address, cover_photo_url')
       .eq('id', projectId)
       .single()
 
@@ -52,6 +57,9 @@ export default function EditProjectPage() {
       setDescription(project.description || '')
       setStandards(project.standards || '')
       setHigherRiskBuilding(!!project.higher_risk_building)
+      setPrincipalContractor(project.principal_contractor || '')
+      setProjectAddress(project.project_address || '')
+      setCoverPhotoUrl(project.cover_photo_url || null)
     }
 
     const { data: specData } = await supabase
@@ -84,6 +92,25 @@ export default function EditProjectPage() {
     setStandards(parts.join(', '))
   }
 
+  async function handleCoverPhotoUpload(file: File) {
+    setUploadingCover(true)
+    setError(null)
+
+    const path = `${projectId}/${Date.now()}-${file.name}`
+    const { error: uploadError } = await supabase.storage.from('project-covers').upload(path, file)
+    if (uploadError) {
+      setError(`Cover photo upload failed: ${uploadError.message}`)
+      setUploadingCover(false)
+      return
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from('project-covers').getPublicUrl(path)
+    setCoverPhotoUrl(publicUrl)
+    setUploadingCover(false)
+  }
+
   async function handleSave() {
     if (!name.trim()) {
       setError('Project name cannot be empty.')
@@ -94,7 +121,15 @@ export default function EditProjectPage() {
 
     const { error: updateError } = await supabase
       .from('projects')
-      .update({ name: name.trim(), description, standards, higher_risk_building: higherRiskBuilding })
+      .update({
+        name: name.trim(),
+        description,
+        standards,
+        higher_risk_building: higherRiskBuilding,
+        principal_contractor: principalContractor || null,
+        project_address: projectAddress || null,
+        cover_photo_url: coverPhotoUrl,
+      })
       .eq('id', projectId)
 
     if (updateError) {
@@ -160,6 +195,43 @@ export default function EditProjectPage() {
               Residential, 18m+ or 7+ storeys (England). Determines whether Golden Thread record-keeping is shown as a
               legal requirement or recommended practice on the Regulation 38 / Golden Thread page.
             </p>
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-deck-body">Report cover page</p>
+            <p className="mt-1 text-xs text-deck-dim">
+              Used on the cover of generated Regulation 38 / Golden Thread reports.
+            </p>
+
+            {coverPhotoUrl && (
+              <img src={coverPhotoUrl} alt="Cover" className="mt-2 h-32 w-full rounded-md object-cover" />
+            )}
+            <FileDropZone
+              onFiles={(files) => handleCoverPhotoUpload(files[0])}
+              accept="image/*"
+              disabled={uploadingCover}
+              className="mt-2 flex cursor-pointer items-center justify-center rounded-md border-2 border-dashed border-deck-border px-3 py-4 text-center text-sm text-deck-dim"
+            >
+              {uploadingCover ? 'Uploading...' : coverPhotoUrl ? 'Replace cover photo, or drag and drop it here' : 'Choose a cover photo, or drag and drop it here'}
+            </FileDropZone>
+
+            <label className="mt-3 block text-xs font-medium text-deck-body">Principal contractor</label>
+            <input
+              type="text"
+              value={principalContractor}
+              onChange={(e) => setPrincipalContractor(e.target.value)}
+              placeholder="e.g. Acme Construction Ltd"
+              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
+            />
+
+            <label className="mt-2 block text-xs font-medium text-deck-body">Address</label>
+            <textarea
+              value={projectAddress}
+              onChange={(e) => setProjectAddress(e.target.value)}
+              rows={2}
+              placeholder="Site address"
+              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
+            />
           </div>
 
           <div>
