@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
+import FileDropZone from '@/components/FileDropZone'
 
 type ProjectRow = { id: string; name: string; status: string }
 type UserRow = { id: string; full_name: string | null; email: string | null; account_type: string | null }
@@ -359,12 +360,13 @@ export default function CompanyAdminPage() {
             )}
 
             <label className="mt-3 block text-xs font-medium text-deck-body">Logo</label>
-            <input
-              type="file"
+            <FileDropZone
+              onFiles={(files) => setLogoFile(files[0])}
               accept="image/*"
-              onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
-              className="mt-1 w-full text-sm"
-            />
+              className="mt-1 flex cursor-pointer items-center justify-center rounded-md border-2 border-dashed border-deck-border px-3 py-4 text-center text-sm text-deck-dim"
+            >
+              {logoFile ? logoFile.name : 'Choose a logo, or drag and drop it here'}
+            </FileDropZone>
 
             <label className="mt-3 block text-xs font-medium text-deck-body">Accent colour</label>
             <div className="mt-1 flex items-center gap-2">
@@ -407,19 +409,14 @@ export default function CompanyAdminPage() {
               {branding.reg38_template_name && (
                 <p className="mt-2 text-xs font-medium text-deck-body">Current template: {branding.reg38_template_name}</p>
               )}
-              <label className="mt-3 inline-block cursor-pointer rounded-md border border-deck-border px-4 py-2 text-sm font-medium text-deck-body">
-                {uploadingTemplate ? 'Uploading...' : branding.reg38_template_name ? 'Replace template' : 'Upload template'}
-                <input
-                  type="file"
-                  accept=".pdf,.doc,.docx"
-                  className="hidden"
-                  disabled={uploadingTemplate}
-                  onChange={(e) => {
-                    const f = e.target.files?.[0]
-                    if (f) handleUploadReg38Template(f)
-                  }}
-                />
-              </label>
+              <FileDropZone
+                onFiles={(files) => handleUploadReg38Template(files[0])}
+                accept=".pdf,.doc,.docx"
+                disabled={uploadingTemplate}
+                className="mt-3 inline-block cursor-pointer rounded-md border border-deck-border px-4 py-2 text-sm font-medium text-deck-body"
+              >
+                {uploadingTemplate ? 'Uploading...' : branding.reg38_template_name ? 'Replace template' : 'Upload template (or drag and drop)'}
+              </FileDropZone>
               {templateMessage && <p className="mt-2 text-sm text-deck-body">{templateMessage}</p>}
             </>
           ) : (

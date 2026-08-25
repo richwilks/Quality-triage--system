@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
+import FileDropZone from '@/components/FileDropZone'
 
 type StandardDoc = {
   id: string
@@ -80,8 +81,7 @@ export default function StandardsLibraryPage() {
     }
   }
 
-  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const selected = Array.from(e.target.files || [])
+  function handleFileSelect(selected: File[]) {
     setFiles(selected)
   }
 
@@ -243,13 +243,14 @@ export default function StandardsLibraryPage() {
             placeholder="Title (optional, single file only)"
             className="mt-2 w-full rounded-md border border-deck-border bg-deck-raised px-3 py-2 text-sm text-deck-text placeholder:text-deck-mute"
           />
-          <input
-            type="file"
+          <FileDropZone
+            onFiles={handleFileSelect}
             accept="application/pdf"
             multiple
-            onChange={handleFileSelect}
-            className="mt-2 w-full text-sm text-deck-dim"
-          />
+            className="mt-2 flex cursor-pointer items-center justify-center rounded-md border-2 border-dashed border-deck-border px-3 py-4 text-center text-sm text-deck-dim"
+          >
+            {files.length > 0 ? `${files.length} file${files.length === 1 ? '' : 's'} selected` : 'Choose PDF(s), or drag and drop them here'}
+          </FileDropZone>
 
           {files.length > 0 && (
             <div className="mt-2 space-y-1">

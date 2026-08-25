@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
 import { useActiveInspection } from '@/components/ActiveInspectionContext'
+import FileDropZone from '@/components/FileDropZone'
 
 type Project = { id: string; name: string }
 type Partner = { id: string; full_name: string | null; company_name: string | null }
@@ -151,9 +152,7 @@ export default function NewDefectVideoPage() {
     setPartners(partnerData || [])
   }
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const selected = e.target.files?.[0]
-    if (!selected) return
+  async function applyVideoFile(selected: File) {
     await loadDataOnce()
     setVideoFile(selected)
     setFrames([])
@@ -385,12 +384,16 @@ export default function NewDefectVideoPage() {
 
           <div>
             <label className="block text-sm font-medium text-deck-body">Video</label>
-            <input
-              type="file"
+            <FileDropZone
+              onFiles={(files) => applyVideoFile(files[0])}
               accept="video/*"
-              onChange={handleFileChange}
-              className="mt-1 w-full text-sm"
-            />
+              className="mt-1 flex cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed border-deck-border px-3 py-6 text-center"
+            >
+              <span className="text-sm font-medium text-deck-text">
+                {videoFile ? videoFile.name : 'Choose a video, or drag and drop it here'}
+              </span>
+              {!videoFile && <span className="mt-1 text-xs text-deck-dim">Tap to browse instead</span>}
+            </FileDropZone>
           </div>
 
           {videoFile && frames.length === 0 && !processing && (

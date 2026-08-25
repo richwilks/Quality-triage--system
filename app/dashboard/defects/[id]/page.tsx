@@ -7,6 +7,7 @@ import StatusBadge from '@/components/StatusBadge'
 import PageHeader from '@/components/PageHeader'
 import MeasurementFields, { MeasurementData } from '@/components/MeasurementFields'
 import ClauseViewer from '@/components/ClauseViewer'
+import FileDropZone from '@/components/FileDropZone'
 
 type Defect = {
   id: string
@@ -411,12 +412,13 @@ export default function DefectDetailPage() {
                     className="mt-2 max-h-48 w-full rounded-md object-cover"
                   />
                 )}
-                <input
-                  type="file"
+                <FileDropZone
+                  onFiles={(files) => setClosureFile(files[0])}
                   accept="image/*"
-                  onChange={(e) => setClosureFile(e.target.files?.[0] || null)}
-                  className="mt-1 w-full text-sm"
-                />
+                  className="mt-1 flex cursor-pointer items-center justify-center rounded-md border-2 border-dashed border-deck-border px-3 py-4 text-center text-sm text-deck-dim"
+                >
+                  {closureFile ? closureFile.name : 'Choose a photo, or drag and drop it here'}
+                </FileDropZone>
               </>
             ) : (
               closureNotes && (
