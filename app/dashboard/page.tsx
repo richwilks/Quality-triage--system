@@ -23,6 +23,8 @@ const QUICK_LINKS = [
   { href: '/dashboard/my-defects', label: 'My Assigned' },
   { href: '/dashboard/project-spec', label: 'Project Spec' },
   { href: '/dashboard/standards', label: 'Standards Library' },
+  { href: '/dashboard/reg38', label: 'Regulation 38' },
+  { href: '/dashboard/golden-thread', label: 'Golden Thread' },
   { href: '/dashboard/inspection/active', label: 'Active Inspection' },
 ]
 

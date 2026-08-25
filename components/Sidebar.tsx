@@ -46,6 +46,26 @@ const ITEMS = [
     ),
   },
   {
+    href: '/dashboard/reg38',
+    label: 'Regulation 38',
+    icon: (active: boolean) => (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={active ? 'var(--deck-accent-color, #2A6F77)' : 'currentColor'} strokeWidth="2">
+        <path d="M9 2h6l5 5v13a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2z" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M9 13l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
+    href: '/dashboard/golden-thread',
+    label: 'Golden Thread',
+    icon: (active: boolean) => (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={active ? 'var(--deck-accent-color, #2A6F77)' : 'currentColor'} strokeWidth="2">
+        <path d="M4 18c0-3 2.5-3 5-3s5 0 5-3-2.5-3-5-3 5 0 5-3 2.5-3 5-3" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="1 3.2" />
+        <circle cx="19" cy="6" r="2" />
+      </svg>
+    ),
+  },
+  {
     href: '/dashboard/account',
     label: 'Account',
     icon: (active: boolean) => (

@@ -139,6 +139,18 @@ export default function CompanyAdminPage() {
     load()
   }
 
+  function fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const result = reader.result as string
+        resolve(result.split(',')[1] || '')
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+  }
+
   async function handleSaveBranding() {
     setSavingBranding(true)
     setBrandingMessage(null)
@@ -146,19 +158,26 @@ export default function CompanyAdminPage() {
     let logoUrl = branding?.logo_url || null
 
     if (logoFile) {
-      const path = `${companyName}/${Date.now()}-${logoFile.name}`
-      const { error: uploadError } = await supabase.storage
-        .from('company-branding')
-        .upload(path, logoFile)
+      const fileBase64 = await fileToBase64(logoFile)
+      const res = await fetch('/api/upload-company-logo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyName,
+          fileName: logoFile.name,
+          mimeType: logoFile.type,
+          fileBase64,
+        }),
+      })
+      const result = await res.json()
 
-      if (uploadError) {
-        setBrandingMessage(`Logo upload failed: ${uploadError.message}`)
+      if (!res.ok) {
+        setBrandingMessage(`Logo upload failed: ${result.error || res.status}`)
         setSavingBranding(false)
         return
       }
 
-      const { data: { publicUrl } } = supabase.storage.from('company-branding').getPublicUrl(path)
-      logoUrl = publicUrl
+      logoUrl = result.url
     }
 
     const { error } = await supabase.rpc('update_company_branding', {
