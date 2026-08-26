@@ -21,6 +21,16 @@ type CostEntry = {
 type Billing = { company_name: string; monthly_retainer: number; vat_rate_percent: number; notes: string | null }
 type CommercialSettings = { default_markup_percent: number; manual_markup_percent: number }
 type ProjectBillingRow = { project_id: string; markup_percent: number | null }
+type OverheadCategory = 'hosting' | 'database' | 'domain' | 'email' | 'other'
+type OverheadEntry = {
+  id: string
+  label: string
+  category: OverheadCategory
+  amount: number
+  frequency: CostFrequency
+  quantity: number
+  entered_at: string
+}
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
 const DEFAULT_VAT_RATE = 20 // UK standard rate - InspectIQ is UK-based
@@ -46,6 +56,14 @@ const FREQUENCY_QUANTITY_HINT: Record<CostFrequency, string> = {
   daily: 'Times per day (usually 1)',
   weekly: 'e.g. 2 for "2 days a week"',
   monthly: 'e.g. 8 for "8 days a month"',
+}
+
+const OVERHEAD_CATEGORY_LABELS: Record<OverheadCategory, string> = {
+  hosting: 'Hosting (Vercel)',
+  database: 'Database (Supabase)',
+  domain: 'Domain name',
+  email: 'Email system',
+  other: 'Other',
 }
 
 function monthlyEquivalent(e: Pick<CostEntry, 'amount' | 'quantity' | 'frequency'>) {
@@ -116,6 +134,14 @@ export default function CommercialPage() {
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
 
+  const [overheadEntries, setOverheadEntries] = useState<OverheadEntry[]>([])
+  const [overheadLabel, setOverheadLabel] = useState('')
+  const [overheadCategory, setOverheadCategory] = useState<OverheadCategory>('hosting')
+  const [overheadAmount, setOverheadAmount] = useState('')
+  const [overheadFrequency, setOverheadFrequency] = useState<CostFrequency>('monthly')
+  const [overheadQuantity, setOverheadQuantity] = useState('1')
+  const [savingOverhead, setSavingOverhead] = useState(false)
+
   useEffect(() => {
     load()
   }, [])
@@ -152,6 +178,7 @@ export default function CommercialPage() {
       { data: billingData, error: billingLoadError },
       { data: settingsData, error: settingsLoadError },
       { data: projectBillingData },
+      { data: overheadData },
     ] = await Promise.all([
       supabase.from('projects').select('id, name, company_name'),
       supabase.from('analysis_log').select('project_id, company_name, estimated_cost, created_at'),
@@ -161,6 +188,7 @@ export default function CommercialPage() {
       supabase.from('company_billing').select('company_name, monthly_retainer, vat_rate_percent, notes'),
       supabase.from('commercial_settings').select('default_markup_percent, manual_markup_percent').maybeSingle(),
       supabase.from('project_billing').select('project_id, markup_percent'),
+      supabase.from('business_overheads').select('id, label, category, amount, frequency, quantity, entered_at'),
     ])
 
     if (billingLoadError || settingsLoadError) {
@@ -176,6 +204,14 @@ export default function CommercialPage() {
       (entryData || []).map((e: any) => ({
         ...e,
         frequency: (e.frequency as CostFrequency) || 'one_off',
+        quantity: e.quantity ?? 1,
+      }))
+    )
+    setOverheadEntries(
+      (overheadData || []).map((e: any) => ({
+        ...e,
+        category: (e.category as OverheadCategory) || 'other',
+        frequency: (e.frequency as CostFrequency) || 'monthly',
         quantity: e.quantity ?? 1,
       }))
     )
@@ -359,6 +395,53 @@ export default function CommercialPage() {
     setCostEntries((prev) => prev.filter((e) => e.id !== id))
   }
 
+  async function handleAddOverhead() {
+    if (!overheadLabel || !overheadAmount) return
+    setSavingOverhead(true)
+    setSaveError(null)
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    const { data, error } = await supabase
+      .from('business_overheads')
+      .insert({
+        label: overheadLabel,
+        category: overheadCategory,
+        amount: parseFloat(overheadAmount) || 0,
+        frequency: overheadFrequency,
+        quantity: overheadFrequency === 'one_off' ? 1 : parseFloat(overheadQuantity) || 1,
+        entered_by: user?.id || null,
+      })
+      .select()
+      .single()
+
+    if (error || !data) {
+      console.error('Add overhead error:', error)
+      setSaveError(`Could not add that overhead cost: ${error?.message || 'unknown error'}`)
+    } else {
+      setOverheadEntries((prev) => [...prev, data as OverheadEntry])
+      setOverheadLabel('')
+      setOverheadAmount('')
+      setOverheadCategory('hosting')
+      setOverheadFrequency('monthly')
+      setOverheadQuantity('1')
+    }
+    setSavingOverhead(false)
+  }
+
+  async function handleDeleteOverhead(id: string) {
+    setSaveError(null)
+    const { error } = await supabase.from('business_overheads').delete().eq('id', id)
+    if (error) {
+      console.error('Delete overhead error:', error)
+      setSaveError(`Could not remove that overhead cost: ${error.message}`)
+      return
+    }
+    setOverheadEntries((prev) => prev.filter((e) => e.id !== id))
+  }
+
   if (loading || !checked) {
     return (
       <div className="min-h-screen p-8">
@@ -528,11 +611,20 @@ export default function CommercialPage() {
     }
   })
 
+  const overheadMonthlyTotal = overheadEntries.reduce(
+    (sum, e) => sum + (e.frequency === 'one_off' ? 0 : monthlyEquivalent(e)),
+    0
+  )
+  const overheadOneOffAllTime = overheadEntries.reduce(
+    (sum, e) => sum + (e.frequency === 'one_off' ? e.amount : 0),
+    0
+  )
+
   const mrr = companyRows.reduce((sum, c) => sum + c.projectedMonthlyRevenue, 0)
   const arr = mrr * 12
-  const projectedMonthlyCostAll = companyRows.reduce((sum, c) => sum + c.projectedMonthlyCost, 0)
+  const projectedMonthlyCostAll = companyRows.reduce((sum, c) => sum + c.projectedMonthlyCost, 0) + overheadMonthlyTotal
   const projectedMonthlyMarginAll = mrr - projectedMonthlyCostAll
-  const totalCostAllTime = companyRows.reduce((sum, c) => sum + c.totalCostAll, 0)
+  const totalCostAllTime = companyRows.reduce((sum, c) => sum + c.totalCostAll, 0) + overheadOneOffAllTime
   const totalRevenueAllTime = companyRows.reduce((sum, c) => sum + c.totalRevenueAll, 0)
   const recurringMonthlyAllTime = companyRows.reduce((sum, c) => sum + c.recurringMonthly, 0)
   const totalAnalysesAllTime = logs.length
@@ -613,6 +705,121 @@ export default function CommercialPage() {
           </div>
         </div>
 
+        <div className="mt-4 rounded-xl border border-deck-border bg-deck-surface p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-deck-body">Business overheads</p>
+              <p className="mt-0.5 text-xs text-deck-dim">
+                Running costs of InspectIQ itself - hosting, database, domain, email, and anything else - not tied
+                to a specific project or client. Recurring entries feed the projected monthly cost/margin below;
+                one-off entries feed the all-time cost total.
+              </p>
+            </div>
+            <span className="whitespace-nowrap text-sm font-semibold text-deck-text">{money(overheadMonthlyTotal)}/mo</span>
+          </div>
+
+          <div className="mt-3 space-y-1">
+            {overheadEntries.map((e) => (
+              <div key={e.id} className="flex items-center justify-between text-xs">
+                <span className="text-deck-body">
+                  {e.label}
+                  <span className="ml-1 text-deck-mute">
+                    ({OVERHEAD_CATEGORY_LABELS[e.category]}) - {money(e.amount)}
+                    {e.frequency === 'one_off'
+                      ? ' one-off'
+                      : ` ${FREQUENCY_LABELS[e.frequency].toLowerCase()}${
+                          e.quantity !== 1 ? ` × ${e.quantity}` : ''
+                        } · ≈ ${money(monthlyEquivalent(e))}/mo`}
+                  </span>
+                </span>
+                <button onClick={() => handleDeleteOverhead(e.id)} className="text-red-600 underline">
+                  Remove
+                </button>
+              </div>
+            ))}
+            {overheadEntries.length === 0 && (
+              <p className="text-xs text-deck-dim">No overhead costs recorded yet.</p>
+            )}
+          </div>
+
+          <div className="mt-3 border-t border-deck-border pt-3">
+            <label className="block text-xs font-medium text-deck-body">Label</label>
+            <input
+              type="text"
+              value={overheadLabel}
+              onChange={(e) => setOverheadLabel(e.target.value)}
+              placeholder="e.g. Vercel Pro plan"
+              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
+            />
+
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs font-medium text-deck-body">Category</label>
+                <select
+                  value={overheadCategory}
+                  onChange={(e) => setOverheadCategory(e.target.value as OverheadCategory)}
+                  className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text"
+                >
+                  {(Object.keys(OVERHEAD_CATEGORY_LABELS) as OverheadCategory[]).map((c) => (
+                    <option key={c} value={c}>
+                      {OVERHEAD_CATEGORY_LABELS[c]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-deck-body">Amount</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={overheadAmount}
+                  onChange={(e) => setOverheadAmount(e.target.value)}
+                  placeholder="What you pay"
+                  className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
+                />
+              </div>
+            </div>
+
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs font-medium text-deck-body">Frequency</label>
+                <select
+                  value={overheadFrequency}
+                  onChange={(e) => setOverheadFrequency(e.target.value as CostFrequency)}
+                  className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text"
+                >
+                  {(Object.keys(FREQUENCY_LABELS) as CostFrequency[]).map((f) => (
+                    <option key={f} value={f}>
+                      {FREQUENCY_LABELS[f]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {overheadFrequency !== 'one_off' && (
+                <div>
+                  <label className="block text-xs font-medium text-deck-body">Quantity</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={overheadQuantity}
+                    onChange={(e) => setOverheadQuantity(e.target.value)}
+                    className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text"
+                  />
+                  <p className="mt-0.5 text-[10px] text-deck-mute">{FREQUENCY_QUANTITY_HINT[overheadFrequency]}</p>
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={handleAddOverhead}
+              disabled={savingOverhead || !overheadLabel || !overheadAmount}
+              className="mt-3 w-full rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
+            >
+              {savingOverhead ? 'Adding...' : 'Add overhead cost'}
+            </button>
+          </div>
+        </div>
+
         <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <div className="rounded-xl bg-brand-ink p-4 text-white">
             <p className="text-2xl font-semibold">{money(mrr)}</p>
@@ -635,10 +842,10 @@ export default function CommercialPage() {
         </div>
 
         <p className="mt-2 text-xs text-deck-mute">
-          Projections are a simple trailing-30-day run rate plus any recurring manual costs (daily/weekly/monthly),
-          not a statistical forecast - treat them as a rough steer, not a guarantee. All-time totals below are exact
-          historical figures - real AI usage plus one-off manual costs - and exclude recurring commitments, since
-          those don't have a fixed historical total.
+          Projections are a simple trailing-30-day run rate plus any recurring manual costs (daily/weekly/monthly)
+          and business overheads, not a statistical forecast - treat them as a rough steer, not a guarantee. All-time
+          totals below are exact historical figures - real AI usage plus one-off manual costs and overheads - and
+          exclude recurring commitments, since those don't have a fixed historical total.
         </p>
 
         <div className="mt-3 flex flex-wrap gap-3 text-sm text-deck-body">
@@ -646,6 +853,7 @@ export default function CommercialPage() {
           <span>All-time revenue: <strong>{money(totalRevenueAllTime)}</strong></span>
           <span>All-time margin: <strong className={totalRevenueAllTime - totalCostAllTime >= 0 ? 'text-deck-success' : 'text-red-600'}>{money(totalRevenueAllTime - totalCostAllTime)}</strong></span>
           <span>Recurring manual costs: <strong>{money(recurringMonthlyAllTime)}/mo</strong></span>
+          <span>Recurring overheads: <strong>{money(overheadMonthlyTotal)}/mo</strong></span>
         </div>
 
         <h2 className="mt-8 text-sm font-semibold uppercase tracking-wide text-deck-dim">Billing by company</h2>
