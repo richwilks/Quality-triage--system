@@ -3,6 +3,7 @@ import { createWatchlistAdminClient } from '@/lib/supabase/watchlistAdmin'
 import { computeSignals } from '@/lib/stockSignals'
 import { fetchDailyCloses } from '@/lib/yahooFinance'
 import { reconcileAndPersist } from '@/lib/paperTrading'
+import { getSignalParams } from '@/lib/paramTuning'
 
 export const maxDuration = 60
 
@@ -46,8 +47,9 @@ export async function GET(req: NextRequest) {
       continue
     }
 
-    const { dates, close, currency } = result.data
-    const { signals } = computeSignals(dates, close)
+    const { dates, close, high, low, currency } = result.data
+    const params = await getSignalParams(ticker)
+    const { signals } = computeSignals(dates, close, high, low, params.params)
 
     let opened = 0
     let closed = 0

@@ -10,6 +10,13 @@ import PaperTradingSummary from '@/components/PaperTradingSummary'
 // only via direct URL (/dashboard/stock-monitor); still behind the normal
 // auth check in middleware.ts like every other /dashboard route.
 
+type HistoryWithTuning = StockHistory & {
+  tuned: boolean
+  tunedAt: string | null
+  backtestReturnPct: number | null
+  validatedReturnPct: number | null
+}
+
 export default function StockMonitorPage() {
   const [tickers, setTickers] = useState<string[]>([])
   const [activeTicker, setActiveTicker] = useState<string | null>(null)
@@ -17,7 +24,7 @@ export default function StockMonitorPage() {
   const [watchlistError, setWatchlistError] = useState<string | null>(null)
   const [watchlistLoading, setWatchlistLoading] = useState(true)
 
-  const [history, setHistory] = useState<StockHistory | null>(null)
+  const [history, setHistory] = useState<HistoryWithTuning | null>(null)
   const [historyError, setHistoryError] = useState<string | null>(null)
   const [historyLoading, setHistoryLoading] = useState(false)
 
@@ -169,7 +176,21 @@ export default function StockMonitorPage() {
               <p className="text-sm font-semibold text-deck-text">{activeTicker}</p>
               {historyLoading && <p className="mt-2 text-sm text-deck-dim">Loading chart...</p>}
               {historyError && <p className="mt-2 text-sm text-red-600">{historyError}</p>}
-              {history && !historyLoading && <div className="mt-3"><StockChart history={history} /></div>}
+              {history && !historyLoading && (
+                <div className="mt-3">
+                  <StockChart history={history} />
+                  {history.tuned ? (
+                    <p className="mt-2 text-xs text-deck-dim">
+                      Using tuned parameters (last tuned{' '}
+                      {history.tunedAt ? new Date(history.tunedAt).toLocaleDateString() : 'recently'}) — backtested{' '}
+                      {history.backtestReturnPct?.toFixed(1)}%, validated {history.validatedReturnPct?.toFixed(1)}% on
+                      held-out data the tuning never saw.
+                    </p>
+                  ) : (
+                    <p className="mt-2 text-xs text-deck-dim">Using default parameters (not yet tuned for this ticker).</p>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -177,8 +198,9 @@ export default function StockMonitorPage() {
         <PaperTradingSummary />
 
         <p className="mt-4 text-xs text-deck-dim">
-          Decision-support only, based on lagging technical indicators (50/200-day
-          SMA crossover and 14-day RSI) — not financial advice.
+          Decision-support only, based on lagging technical indicators (SMA
+          crossover, MACD, RSI, filtered by ADX trend strength) — not financial
+          advice.
         </p>
       </div>
     </div>

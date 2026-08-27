@@ -3,6 +3,10 @@
     {
       "path": "/api/stock-monitor/backtest-cron",
       "schedule": "0 22 * * 1-5"
+    },
+    {
+      "path": "/api/stock-monitor/tune-cron",
+      "schedule": "0 23 * * 0"
     }
   ]
 }

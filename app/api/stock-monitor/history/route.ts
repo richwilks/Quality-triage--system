@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { computeSignals } from '@/lib/stockSignals'
 import { fetchDailyCloses } from '@/lib/yahooFinance'
+import { getSignalParams } from '@/lib/paramTuning'
 
 export const maxDuration = 20
 
@@ -26,8 +27,26 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: result.error }, { status: result.status })
   }
 
-  const { dates, close, currency } = result.data
-  const { sma50, sma200, rsi, signals } = computeSignals(dates, close)
+  const { dates, close, high, low, currency } = result.data
+  const params = await getSignalParams(ticker)
+  const { sma50, sma200, rsi, macd, adx, signals } = computeSignals(dates, close, high, low, params.params)
 
-  return NextResponse.json({ ticker, currency, dates, close, sma50, sma200, rsi, signals })
+  return NextResponse.json({
+    ticker,
+    currency,
+    dates,
+    close,
+    sma50,
+    sma200,
+    rsi,
+    macd,
+    adx,
+    signals,
+    smaShortWindow: params.params.smaShort,
+    smaLongWindow: params.params.smaLong,
+    tuned: params.tuned,
+    tunedAt: params.tunedAt ?? null,
+    backtestReturnPct: params.backtestReturnPct ?? null,
+    validatedReturnPct: params.validatedReturnPct ?? null,
+  })
 }
