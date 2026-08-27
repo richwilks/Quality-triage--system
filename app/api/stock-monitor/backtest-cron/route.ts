@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { createWatchlistAdminClient } from '@/lib/supabase/watchlistAdmin'
 import { computeSignals } from '@/lib/stockSignals'
 import { fetchDailyCloses } from '@/lib/yahooFinance'
 import { reconcileAndPersist } from '@/lib/paperTrading'
@@ -18,10 +18,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const supabaseAdmin = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-    process.env.SUPABASE_SERVICE_ROLE_KEY as string
-  )
+  const supabaseAdmin = createWatchlistAdminClient()
 
   const { data: watchlistRows, error } = await supabaseAdmin
     .from('stock_watchlist')

@@ -1,11 +1,13 @@
--- Paper-trading ledger for the stock signal monitor dashboard
--- (app/dashboard/stock-monitor). Run this once in the Supabase SQL editor -
--- same as stock_watchlist.sql, there's no migration runner wired up in this
--- repo, so schema changes here are applied by hand.
+-- Paper-trading ledger for the stock signal monitor dashboard page
+-- (app/dashboard/stock-monitor).
+--
+-- IMPORTANT: this table lives in the separate "Watchlist" Supabase project,
+-- NOT the main app's "Quality triage" project - see stock_watchlist.sql for
+-- why user_id is a plain uuid rather than a foreign key/RLS-enforced column.
 
 create table if not exists public.paper_trades (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users (id) on delete cascade,
+  user_id uuid not null,
   ticker text not null,
   currency text not null,
   entry_date date not null,
@@ -22,9 +24,3 @@ create table if not exists public.paper_trades (
 );
 
 alter table public.paper_trades enable row level security;
-
-create policy "Users manage their own paper trades"
-  on public.paper_trades
-  for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);

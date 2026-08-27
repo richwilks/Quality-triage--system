@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createWatchlistAdminClient } from '@/lib/supabase/watchlistAdmin'
 import { fetchDailyCloses } from '@/lib/yahooFinance'
 
 export const maxDuration = 20
@@ -27,7 +28,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
   }
 
-  const { data: trades, error } = await supabase
+  const { data: trades, error } = await createWatchlistAdminClient()
     .from('paper_trades')
     .select(
       'ticker, currency, entry_date, entry_price, entry_strategy, invested_amount, shares, exit_date, exit_price, exit_strategy, status'

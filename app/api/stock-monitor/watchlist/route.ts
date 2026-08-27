@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createWatchlistAdminClient } from '@/lib/supabase/watchlistAdmin'
 
 const TICKER_PATTERN = /^[A-Z0-9.-]{1,10}$/
 const DEFAULT_WATCHLIST = ['NVDA']
@@ -13,7 +14,9 @@ export async function GET() {
     return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
   }
 
-  let { data } = await supabase
+  const watchlistDb = createWatchlistAdminClient()
+
+  let { data } = await watchlistDb
     .from('stock_watchlist')
     .select('ticker')
     .eq('user_id', user.id)
@@ -22,11 +25,11 @@ export async function GET() {
   // First visit: seed the same default watchlist the standalone monitor
   // script starts with, so the page isn't empty out of the box.
   if (!data || data.length === 0) {
-    await supabase
+    await watchlistDb
       .from('stock_watchlist')
       .insert(DEFAULT_WATCHLIST.map((ticker) => ({ user_id: user.id, ticker })))
 
-    const seeded = await supabase
+    const seeded = await watchlistDb
       .from('stock_watchlist')
       .select('ticker')
       .eq('user_id', user.id)
@@ -55,7 +58,9 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const { error } = await supabase.from('stock_watchlist').insert({ user_id: user.id, ticker })
+  const { error } = await createWatchlistAdminClient()
+    .from('stock_watchlist')
+    .insert({ user_id: user.id, ticker })
 
   // Postgres unique_violation (already on the list) is not an error here.
   if (error && error.code !== '23505') {
@@ -79,7 +84,11 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: 'Missing ticker' }, { status: 400 })
   }
 
-  await supabase.from('stock_watchlist').delete().eq('user_id', user.id).eq('ticker', ticker)
+  await createWatchlistAdminClient()
+    .from('stock_watchlist')
+    .delete()
+    .eq('user_id', user.id)
+    .eq('ticker', ticker)
 
   return NextResponse.json({ ok: true })
 }
