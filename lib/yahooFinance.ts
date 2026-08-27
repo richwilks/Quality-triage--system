@@ -6,6 +6,8 @@
 export type DailyCloses = {
   dates: string[]
   close: number[]
+  high: number[]
+  low: number[]
   currency: string
 }
 
@@ -13,14 +15,14 @@ export type FetchDailyClosesResult =
   | { ok: true; data: DailyCloses }
   | { ok: false; status: number; error: string }
 
-function yahooChartUrl(ticker: string): string {
-  return `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=1y&interval=1d`
+function yahooChartUrl(ticker: string, range: string): string {
+  return `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=${range}&interval=1d`
 }
 
-export async function fetchDailyCloses(ticker: string): Promise<FetchDailyClosesResult> {
+export async function fetchDailyCloses(ticker: string, range: string = '1y'): Promise<FetchDailyClosesResult> {
   let json: any
   try {
-    const res = await fetch(yahooChartUrl(ticker), {
+    const res = await fetch(yahooChartUrl(ticker, range), {
       headers: { 'User-Agent': 'Mozilla/5.0' },
       next: { revalidate: 900 }, // 15 min, matching the monitor's check interval
     })
@@ -32,21 +34,30 @@ export async function fetchDailyCloses(ticker: string): Promise<FetchDailyCloses
 
   const result = json?.chart?.result?.[0]
   const timestamps: number[] | undefined = result?.timestamp
-  const closes: (number | null)[] | undefined = result?.indicators?.quote?.[0]?.close
+  const quote = result?.indicators?.quote?.[0]
+  const closes: (number | null)[] | undefined = quote?.close
+  const highs: (number | null)[] | undefined = quote?.high
+  const lows: (number | null)[] | undefined = quote?.low
   const currency: string = result?.meta?.currency || 'USD'
 
   if (!timestamps || !closes || timestamps.length === 0) {
     return { ok: false, status: 404, error: `No price data found for ${ticker}` }
   }
 
-  // Drop any bars with a null close (holidays/gaps in the raw feed).
+  // Drop any bars with a null close (holidays/gaps in the raw feed). A
+  // missing high/low on an otherwise-valid bar falls back to that day's
+  // close, so downstream indicators never see a hole mid-series.
   const dates: string[] = []
   const close: number[] = []
+  const high: number[] = []
+  const low: number[] = []
   for (let i = 0; i < timestamps.length; i++) {
     if (closes[i] == null) continue
     dates.push(new Date(timestamps[i] * 1000).toISOString().slice(0, 10))
     close.push(closes[i] as number)
+    high.push(highs?.[i] ?? (closes[i] as number))
+    low.push(lows?.[i] ?? (closes[i] as number))
   }
 
-  return { ok: true, data: { dates, close, currency } }
+  return { ok: true, data: { dates, close, high, low, currency } }
 }
