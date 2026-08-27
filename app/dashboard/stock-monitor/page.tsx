@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import PageHeader from '@/components/PageHeader'
 import StockChart, { StockHistory } from '@/components/charts/StockChart'
+import PaperTradingSummary from '@/components/PaperTradingSummary'
 
 // Unlisted page: intentionally not linked from Sidebar/BottomNav/QUICK_LINKS
 // while the stock signal monitor project is under development. Reachable
@@ -172,6 +173,8 @@ export default function StockMonitorPage() {
             </>
           )}
         </div>
+
+        <PaperTradingSummary />
 
         <p className="mt-4 text-xs text-deck-dim">
           Decision-support only, based on lagging technical indicators (50/200-day
