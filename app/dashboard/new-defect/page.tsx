@@ -10,13 +10,14 @@ import ClauseViewer from '@/components/ClauseViewer'
 import CameraCapture, { OrientationHint } from '@/components/CameraCapture'
 import { useActiveInspection } from '@/components/ActiveInspectionContext'
 import FileDropZone from '@/components/FileDropZone'
+import PolygonBoxEditor, { Point } from '@/components/PolygonBoxEditor'
 
 type Project = { id: string; name: string }
 type Partner = { id: string; full_name: string | null; company_name: string | null }
 
 type DetectedDefect = {
   description: string
-  confidence: number
+  confidence: number | null
   standard_reference: string
   requires_measurement: boolean
   classification: 'snag' | 'ncr'
@@ -55,6 +56,22 @@ type ReviewItem = DetectedDefect & {
 const BOX_COLORS = ['#ef4444', '#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899']
 const ESTIMATED_ANALYSIS_SECONDS = 18
 const EMPTY_MEASUREMENT: MeasurementData = { measuredGapMm: '', testedDetailReference: '', manufacturerSystem: '' }
+const DEFAULT_MANUAL_POLYGON: Point[] = [
+  { x: 35, y: 35 },
+  { x: 65, y: 35 },
+  { x: 65, y: 65 },
+  { x: 35, y: 65 },
+]
+
+function polygonToBox(points: Point[]) {
+  const xs = points.map((p) => p.x)
+  const ys = points.map((p) => p.y)
+  const minX = Math.min(...xs)
+  const maxX = Math.max(...xs)
+  const minY = Math.min(...ys)
+  const maxY = Math.max(...ys)
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
+}
 
 function NewDefectPageInner() {
   const supabase = createClient()
@@ -91,6 +108,15 @@ function NewDefectPageInner() {
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null)
+
+  const [showManualAdd, setShowManualAdd] = useState(false)
+  const [manualPolygon, setManualPolygon] = useState<Point[]>(DEFAULT_MANUAL_POLYGON)
+  const [manualTitle, setManualTitle] = useState('')
+  const [manualElementType, setManualElementType] = useState('')
+  const [manualClassification, setManualClassification] = useState<'snag' | 'ncr'>('snag')
+  const [manualDescription, setManualDescription] = useState('')
+  const [manualStandardReference, setManualStandardReference] = useState('')
+  const [manualRequiresMeasurement, setManualRequiresMeasurement] = useState(false)
 
   const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -361,6 +387,37 @@ function NewDefectPageInner() {
     )
   }
 
+  function handleAddManualDefect() {
+    if (!manualTitle || !manualDescription) return
+    const newItem: ReviewItem = {
+      description: manualDescription,
+      ai_description: manualDescription,
+      confidence: null,
+      standard_reference: manualStandardReference,
+      requires_measurement: manualRequiresMeasurement,
+      classification: manualClassification,
+      classification_reason: 'Manually added - not detected by AI analysis.',
+      element_type: manualElementType,
+      box: polygonToBox(manualPolygon),
+      level_abbrev: '',
+      headline: manualTitle,
+      localId: `manual-${Date.now()}`,
+      title: manualTitle,
+      included: true,
+      measurement: { ...EMPTY_MEASUREMENT },
+    }
+    setItems((prev) => [...prev, newItem])
+    setError(null)
+    setManualTitle('')
+    setManualElementType('')
+    setManualClassification('snag')
+    setManualDescription('')
+    setManualStandardReference('')
+    setManualRequiresMeasurement(false)
+    setManualPolygon(DEFAULT_MANUAL_POLYGON)
+    setShowManualAdd(false)
+  }
+
   async function handleSave() {
     const included = items.filter((it) => it.included)
     if (!file || !projectId || included.length === 0) {
@@ -450,6 +507,8 @@ function NewDefectPageInner() {
         setDuplicateWarning(null)
         setSaved(false)
         setError(null)
+        setShowManualAdd(false)
+        setManualPolygon(DEFAULT_MANUAL_POLYGON)
       }, 1200)
     } catch (err: any) {
       setError(`Unexpected error: ${err?.message || 'unknown'}`)
@@ -573,6 +632,7 @@ function NewDefectPageInner() {
                   </span>
                 </div>
               ))}
+              {showManualAdd && <PolygonBoxEditor points={manualPolygon} onChange={setManualPolygon} />}
             </div>
           )}
 
@@ -645,7 +705,7 @@ function NewDefectPageInner() {
                     className="mt-2 w-full resize-y overflow-y-auto rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                   />
                   <p className="mt-1 text-xs text-deck-dim">
-                    Confidence: {Math.round(it.confidence * 100)}%
+                    {it.confidence !== null ? `Confidence: ${Math.round(it.confidence * 100)}%` : 'Manually added'}
                     {it.standard_reference && ` · Standard: ${it.standard_reference}`}
                   </p>
                   {it.element_type && (
@@ -705,6 +765,112 @@ function NewDefectPageInner() {
           )}
 
           {error && <p className="text-sm text-red-600">{error}</p>}
+
+          {preview && !analyzing && (
+            <div>
+              {!showManualAdd ? (
+                <button
+                  type="button"
+                  onClick={() => setShowManualAdd(true)}
+                  className="w-full rounded-md border border-deck-border px-3 py-2 text-sm font-medium text-deck-text"
+                >
+                  + Mark up a defect manually
+                </button>
+              ) : (
+                <div className="rounded-lg border border-deck-border p-3">
+                  <p className="text-sm font-medium text-deck-body">
+                    Drag the box above onto the defect, then fill in the details below.
+                  </p>
+                  <input
+                    type="text"
+                    value={manualTitle}
+                    onChange={(e) => setManualTitle(e.target.value)}
+                    placeholder="Title, e.g. Cracked tile - SW corner"
+                    className="mt-2 w-full rounded-md border border-deck-border px-2 py-1.5 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
+                  />
+                  <select
+                    value={manualElementType}
+                    onChange={(e) => setManualElementType(e.target.value)}
+                    className="mt-2 w-full rounded-md border border-deck-border px-2 py-1.5 text-sm bg-deck-surface text-deck-text"
+                  >
+                    <option value="">Element type (optional)</option>
+                    {Object.entries(ELEMENT_TYPE_LABELS).map(([key, label]) => (
+                      <option key={key} value={key}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                  <textarea
+                    value={manualDescription}
+                    onChange={(e) => setManualDescription(e.target.value)}
+                    placeholder="Describe the defect"
+                    rows={3}
+                    className="mt-2 w-full rounded-md border border-deck-border px-2 py-1.5 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
+                  />
+                  <input
+                    type="text"
+                    value={manualStandardReference}
+                    onChange={(e) => setManualStandardReference(e.target.value)}
+                    placeholder="Standard reference (optional)"
+                    className="mt-2 w-full rounded-md border border-deck-border px-2 py-1.5 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
+                  />
+
+                  <div className="mt-2 flex items-center gap-2">
+                    <label className="text-xs font-medium text-deck-body">Classification:</label>
+                    <div className="flex overflow-hidden rounded-md border border-deck-border">
+                      <button
+                        type="button"
+                        onClick={() => setManualClassification('snag')}
+                        className={`px-3 py-1 text-xs font-medium ${
+                          manualClassification === 'snag'
+                            ? 'bg-deck-accent text-deck-bg'
+                            : 'bg-deck-surface text-deck-body'
+                        }`}
+                      >
+                        Snag
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setManualClassification('ncr')}
+                        className={`px-3 py-1 text-xs font-medium ${
+                          manualClassification === 'ncr' ? 'bg-red-600 text-white' : 'bg-deck-surface text-deck-body'
+                        }`}
+                      >
+                        NCR
+                      </button>
+                    </div>
+                  </div>
+
+                  <label className="mt-2 flex items-center gap-2 text-xs text-deck-body">
+                    <input
+                      type="checkbox"
+                      checked={manualRequiresMeasurement}
+                      onChange={(e) => setManualRequiresMeasurement(e.target.checked)}
+                    />
+                    Requires a measurement
+                  </label>
+
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowManualAdd(false)}
+                      className="flex-1 rounded-md border border-deck-border px-3 py-2 text-sm font-medium text-deck-text"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAddManualDefect}
+                      disabled={!manualTitle || !manualDescription}
+                      className="flex-1 rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
+                    >
+                      Add this defect
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {items.length > 0 && items.every((it) => !it.included) && (
             <p className="text-sm text-deck-dim">
