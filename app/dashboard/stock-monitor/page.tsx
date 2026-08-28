@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import PageHeader from '@/components/PageHeader'
 import StockChart, { StockHistory } from '@/components/charts/StockChart'
 import PaperTradingSummary from '@/components/PaperTradingSummary'
+import NewsFeed from '@/components/NewsFeed'
 
 // Unlisted page: intentionally not linked from Sidebar/BottomNav/QUICK_LINKS
 // while the stock signal monitor project is under development. Reachable
@@ -195,11 +196,14 @@ export default function StockMonitorPage() {
           )}
         </div>
 
+        {activeTicker && <NewsFeed ticker={activeTicker} />}
+
         <PaperTradingSummary />
 
         <p className="mt-4 text-xs text-deck-dim">
           Decision-support only, based on lagging technical indicators (SMA
-          crossover, MACD, RSI, filtered by ADX trend strength) — not financial
+          crossover, MACD, RSI, filtered by ADX trend strength) plus an
+          experimental LLM-scored news-sentiment signal — not financial
           advice.
         </p>
       </div>

@@ -853,3 +853,60 @@ Respond with ONLY this JSON, no markdown, no other text:
     return { executiveSummary: '', sections: [{ key: 'report', title: 'Report', body: raw }] }
   }
 }
+
+// --- Stock signal monitor: news sentiment ---
+
+// Scores a batch of headlines in one call (rather than one call per
+// article) to keep the hourly news cron's cost/latency down when a ticker
+// has several new articles at once. Returns one -1 (very bearish) to +1
+// (very bullish) score per input article, in the same order - falls back
+// to neutral (0) for any article the model's response doesn't cover, so a
+// malformed response degrades gracefully rather than losing articles.
+export async function scoreNewsSentiments(
+  articles: { headline: string; summary: string }[]
+): Promise<number[]> {
+  if (articles.length === 0) return []
+
+  const listText = articles
+    .map((a, i) => `${i + 1}. ${a.headline}${a.summary ? ` - ${a.summary}` : ''}`)
+    .join('\n')
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': process.env.ANTHROPIC_API_KEY as string,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-5',
+      max_tokens: 500,
+      messages: [
+        {
+          role: 'user',
+          content: `Score each of these news headlines for a publicly traded company on how a market would likely react - purely the likely short-term share-price impact, not the article's general tone. Score from -1.0 (very bearish - e.g. a profit warning, major lawsuit, executive scandal) to +1.0 (very bullish - e.g. beating earnings estimates, a major new contract, a positive upgrade), with 0.0 for routine/non-market-moving news.
+
+${listText}
+
+Respond with ONLY a JSON array of ${articles.length} numbers, one per headline in the same order, nothing else: [score1, score2, ...]`,
+        },
+      ],
+    }),
+  })
+
+  const data = await response.json()
+  const textBlock = data.content?.find((c: any) => c.type === 'text')
+  const raw = textBlock?.text || '[]'
+  const cleaned = raw.replace(/```json|```/g, '').trim()
+
+  try {
+    const parsed = JSON.parse(cleaned)
+    if (!Array.isArray(parsed)) return articles.map(() => 0)
+    return articles.map((_, i) => {
+      const score = Number(parsed[i])
+      return Number.isFinite(score) ? Math.max(-1, Math.min(1, score)) : 0
+    })
+  } catch {
+    return articles.map(() => 0)
+  }
+}

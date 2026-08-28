@@ -4,6 +4,7 @@ import { computeSignals } from '@/lib/stockSignals'
 import { fetchDailyCloses } from '@/lib/yahooFinance'
 import { reconcileAndPersist } from '@/lib/paperTrading'
 import { getSignalParams } from '@/lib/paramTuning'
+import { fetchNewsSignals } from '@/lib/newsSignal'
 
 export const maxDuration = 60
 
@@ -50,6 +51,8 @@ export async function GET(req: NextRequest) {
     const { dates, close, high, low, currency } = result.data
     const params = await getSignalParams(ticker)
     const { signals } = computeSignals(dates, close, high, low, params.params)
+    const newsSignals = await fetchNewsSignals(supabaseAdmin, ticker, dates)
+    const allSignals = [...signals, ...newsSignals].sort((a, b) => a.index - b.index)
 
     let opened = 0
     let closed = 0
@@ -59,7 +62,7 @@ export async function GET(req: NextRequest) {
         userId,
         ticker,
         currency,
-        signals,
+        allSignals,
         close
       )
       opened += toInsert.length
