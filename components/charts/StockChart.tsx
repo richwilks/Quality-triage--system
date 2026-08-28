@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from 'react'
 
 export type StockSignal = {
-  strategy: 'SMA_CROSSOVER' | 'RSI' | 'MACD'
+  strategy: 'SMA_CROSSOVER' | 'RSI' | 'MACD' | 'NEWS'
   action: 'BUY' | 'SELL'
   date: string
   index: number
@@ -80,6 +80,7 @@ function niceDate(iso: string): string {
 function strategyLabel(strategy: StockSignal['strategy']): string {
   if (strategy === 'SMA_CROSSOVER') return 'SMA crossover'
   if (strategy === 'MACD') return 'MACD'
+  if (strategy === 'NEWS') return 'News sentiment'
   return 'RSI'
 }
 

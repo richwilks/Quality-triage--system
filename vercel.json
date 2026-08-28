@@ -7,6 +7,10 @@
     {
       "path": "/api/stock-monitor/tune-cron",
       "schedule": "0 23 * * 0"
+    },
+    {
+      "path": "/api/stock-monitor/news-cron",
+      "schedule": "0 * * * *"
     }
   ]
 }

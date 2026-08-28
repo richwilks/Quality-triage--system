@@ -18,7 +18,7 @@ export const MACD_SLOW_WINDOW = 26
 export const MACD_SIGNAL_WINDOW = 9
 
 export type SignalAction = 'BUY' | 'SELL'
-export type SignalStrategy = 'SMA_CROSSOVER' | 'RSI' | 'MACD'
+export type SignalStrategy = 'SMA_CROSSOVER' | 'RSI' | 'MACD' | 'NEWS'
 
 export interface StockSignal {
   strategy: SignalStrategy

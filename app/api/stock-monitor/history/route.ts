@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { computeSignals } from '@/lib/stockSignals'
 import { fetchDailyCloses } from '@/lib/yahooFinance'
 import { getSignalParams } from '@/lib/paramTuning'
+import { fetchNewsSignals } from '@/lib/newsSignal'
+import { createWatchlistAdminClient } from '@/lib/supabase/watchlistAdmin'
 
 export const maxDuration = 20
 
@@ -31,6 +33,9 @@ export async function GET(req: NextRequest) {
   const params = await getSignalParams(ticker)
   const { sma50, sma200, rsi, macd, adx, signals } = computeSignals(dates, close, high, low, params.params)
 
+  const newsSignals = await fetchNewsSignals(createWatchlistAdminClient(), ticker, dates)
+  const allSignals = [...signals, ...newsSignals].sort((a, b) => a.index - b.index)
+
   return NextResponse.json({
     ticker,
     currency,
@@ -41,7 +46,7 @@ export async function GET(req: NextRequest) {
     rsi,
     macd,
     adx,
-    signals,
+    signals: allSignals,
     smaShortWindow: params.params.smaShort,
     smaLongWindow: params.params.smaLong,
     tuned: params.tuned,
