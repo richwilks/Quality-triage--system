@@ -39,6 +39,18 @@ type ImportRow = {
   defect_description: string
 }
 
+type PendingMarkup = {
+  tempId: string
+  title: string
+  elementType: string
+  country: string
+  applicableStandards: string
+  defectDescription: string
+  correctReference: string
+  severityDefault: string
+  polygonPoints: Point[]
+}
+
 type ImportResult = { row: number; title: string; status: 'success' | 'error'; error?: string }
 
 function parseCSV(text: string): ImportRow[] {
@@ -113,6 +125,7 @@ export default function DefectKnowledgeAdminPage() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [polygonPoints, setPolygonPoints] = useState<Point[]>(DEFAULT_POLYGON)
   const [showCamera, setShowCamera] = useState(false)
+  const [pendingMarkups, setPendingMarkups] = useState<PendingMarkup[]>([])
 
   const [csvFile, setCsvFile] = useState<File | null>(null)
   const [importPreview, setImportPreview] = useState<ImportRow[]>([])
@@ -208,62 +221,129 @@ export default function DefectKnowledgeAdminPage() {
     setPhotoFile(null)
     setPhotoPreview(null)
     setPolygonPoints(DEFAULT_POLYGON)
+    setPendingMarkups([])
+  }
+
+  // Clears only the fields specific to one marked-up defect, keeping the
+  // photo (and country, since consecutive defects on the same photo are
+  // almost always from the same site) so the next area can be marked
+  // straight away.
+  function resetMarkupFields() {
+    setTitle('')
+    setElementType('')
+    setApplicableStandards('')
+    setDefectDescription('')
+    setCorrectReference('')
+    setSeverityDefault('ncr')
+    setPolygonPoints(DEFAULT_POLYGON)
   }
 
   function applySelectedPhoto(selected: File) {
     setPhotoFile(selected)
     setPolygonPoints(DEFAULT_POLYGON)
     setPhotoPreview(URL.createObjectURL(selected))
+    setPendingMarkups([])
+  }
+
+  function handleAddMarkup() {
+    if (!title || !defectDescription) return
+    setPendingMarkups((prev) => [
+      ...prev,
+      {
+        tempId: `${Date.now()}-${Math.random()}`,
+        title,
+        elementType,
+        country,
+        applicableStandards,
+        defectDescription,
+        correctReference,
+        severityDefault,
+        polygonPoints,
+      },
+    ])
+    resetMarkupFields()
+  }
+
+  function handleRemoveMarkup(tempId: string) {
+    setPendingMarkups((prev) => prev.filter((m) => m.tempId !== tempId))
   }
 
   async function handleAdd() {
-    if (!title || !defectDescription) return
+    // Whatever's currently in the form counts as one more entry, on top of
+    // any already added via "+ Add this defect" - so the last defect on a
+    // photo doesn't need an extra click before saving.
+    const markups: PendingMarkup[] =
+      title && defectDescription
+        ? [
+            ...pendingMarkups,
+            {
+              tempId: 'current',
+              title,
+              elementType,
+              country,
+              applicableStandards,
+              defectDescription,
+              correctReference,
+              severityDefault,
+              polygonPoints,
+            },
+          ]
+        : pendingMarkups
+
+    if (markups.length === 0) return
     setSaving(true)
     setError(null)
 
     const { data: { user } } = await supabase.auth.getUser()
+    const errors: string[] = []
 
-    let photoUrl: string | null = null
-    if (photoFile && photoPreview) {
-      const burned = await burnPolygonIntoPhoto(photoPreview, polygonPoints)
-      if (!burned) {
-        setError('Could not process the reference photo - try again.')
-        setSaving(false)
-        return
+    for (let i = 0; i < markups.length; i++) {
+      const m = markups[i]
+      let photoUrl: string | null = null
+
+      if (photoFile && photoPreview) {
+        const burned = await burnPolygonIntoPhoto(photoPreview, m.polygonPoints)
+        if (!burned) {
+          errors.push(`"${m.title}": could not process the reference photo`)
+          continue
+        }
+        const path = `${Date.now()}-${i}-${photoFile.name}`
+        const { error: uploadError } = await supabase.storage
+          .from('defect-knowledge-photos')
+          .upload(path, burned, { contentType: 'image/jpeg' })
+        if (uploadError) {
+          errors.push(`"${m.title}": photo upload failed - ${uploadError.message}`)
+          continue
+        }
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from('defect-knowledge-photos').getPublicUrl(path)
+        photoUrl = publicUrl
       }
-      const path = `${Date.now()}-${photoFile.name}`
-      const { error: uploadError } = await supabase.storage
-        .from('defect-knowledge-photos')
-        .upload(path, burned, { contentType: 'image/jpeg' })
-      if (uploadError) {
-        setError(`Photo upload failed: ${uploadError.message}`)
-        setSaving(false)
-        return
+
+      const { error: insertError } = await supabase.from('defect_knowledge_base').insert({
+        title: m.title,
+        element_type: m.elementType || null,
+        country: m.country || null,
+        applicable_standards: m.applicableStandards || null,
+        defect_description: m.defectDescription,
+        correct_reference: m.correctReference || null,
+        severity_default: m.severityDefault,
+        photo_url: photoUrl,
+        created_by: user?.id,
+      })
+
+      if (insertError) {
+        errors.push(`"${m.title}": ${insertError.message}`)
       }
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from('defect-knowledge-photos').getPublicUrl(path)
-      photoUrl = publicUrl
     }
 
-    const { error: insertError } = await supabase.from('defect_knowledge_base').insert({
-      title,
-      element_type: elementType || null,
-      country: country || null,
-      applicable_standards: applicableStandards || null,
-      defect_description: defectDescription,
-      correct_reference: correctReference || null,
-      severity_default: severityDefault,
-      photo_url: photoUrl,
-      created_by: user?.id,
-    })
-
-    if (insertError) {
-      setError(`Could not save: ${insertError.message}`)
+    if (errors.length > 0) {
+      setError(`${markups.length - errors.length} of ${markups.length} entries saved. Failed: ${errors.join('; ')}`)
     } else {
       resetForm()
-      load()
     }
+    load()
     setSaving(false)
   }
 
@@ -462,7 +542,9 @@ export default function DefectKnowledgeAdminPage() {
             </label>
             <p className="mt-0.5 text-xs text-deck-dim">
               Draw a polygon around the exact defect area - it's burned into the photo and given to the AI
-              alongside the text description, so it can visually compare against what you've highlighted.
+              alongside the text description, so it can visually compare against what you've highlighted. If this
+              photo shows more than one defect, mark and fill in one area, click "+ Add this defect", then draw
+              the next area on the same photo and repeat - each becomes its own entry when you save.
             </p>
             <div className="mt-2 flex gap-2">
               <button
@@ -488,15 +570,52 @@ export default function DefectKnowledgeAdminPage() {
             )}
           </div>
 
+          {pendingMarkups.length > 0 && (
+            <div className="mt-3 rounded-md border border-deck-border bg-deck-raised p-3">
+              <p className="text-xs font-medium text-deck-body">
+                {pendingMarkups.length} defect{pendingMarkups.length === 1 ? '' : 's'} marked on this photo so far
+              </p>
+              <div className="mt-1.5 space-y-1">
+                {pendingMarkups.map((m) => (
+                  <div key={m.tempId} className="flex items-center justify-between text-xs">
+                    <span className="text-deck-body">
+                      {m.title}
+                      {m.elementType && <span className="ml-1 text-deck-mute">({m.elementType})</span>}
+                    </span>
+                    <button
+                      onClick={() => handleRemoveMarkup(m.tempId)}
+                      className="text-red-600 underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 
-          <button
-            onClick={handleAdd}
-            disabled={saving || !title || !defectDescription}
-            className="mt-3 w-full rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
-          >
-            {saving ? 'Saving...' : 'Add entry'}
-          </button>
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={handleAddMarkup}
+              disabled={!title || !defectDescription}
+              className="flex-1 rounded-md border border-deck-accent px-3 py-2 text-sm font-medium text-deck-accent disabled:opacity-50"
+            >
+              + Add this defect
+            </button>
+            <button
+              onClick={handleAdd}
+              disabled={saving || (pendingMarkups.length === 0 && (!title || !defectDescription))}
+              className="flex-1 rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
+            >
+              {saving
+                ? 'Saving...'
+                : `Save ${
+                    pendingMarkups.length + (title && defectDescription ? 1 : 0)
+                  } ${pendingMarkups.length + (title && defectDescription ? 1 : 0) === 1 ? 'entry' : 'entries'}`}
+            </button>
+          </div>
         </div>
 
         <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
