@@ -29,8 +29,16 @@ export default function StockMonitorPage() {
   const [historyError, setHistoryError] = useState<string | null>(null)
   const [historyLoading, setHistoryLoading] = useState(false)
 
+  const [alertEmail, setAlertEmail] = useState('')
+  const [alertEmailEnabled, setAlertEmailEnabled] = useState(true)
+  const [pushEnabled, setPushEnabled] = useState(false)
+  const [alertsLoading, setAlertsLoading] = useState(true)
+  const [alertsError, setAlertsError] = useState<string | null>(null)
+  const [alertsMessage, setAlertsMessage] = useState<string | null>(null)
+
   useEffect(() => {
     loadWatchlist()
+    loadAlertSettings()
   }, [])
 
   useEffect(() => {
@@ -87,6 +95,99 @@ export default function StockMonitorPage() {
       await loadWatchlist()
     } catch (err: any) {
       setWatchlistError(err.message || 'Could not add ticker')
+    }
+  }
+
+  async function loadAlertSettings() {
+    setAlertsLoading(true)
+    try {
+      const res = await fetch('/api/stock-monitor/notification-settings')
+      const body = await res.json()
+      if (res.ok) {
+        setAlertEmail(body.email)
+        setAlertEmailEnabled(body.emailEnabled)
+        setPushEnabled(body.pushEnabled)
+      }
+    } finally {
+      setAlertsLoading(false)
+    }
+  }
+
+  async function handleSaveAlertSettings(e: React.FormEvent) {
+    e.preventDefault()
+    setAlertsError(null)
+    setAlertsMessage(null)
+    try {
+      const res = await fetch('/api/stock-monitor/notification-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: alertEmail, emailEnabled: alertEmailEnabled }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Could not save alert settings')
+      setAlertsMessage('Saved.')
+    } catch (err: any) {
+      setAlertsError(err.message || 'Could not save alert settings')
+    }
+  }
+
+  function urlBase64ToUint8Array(base64String: string): Uint8Array {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+    const rawData = window.atob(base64)
+    const outputArray = new Uint8Array(rawData.length)
+    for (let i = 0; i < rawData.length; i++) outputArray[i] = rawData.charCodeAt(i)
+    return outputArray
+  }
+
+  async function handleEnablePush() {
+    setAlertsError(null)
+    setAlertsMessage(null)
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        throw new Error('Push notifications are not supported in this browser')
+      }
+      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+      if (!vapidKey) throw new Error('Push notifications are not configured yet')
+
+      const permission = await Notification.requestPermission()
+      if (permission !== 'granted') throw new Error('Notification permission was not granted')
+
+      const registration = await navigator.serviceWorker.register('/sw.js')
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey) as BufferSource,
+      })
+
+      const res = await fetch('/api/stock-monitor/push-subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(subscription.toJSON()),
+      })
+      if (!res.ok) throw new Error('Could not save push subscription')
+      setPushEnabled(true)
+      setAlertsMessage('Push notifications enabled on this device.')
+    } catch (err: any) {
+      setAlertsError(err.message || 'Could not enable push notifications')
+    }
+  }
+
+  async function handleDisablePush() {
+    setAlertsError(null)
+    setAlertsMessage(null)
+    try {
+      const registration = await navigator.serviceWorker.getRegistration('/sw.js')
+      const subscription = await registration?.pushManager.getSubscription()
+      if (subscription) {
+        await fetch(`/api/stock-monitor/push-subscribe?endpoint=${encodeURIComponent(subscription.endpoint)}`, {
+          method: 'DELETE',
+        })
+        await subscription.unsubscribe()
+      }
+      setPushEnabled(false)
+      setAlertsMessage('Push notifications disabled on this device.')
+    } catch (err: any) {
+      setAlertsError(err.message || 'Could not disable push notifications')
     }
   }
 
@@ -197,6 +298,62 @@ export default function StockMonitorPage() {
         </div>
 
         {activeTicker && <NewsFeed ticker={activeTicker} />}
+
+        <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
+          <p className="text-xs font-medium uppercase tracking-wide text-deck-dim">Alerts</p>
+          <p className="mt-1 text-xs text-deck-dim">
+            Get emailed or pushed to this device the moment a BUY/SELL signal fires - based on an intraday,
+            still-forming price that can occasionally reverse by market close. That reversal still gets recorded
+            in the ledger below, not hidden - it's part of tracking how accurate the signals really are.
+          </p>
+
+          {alertsLoading ? (
+            <p className="mt-3 text-sm text-deck-dim">Loading...</p>
+          ) : (
+            <>
+              <form onSubmit={handleSaveAlertSettings} className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  type="email"
+                  value={alertEmail}
+                  onChange={(e) => setAlertEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className="flex-1 rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
+                />
+                <label className="flex items-center gap-1.5 whitespace-nowrap text-sm text-deck-text">
+                  <input
+                    type="checkbox"
+                    checked={alertEmailEnabled}
+                    onChange={(e) => setAlertEmailEnabled(e.target.checked)}
+                  />
+                  Email me
+                </label>
+                <button
+                  type="submit"
+                  className="rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-white"
+                >
+                  Save
+                </button>
+              </form>
+
+              <div className="mt-3">
+                <button
+                  onClick={pushEnabled ? handleDisablePush : handleEnablePush}
+                  className="rounded-md bg-deck-raised px-3 py-2 text-sm font-medium text-deck-text hover:bg-deck-border"
+                >
+                  {pushEnabled ? 'Disable push on this device' : 'Enable push on this device'}
+                </button>
+              </div>
+
+              <p className="mt-2 text-xs text-deck-dim">
+                On iPhone: add this page to your Home Screen first (Share → Add to Home Screen), then open it from
+                there before tapping Enable - Safari tabs can't receive push notifications directly.
+              </p>
+
+              {alertsError && <p className="mt-2 text-sm text-red-600">{alertsError}</p>}
+              {alertsMessage && <p className="mt-2 text-sm text-emerald-700">{alertsMessage}</p>}
+            </>
+          )}
+        </div>
 
         <PaperTradingSummary />
 

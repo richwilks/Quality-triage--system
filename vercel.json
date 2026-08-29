@@ -11,6 +11,10 @@
     {
       "path": "/api/stock-monitor/news-cron",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/stock-monitor/intraday-cron",
+      "schedule": "*/15 13-21 * * 1-5"
     }
   ]
 }
