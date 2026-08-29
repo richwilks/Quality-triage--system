@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import PageHeader from '@/components/PageHeader'
 import StockChart, { StockHistory } from '@/components/charts/StockChart'
 import PaperTradingSummary from '@/components/PaperTradingSummary'
@@ -356,6 +357,19 @@ export default function StockMonitorPage() {
         </div>
 
         <PaperTradingSummary />
+
+        <Link
+          href="/dashboard/stock-monitor/backtest"
+          className="mt-6 flex items-center justify-between rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm hover:bg-deck-raised"
+        >
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-deck-dim">What if?</p>
+            <p className="mt-1 text-sm text-deck-text">
+              See what a flat stake on every BUY/SELL signal would have returned, and what running the AI costs
+            </p>
+          </div>
+          <span className="text-deck-dim">→</span>
+        </Link>
 
         <p className="mt-4 text-xs text-deck-dim">
           Decision-support only, based on lagging technical indicators (SMA
