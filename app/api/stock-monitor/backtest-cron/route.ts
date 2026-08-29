@@ -6,7 +6,9 @@ import { reconcileAndPersist } from '@/lib/paperTrading'
 import { getSignalParams } from '@/lib/paramTuning'
 import { fetchNewsSignals } from '@/lib/newsSignal'
 
-export const maxDuration = 60
+// Bumped from 60s: the per-ticker loop below is sequential, and a bigger
+// watchlist (e.g. the Nasdaq-100 top 20 + QQQ bulk-add) needs more headroom.
+export const maxDuration = 120
 
 // Daily Vercel Cron job (see vercel.json) that keeps every user's paper-
 // trading ledger up to date, even if nobody opens the dashboard that day.

@@ -3,7 +3,9 @@ import { createWatchlistAdminClient } from '@/lib/supabase/watchlistAdmin'
 import { fetchCompanyNews } from '@/lib/finnhub'
 import { scoreNewsSentiments } from '@/lib/anthropic'
 
-export const maxDuration = 60
+// Bumped from 60s: the per-ticker loop below is sequential, and a bigger
+// watchlist (e.g. the Nasdaq-100 top 20 + QQQ bulk-add) needs more headroom.
+export const maxDuration = 120
 
 // Hourly Vercel Cron job (see vercel.json) - hourly rather than daily like
 // backtest-cron, since news breaks intraday unlike the daily-bar price

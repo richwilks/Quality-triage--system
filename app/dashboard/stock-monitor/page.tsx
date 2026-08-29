@@ -6,6 +6,7 @@ import PageHeader from '@/components/PageHeader'
 import StockChart, { StockHistory } from '@/components/charts/StockChart'
 import PaperTradingSummary from '@/components/PaperTradingSummary'
 import NewsFeed from '@/components/NewsFeed'
+import { NASDAQ100_TOP20_PLUS_QQQ } from '@/lib/watchlistPresets'
 
 // Unlisted page: intentionally not linked from Sidebar/BottomNav/QUICK_LINKS
 // while the stock signal monitor project is under development. Reachable
@@ -25,6 +26,8 @@ export default function StockMonitorPage() {
   const [newTicker, setNewTicker] = useState('')
   const [watchlistError, setWatchlistError] = useState<string | null>(null)
   const [watchlistLoading, setWatchlistLoading] = useState(true)
+  const [bulkAddLoading, setBulkAddLoading] = useState(false)
+  const [bulkAddMessage, setBulkAddMessage] = useState<string | null>(null)
 
   const [history, setHistory] = useState<HistoryWithTuning | null>(null)
   const [historyError, setHistoryError] = useState<string | null>(null)
@@ -97,6 +100,39 @@ export default function StockMonitorPage() {
     } catch (err: any) {
       setWatchlistError(err.message || 'Could not add ticker')
     }
+  }
+
+  // Adds each preset ticker via the same single-ticker endpoint the manual
+  // "Add" form uses - that route already treats "already on the list" as a
+  // no-op (unique_violation is swallowed), so this is safe to click more
+  // than once. Sequential rather than parallel to stay well under Finnhub's
+  // free-tier rate limit once the hourly news-cron starts covering these.
+  async function handleBulkAdd(tickerList: string[], label: string) {
+    setBulkAddLoading(true)
+    setBulkAddMessage(null)
+    setWatchlistError(null)
+    let added = 0
+    let failed = 0
+    for (const ticker of tickerList) {
+      try {
+        const res = await fetch('/api/stock-monitor/watchlist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ticker }),
+        })
+        if (res.ok) added += 1
+        else failed += 1
+      } catch {
+        failed += 1
+      }
+    }
+    await loadWatchlist()
+    setBulkAddLoading(false)
+    setBulkAddMessage(
+      failed === 0
+        ? `Added ${label} (${added} tickers, already-listed ones skipped).`
+        : `Added ${label}: ${added} succeeded, ${failed} failed - try again for the failed ones.`
+    )
   }
 
   async function loadAlertSettings() {
@@ -269,6 +305,21 @@ export default function StockMonitorPage() {
             </button>
           </form>
           {watchlistError && <p className="mt-2 text-sm text-red-600">{watchlistError}</p>}
+
+          <div className="mt-4 border-t border-deck-border pt-4">
+            <button
+              onClick={() => handleBulkAdd(NASDAQ100_TOP20_PLUS_QQQ, 'Nasdaq-100 top 20 + QQQ')}
+              disabled={bulkAddLoading}
+              className="rounded-md bg-deck-raised px-3 py-2 text-sm font-medium text-deck-text hover:bg-deck-border disabled:opacity-50"
+            >
+              {bulkAddLoading ? 'Adding...' : 'Add Nasdaq-100 top 20 + QQQ'}
+            </button>
+            <p className="mt-1 text-xs text-deck-dim">
+              The 20 largest Nasdaq-100 companies by weight (from general knowledge, not a live-verified current
+              ranking) plus QQQ, the ETF that tracks the index.
+            </p>
+            {bulkAddMessage && <p className="mt-1 text-xs text-deck-dim">{bulkAddMessage}</p>}
+          </div>
         </div>
 
         <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
