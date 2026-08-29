@@ -18,6 +18,22 @@ type HistoryWithTuning = StockHistory & {
   validatedReturnPct: number | null
 }
 
+type BacktestSummary = {
+  months: number
+  windowStart: string
+  perTicker: {
+    ticker: string
+    currency: string
+    trades: number
+    invested: number
+    pnl: number
+    returnPct: number | null
+    stillOpen: boolean
+    error?: string
+  }[]
+  totalsByCurrency: Record<string, { invested: number; pnl: number }>
+}
+
 export default function StockMonitorPage() {
   const [tickers, setTickers] = useState<string[]>([])
   const [activeTicker, setActiveTicker] = useState<string | null>(null)
@@ -28,6 +44,11 @@ export default function StockMonitorPage() {
   const [history, setHistory] = useState<HistoryWithTuning | null>(null)
   const [historyError, setHistoryError] = useState<string | null>(null)
   const [historyLoading, setHistoryLoading] = useState(false)
+
+  const [backtestMonths, setBacktestMonths] = useState(18)
+  const [backtestResult, setBacktestResult] = useState<BacktestSummary | null>(null)
+  const [backtestLoading, setBacktestLoading] = useState(false)
+  const [backtestError, setBacktestError] = useState<string | null>(null)
 
   const [alertEmail, setAlertEmail] = useState('')
   const [alertEmailEnabled, setAlertEmailEnabled] = useState(true)
@@ -95,6 +116,21 @@ export default function StockMonitorPage() {
       await loadWatchlist()
     } catch (err: any) {
       setWatchlistError(err.message || 'Could not add ticker')
+    }
+  }
+
+  async function handleRunBacktest() {
+    setBacktestLoading(true)
+    setBacktestError(null)
+    try {
+      const res = await fetch(`/api/stock-monitor/backtest-summary?months=${backtestMonths}`)
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Could not run backtest')
+      setBacktestResult(body)
+    } catch (err: any) {
+      setBacktestError(err.message || 'Could not run backtest')
+    } finally {
+      setBacktestLoading(false)
     }
   }
 
@@ -356,6 +392,101 @@ export default function StockMonitorPage() {
         </div>
 
         <PaperTradingSummary />
+
+        <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
+          <p className="text-xs font-medium uppercase tracking-wide text-deck-dim">What if?</p>
+          <p className="mt-1 text-xs text-deck-dim">
+            Simulates investing 100 units of each stock&apos;s own currency on every BUY signal and selling in
+            full on every SELL signal across your whole watchlist, using live
+            historical price data - not the live paper-trading ledger above, which only started accumulating
+            recently. Technical signals only (SMA crossover, MACD, RSI) - news-driven signals can't be
+            reconstructed this far back.
+          </p>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-1.5 text-sm text-deck-text">
+              Lookback (months)
+              <input
+                type="number"
+                min={1}
+                max={48}
+                value={backtestMonths}
+                onChange={(e) => setBacktestMonths(Number(e.target.value) || 18)}
+                className="w-16 rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text"
+              />
+            </label>
+            <button
+              onClick={handleRunBacktest}
+              disabled={backtestLoading}
+              className="rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+            >
+              {backtestLoading ? 'Calculating...' : 'Calculate'}
+            </button>
+          </div>
+
+          {backtestError && <p className="mt-2 text-sm text-red-600">{backtestError}</p>}
+
+          {backtestResult && (
+            <div className="mt-3">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs uppercase tracking-wide text-deck-dim">
+                    <th className="pb-1">Ticker</th>
+                    <th className="pb-1">Trades</th>
+                    <th className="pb-1">Invested</th>
+                    <th className="pb-1">P&amp;L</th>
+                    <th className="pb-1">Return</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {backtestResult.perTicker.map((t) => (
+                    <tr key={t.ticker} className="border-t border-deck-border">
+                      <td className="py-1 font-medium text-deck-text">{t.ticker}</td>
+                      {t.error ? (
+                        <td className="py-1 text-red-600" colSpan={4}>
+                          {t.error}
+                        </td>
+                      ) : (
+                        <>
+                          <td className="py-1 text-deck-text">
+                            {t.trades}
+                            {t.stillOpen ? ' (+1 open)' : ''}
+                          </td>
+                          <td className="py-1 text-deck-text">
+                            {t.invested.toFixed(0)} {t.currency}
+                          </td>
+                          <td className={`py-1 ${t.pnl >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                            {t.pnl >= 0 ? '+' : ''}
+                            {t.pnl.toFixed(2)} {t.currency}
+                          </td>
+                          <td className={`py-1 ${t.pnl >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                            {t.returnPct === null ? '-' : `${t.returnPct >= 0 ? '+' : ''}${t.returnPct.toFixed(1)}%`}
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <div className="mt-3 space-y-1 text-sm">
+                {Object.entries(backtestResult.totalsByCurrency).map(([currency, totals]) => (
+                  <p key={currency} className={totals.pnl >= 0 ? 'text-emerald-700' : 'text-red-600'}>
+                    Total in {currency}: {totals.pnl >= 0 ? '+' : ''}
+                    {totals.pnl.toFixed(2)} {currency} on {totals.invested.toFixed(0)} {currency} invested (
+                    {((totals.pnl / totals.invested) * 100).toFixed(1)}%)
+                  </p>
+                ))}
+              </div>
+
+              <p className="mt-2 text-xs text-deck-dim">
+                Since {backtestResult.windowStart}. Figures are in each stock&apos;s own currency (e.g. USD for a
+                US-listed stock) - not converted to GBP, since an accurate conversion would need the historical
+                exchange rate on each trade date, not today's rate.
+              </p>
+            </div>
+          )}
+        </div>
 
         <p className="mt-4 text-xs text-deck-dim">
           Decision-support only, based on lagging technical indicators (SMA
