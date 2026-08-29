@@ -9,7 +9,9 @@ import { getSignalParams } from '@/lib/paramTuning'
 import { fetchNewsSignals } from '@/lib/newsSignal'
 import { notifyReconcileResult } from '@/lib/signalAlerts'
 
-export const maxDuration = 60
+// Bumped from 60s: the per-ticker loop below is sequential, and a bigger
+// watchlist (e.g. the Nasdaq-100 top 20 + QQQ bulk-add) needs more headroom.
+export const maxDuration = 120
 
 // Intraday companion to backtest-cron (see vercel.json for the schedule -
 // every 15 minutes during a window wide enough to cover US market hours
