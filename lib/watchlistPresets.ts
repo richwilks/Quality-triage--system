@@ -27,3 +27,30 @@ export const NASDAQ100_TOP20_PLUS_QQQ: string[] = [
   'AMAT',
   'QQQ', // the Nasdaq-100 tracking ETF, not a constituent itself
 ]
+
+// Same caveat as above: well-established FTSE 100 mega-caps from general
+// knowledge, not a live-verified current ranking. ".L" is Yahoo Finance's
+// suffix for London Stock Exchange listings - required for fetchDailyCloses
+// to resolve these tickers at all.
+export const FTSE100_TOP20: string[] = [
+  'SHEL.L',
+  'AZN.L',
+  'HSBA.L',
+  'ULVR.L',
+  'BP.L',
+  'DGE.L',
+  'GSK.L',
+  'RIO.L',
+  'BATS.L',
+  'GLEN.L',
+  'REL.L',
+  'NG.L',
+  'RKT.L',
+  'BA.L',
+  'CPG.L',
+  'AV.L',
+  'BARC.L',
+  'LLOY.L',
+  'PRU.L',
+  'AAL.L',
+]
