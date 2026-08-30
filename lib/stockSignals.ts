@@ -23,6 +23,21 @@ export type SignalAction = 'BUY' | 'SELL'
 export type SignalStrategy = 'SMA_CROSSOVER' | 'RSI' | 'MACD' | 'NEWS'
 export type SignalStrength = 'CONFIRMED' | 'WATCH'
 
+// Shared human-readable label, used by both the paper-trading ledger UI
+// and email alert subjects so the two never drift out of sync.
+export function strategyLabel(strategy: string): string {
+  switch (strategy) {
+    case 'SMA_CROSSOVER':
+      return 'SMA crossover'
+    case 'MACD':
+      return 'MACD'
+    case 'NEWS':
+      return 'News sentiment'
+    default:
+      return 'RSI'
+  }
+}
+
 export interface StockSignal {
   strategy: SignalStrategy
   action: SignalAction

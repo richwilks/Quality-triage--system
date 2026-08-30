@@ -4,6 +4,8 @@
 // verification, so RESEND_API_KEY is the only secret strictly required to
 // get email alerts working.
 
+import { strategyLabel } from './stockSignals'
+
 const DEFAULT_FROM = 'Stock Signal Monitor <onboarding@resend.dev>'
 
 export interface SignalEmailDetails {
@@ -30,7 +32,11 @@ export async function sendSignalEmail(to: string, details: SignalEmailDetails): 
   }
 
   const { ticker, action, strategy, price, currency, date, detail, strength, newsSnippet } = details
-  const subject = strength === 'WATCH' ? `Watch: ${ticker} ${WATCH_LABEL[action]}` : `${action} signal: ${ticker}`
+  const label = strategyLabel(strategy)
+  const subject =
+    strength === 'WATCH'
+      ? `Watch: ${ticker} ${action} - ${price.toFixed(2)} ${currency} (${label})`
+      : `${ticker} ${action} - ${price.toFixed(2)} ${currency} (${label})`
   const headline =
     strength === 'WATCH'
       ? `${ticker} is in a watch zone (${WATCH_LABEL[action]}) as of ${date} - not a confirmed signal yet.`

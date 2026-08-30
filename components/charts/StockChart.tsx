@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useRef, useState } from 'react'
+import { strategyLabel } from '@/lib/stockSignals'
 
 export type StockSignal = {
   strategy: 'SMA_CROSSOVER' | 'RSI' | 'MACD' | 'NEWS'
@@ -75,13 +76,6 @@ function buildPath(values: (number | null)[], xScale: (i: number) => number, ySc
 function niceDate(iso: string): string {
   const d = new Date(iso)
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
-function strategyLabel(strategy: StockSignal['strategy']): string {
-  if (strategy === 'SMA_CROSSOVER') return 'SMA crossover'
-  if (strategy === 'MACD') return 'MACD'
-  if (strategy === 'NEWS') return 'News sentiment'
-  return 'RSI'
 }
 
 export default function StockChart({ history }: { history: StockHistory }) {
@@ -406,7 +400,7 @@ export default function StockChart({ history }: { history: StockHistory }) {
                 </tr>
               </thead>
               <tbody>
-                {signals.map((s, idx) => (
+                {[...signals].reverse().map((s, idx) => (
                   <tr key={idx} className="border-t border-deck-border">
                     <td className="py-1 pr-3 text-deck-body">{niceDate(s.date)}</td>
                     <td className={`py-1 pr-3 font-semibold ${s.action === 'BUY' ? 'text-emerald-700' : 'text-red-700'}`}>
