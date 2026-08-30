@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { strategyLabel } from '@/lib/stockSignals'
 
 type Trade = {
   ticker: string
@@ -41,19 +42,6 @@ function formatMoney(value: number, currency: string): string {
 
 function niceDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
-function strategyLabel(strategy: string): string {
-  switch (strategy) {
-    case 'SMA_CROSSOVER':
-      return 'SMA crossover'
-    case 'MACD':
-      return 'MACD'
-    case 'NEWS':
-      return 'News sentiment'
-    default:
-      return 'RSI'
-  }
 }
 
 export default function PaperTradingSummary() {

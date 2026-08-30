@@ -359,6 +359,26 @@ export default function StockMonitorDashboard() {
           )}
         </div>
 
+        <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
+          <p className="text-xs font-medium uppercase tracking-wide text-deck-dim">Which signal to trust</p>
+          <p className="mt-1 text-sm text-deck-text">
+            SMA crossover and MACD only fire when ADX confirms a real trend - RSI deliberately doesn&apos;t use that
+            filter, since it&apos;s a mean-reversion signal built for choppy, range-bound conditions instead.
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-deck-text">
+            <li>
+              <strong>Trending market</strong> (SMA/MACD have fired): trust MACD for early timing, SMA crossover for
+              slower but higher-conviction confirmation - and discount RSI, since it can stay &quot;overbought&quot;
+              or &quot;oversold&quot; for a long stretch during a strong trend.
+            </li>
+            <li>
+              <strong>Flat/ranging market</strong> (no SMA/MACD signal - ADX is low): RSI is the one actually built
+              for this condition, not irrelevant.
+            </li>
+            <li>News sentiment is the newest, least-proven signal here - weight it lowest in any conflict.</li>
+          </ul>
+        </div>
+
         {activeTicker && <NewsFeed ticker={activeTicker} />}
 
         <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
