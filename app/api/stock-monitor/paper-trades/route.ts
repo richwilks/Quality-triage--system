@@ -11,11 +11,13 @@ interface TradeRow {
   entry_date: string
   entry_price: number
   entry_strategy: string
+  entry_detail: string | null
   invested_amount: number
   shares: number
   exit_date: string | null
   exit_price: number | null
   exit_strategy: string | null
+  exit_detail: string | null
   status: 'open' | 'closed'
 }
 
@@ -31,7 +33,7 @@ export async function GET() {
   const { data: trades, error } = await createWatchlistAdminClient()
     .from('paper_trades')
     .select(
-      'ticker, currency, entry_date, entry_price, entry_strategy, invested_amount, shares, exit_date, exit_price, exit_strategy, status'
+      'ticker, currency, entry_date, entry_price, entry_strategy, entry_detail, invested_amount, shares, exit_date, exit_price, exit_strategy, exit_detail, status'
     )
     .eq('user_id', user.id)
     .order('entry_date', { ascending: false })

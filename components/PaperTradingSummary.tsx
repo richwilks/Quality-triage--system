@@ -8,11 +8,13 @@ type Trade = {
   entry_date: string
   entry_price: number
   entry_strategy: string
+  entry_detail: string | null
   invested_amount: number
   shares: number
   exit_date: string | null
   exit_price: number | null
   exit_strategy: string | null
+  exit_detail: string | null
   status: 'open' | 'closed'
   current_price: number
   current_value: number
@@ -42,7 +44,16 @@ function niceDate(iso: string): string {
 }
 
 function strategyLabel(strategy: string): string {
-  return strategy === 'SMA_CROSSOVER' ? 'SMA crossover' : 'RSI'
+  switch (strategy) {
+    case 'SMA_CROSSOVER':
+      return 'SMA crossover'
+    case 'MACD':
+      return 'MACD'
+    case 'NEWS':
+      return 'News sentiment'
+    default:
+      return 'RSI'
+  }
 }
 
 export default function PaperTradingSummary() {
@@ -125,6 +136,11 @@ export default function PaperTradingSummary() {
                     <td className="py-1.5 pr-3 text-deck-body">
                       {niceDate(t.entry_date)} @ {formatMoney(t.entry_price, t.currency)}
                       <span className="block text-deck-dim">{strategyLabel(t.entry_strategy)}</span>
+                      {t.entry_detail && (
+                        <span className="block max-w-xs text-deck-dim" title={t.entry_detail}>
+                          {t.entry_detail}
+                        </span>
+                      )}
                     </td>
                     <td className="py-1.5 pr-3 text-deck-body">
                       {t.status === 'open' ? (
@@ -135,6 +151,11 @@ export default function PaperTradingSummary() {
                         <>
                           {niceDate(t.exit_date!)} @ {formatMoney(t.exit_price!, t.currency)}
                           <span className="block text-deck-dim">{strategyLabel(t.exit_strategy!)}</span>
+                          {t.exit_detail && (
+                            <span className="block max-w-xs text-deck-dim" title={t.exit_detail}>
+                              {t.exit_detail}
+                            </span>
+                          )}
                         </>
                       )}
                     </td>
