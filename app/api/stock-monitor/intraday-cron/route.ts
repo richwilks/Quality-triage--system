@@ -7,7 +7,8 @@ import { appendTodayBar } from '@/lib/intradayBar'
 import { reconcileAndPersist } from '@/lib/paperTrading'
 import { getSignalParams } from '@/lib/paramTuning'
 import { fetchNewsSignals } from '@/lib/newsSignal'
-import { notifyReconcileResult } from '@/lib/signalAlerts'
+import { notifyReconcileResult, notifyWatchSignals } from '@/lib/signalAlerts'
+import { fetchRecentHeadlines, formatNewsSnippet } from '@/lib/newsContext'
 
 // Bumped from 60s: the per-ticker loop below is sequential, and a bigger
 // watchlist (e.g. the Nasdaq-100 top 20 + QQQ bulk-add) needs more headroom.
@@ -72,9 +73,24 @@ export async function GET(req: NextRequest) {
 
     const { dates, close, high, low } = extended
     const params = await getSignalParams(ticker)
-    const { signals } = computeSignals(dates, close, high, low, params.params)
+    const { signals, watchSignals } = computeSignals(dates, close, high, low, params.params)
     const newsSignals = await fetchNewsSignals(supabaseAdmin, ticker, dates)
     const allSignals = [...signals, ...newsSignals].sort((a, b) => a.index - b.index)
+
+    // Fetched at most once per ticker per run, and only when there's
+    // actually something to report - not on every run regardless, to keep
+    // Finnhub usage bounded.
+    let newsSnippet: string | null = null
+    let newsSnippetFetched = false
+    async function getNewsSnippet(): Promise<string | null> {
+      if (!newsSnippetFetched) {
+        newsSnippetFetched = true
+        const headlinesResult = await fetchRecentHeadlines(ticker)
+        if (headlinesResult.ok) newsSnippet = formatNewsSnippet(headlinesResult.data)
+      }
+      return newsSnippet
+    }
+    if (watchSignals.length > 0) await getNewsSnippet()
 
     let opened = 0
     let closed = 0
@@ -82,8 +98,11 @@ export async function GET(req: NextRequest) {
       const result = await reconcileAndPersist(supabaseAdmin, userId, ticker, currency, allSignals, close)
       opened += result.toInsert.length
       closed += result.toClose.length
-      await notifyReconcileResult(supabaseAdmin, userId, ticker, currency, result)
+      const snippet = result.toInsert.length > 0 || result.toClose.length > 0 ? await getNewsSnippet() : null
+      await notifyReconcileResult(supabaseAdmin, userId, ticker, currency, result, snippet)
     }
+
+    await notifyWatchSignals(supabaseAdmin, ticker, currency, watchSignals, close, userIds, newsSnippet)
 
     summary.push({ ticker, usersReconciled: userIds.length, opened, closed })
   }

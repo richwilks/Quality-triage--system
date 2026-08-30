@@ -11,14 +11,17 @@ export const SMA_LONG_WINDOW = 200
 export const RSI_WINDOW = 14
 export const RSI_OVERSOLD_THRESHOLD = 30
 export const RSI_OVERBOUGHT_THRESHOLD = 70
+export const RSI_WATCH_MARGIN = 5
 export const ADX_WINDOW = 14
 export const ADX_THRESHOLD = 25
 export const MACD_FAST_WINDOW = 12
 export const MACD_SLOW_WINDOW = 26
 export const MACD_SIGNAL_WINDOW = 9
+export const SMA_WATCH_MARGIN_PCT = 2
 
 export type SignalAction = 'BUY' | 'SELL'
 export type SignalStrategy = 'SMA_CROSSOVER' | 'RSI' | 'MACD' | 'NEWS'
+export type SignalStrength = 'CONFIRMED' | 'WATCH'
 
 export interface StockSignal {
   strategy: SignalStrategy
@@ -26,6 +29,7 @@ export interface StockSignal {
   date: string
   index: number
   detail: string
+  strength: SignalStrength
 }
 
 export interface SignalParams {
@@ -240,6 +244,12 @@ export interface ComputeSignalsResult {
   macd: MACDResult
   adx: (number | null)[]
   signals: StockSignal[]
+  // Near-trigger heads-up, kept entirely separate from `signals` above -
+  // never fed into reconcileTicker/reconcileAndPersist (a near-miss must
+  // never open a fake paper trade) and never returned by the history route
+  // (a near-miss must never render as a confirmed chart marker). Only the
+  // crons consume this, for the "watch zone" alert path.
+  watchSignals: StockSignal[]
 }
 
 // Scans the full series for SMA golden/death crosses, MACD-line/signal-line
@@ -263,18 +273,24 @@ export function computeSignals(
   const macd = calculateMACD(close)
   const adx = calculateADX(high, low, close, ADX_WINDOW)
   const signals: StockSignal[] = []
+  const watchSignals: StockSignal[] = []
 
   const adxConfirmsTrend = (i: number): boolean => {
     const a = adx[i]
     return a != null && a >= params.adxThreshold
   }
 
+  // Gap as a % of the long SMA - positive means short is above long.
+  const smaGapPct = (s: number, l: number): number => ((s - l) / l) * 100
+
   let prevSmaDiff: number | null = null
+  let prevSmaGapPct: number | null = null
   for (let i = 0; i < close.length; i++) {
     const s = smaShort[i]
     const l = smaLong[i]
     if (s == null || l == null) continue
     const diff = s - l
+    const gapPct = smaGapPct(s, l)
     if (prevSmaDiff !== null && adxConfirmsTrend(i)) {
       if (prevSmaDiff <= 0 && diff > 0) {
         signals.push({
@@ -283,6 +299,7 @@ export function computeSignals(
           date: dates[i],
           index: i,
           detail: `Golden cross: ${params.smaShort}-day SMA (${s.toFixed(2)}) crossed above the ${params.smaLong}-day SMA (${l.toFixed(2)}); ADX ${adx[i]!.toFixed(1)} confirms a trend.`,
+          strength: 'CONFIRMED',
         })
       } else if (prevSmaDiff >= 0 && diff < 0) {
         signals.push({
@@ -291,10 +308,40 @@ export function computeSignals(
           date: dates[i],
           index: i,
           detail: `Death cross: ${params.smaShort}-day SMA (${s.toFixed(2)}) crossed below the ${params.smaLong}-day SMA (${l.toFixed(2)}); ADX ${adx[i]!.toFixed(1)} confirms a trend.`,
+          strength: 'CONFIRMED',
+        })
+      }
+    }
+
+    // Watch zone: the gap is closing in on a cross but hasn't happened yet
+    // - fires once on entering the band, not every day it stays there. Not
+    // ADX-filtered on purpose: this is meant to be an earlier heads-up than
+    // the ADX-confirmed crossover above, not another trend-confirmed signal.
+    if (prevSmaGapPct !== null && diff !== 0) {
+      const enteringBullishWatch = gapPct > -SMA_WATCH_MARGIN_PCT && gapPct < 0 && !(prevSmaGapPct > -SMA_WATCH_MARGIN_PCT && prevSmaGapPct < 0)
+      const enteringBearishWatch = gapPct > 0 && gapPct < SMA_WATCH_MARGIN_PCT && !(prevSmaGapPct > 0 && prevSmaGapPct < SMA_WATCH_MARGIN_PCT)
+      if (enteringBullishWatch) {
+        watchSignals.push({
+          strategy: 'SMA_CROSSOVER',
+          action: 'BUY',
+          date: dates[i],
+          index: i,
+          detail: `Approaching a golden cross: ${params.smaShort}-day SMA (${s.toFixed(2)}) is ${Math.abs(gapPct).toFixed(2)}% below the ${params.smaLong}-day SMA (${l.toFixed(2)}).`,
+          strength: 'WATCH',
+        })
+      } else if (enteringBearishWatch) {
+        watchSignals.push({
+          strategy: 'SMA_CROSSOVER',
+          action: 'SELL',
+          date: dates[i],
+          index: i,
+          detail: `Approaching a death cross: ${params.smaShort}-day SMA (${s.toFixed(2)}) is ${gapPct.toFixed(2)}% above the ${params.smaLong}-day SMA (${l.toFixed(2)}).`,
+          strength: 'WATCH',
         })
       }
     }
     prevSmaDiff = diff
+    prevSmaGapPct = gapPct
   }
 
   let prevMacdDiff: number | null = null
@@ -311,6 +358,7 @@ export function computeSignals(
           date: dates[i],
           index: i,
           detail: `MACD (${m.toFixed(2)}) crossed above its signal line (${sig.toFixed(2)}); ADX ${adx[i]!.toFixed(1)} confirms a trend.`,
+          strength: 'CONFIRMED',
         })
       } else if (prevMacdDiff >= 0 && diff < 0) {
         signals.push({
@@ -319,11 +367,19 @@ export function computeSignals(
           date: dates[i],
           index: i,
           detail: `MACD (${m.toFixed(2)}) crossed below its signal line (${sig.toFixed(2)}); ADX ${adx[i]!.toFixed(1)} confirms a trend.`,
+          strength: 'CONFIRMED',
         })
       }
     }
     prevMacdDiff = diff
   }
+
+  // Watch-zone membership just above/below the confirmed thresholds - the
+  // ranges never overlap with the confirmed r <= oversold / r >= overbought
+  // conditions below, so a watch and a confirmed RSI signal can never fire
+  // for the same reading.
+  const inBuyWatch = (v: number) => v > params.rsiOversold && v <= params.rsiOversold + RSI_WATCH_MARGIN
+  const inSellWatch = (v: number) => v < params.rsiOverbought && v >= params.rsiOverbought - RSI_WATCH_MARGIN
 
   let prevRsi: number | null = null
   for (let i = 0; i < close.length; i++) {
@@ -339,6 +395,7 @@ export function computeSignals(
         date: dates[i],
         index: i,
         detail: `RSI(14) = ${r.toFixed(1)}, at or below the oversold threshold of ${params.rsiOversold}.`,
+        strength: 'CONFIRMED',
       })
     } else if ((prevRsi === null || prevRsi < params.rsiOverbought) && r >= params.rsiOverbought) {
       signals.push({
@@ -347,11 +404,31 @@ export function computeSignals(
         date: dates[i],
         index: i,
         detail: `RSI(14) = ${r.toFixed(1)}, at or above the overbought threshold of ${params.rsiOverbought}.`,
+        strength: 'CONFIRMED',
+      })
+    } else if (inBuyWatch(r) && !(prevRsi !== null && inBuyWatch(prevRsi))) {
+      watchSignals.push({
+        strategy: 'RSI',
+        action: 'BUY',
+        date: dates[i],
+        index: i,
+        detail: `RSI(14) = ${r.toFixed(1)}, approaching the oversold threshold of ${params.rsiOversold}.`,
+        strength: 'WATCH',
+      })
+    } else if (inSellWatch(r) && !(prevRsi !== null && inSellWatch(prevRsi))) {
+      watchSignals.push({
+        strategy: 'RSI',
+        action: 'SELL',
+        date: dates[i],
+        index: i,
+        detail: `RSI(14) = ${r.toFixed(1)}, approaching the overbought threshold of ${params.rsiOverbought}.`,
+        strength: 'WATCH',
       })
     }
     prevRsi = r
   }
 
   signals.sort((a, b) => a.index - b.index)
-  return { sma50: smaShort, sma200: smaLong, rsi, macd, adx, signals }
+  watchSignals.sort((a, b) => a.index - b.index)
+  return { sma50: smaShort, sma200: smaLong, rsi, macd, adx, signals, watchSignals }
 }

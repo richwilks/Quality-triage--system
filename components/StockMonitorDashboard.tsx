@@ -368,6 +368,12 @@ export default function StockMonitorDashboard() {
             still-forming price that can occasionally reverse by market close. That reversal still gets recorded
             in the ledger below, not hidden - it's part of tracking how accurate the signals really are.
           </p>
+          <p className="mt-1 text-xs text-deck-dim">
+            <strong>Confirmed</strong> alerts mean a signal actually fired and (for technical signals) opened or
+            closed a position in the ledger. <strong>Watch</strong> alerts are an earlier heads-up - RSI closing in
+            on its threshold, or the 50/200-day SMAs converging toward a cross - before anything is confirmed;
+            they never affect the ledger, and recent news headlines are attached when available for context.
+          </p>
 
           {alertsLoading ? (
             <p className="mt-3 text-sm text-deck-dim">Loading...</p>

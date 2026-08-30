@@ -14,6 +14,13 @@ export interface SignalEmailDetails {
   currency: string
   date: string
   detail: string
+  strength: 'CONFIRMED' | 'WATCH'
+  newsSnippet: string | null
+}
+
+const WATCH_LABEL: Record<'BUY' | 'SELL', string> = {
+  BUY: 'approaching oversold/a golden cross',
+  SELL: 'approaching overbought/a death cross',
 }
 
 export async function sendSignalEmail(to: string, details: SignalEmailDetails): Promise<boolean> {
@@ -22,9 +29,14 @@ export async function sendSignalEmail(to: string, details: SignalEmailDetails): 
     return false
   }
 
-  const { ticker, action, strategy, price, currency, date, detail } = details
-  const subject = `${action} signal: ${ticker}`
-  const text = `${action} signal detected for ${ticker} on ${date}.\n\nStrategy: ${strategy}\nPrice: ${price.toFixed(2)} ${currency}\n\nWhy: ${detail}\n\nView the dashboard: https://inspectiq.co/dashboard/stock-monitor\n\nDecision-support only, based on lagging technical indicators - not financial advice.`
+  const { ticker, action, strategy, price, currency, date, detail, strength, newsSnippet } = details
+  const subject = strength === 'WATCH' ? `Watch: ${ticker} ${WATCH_LABEL[action]}` : `${action} signal: ${ticker}`
+  const headline =
+    strength === 'WATCH'
+      ? `${ticker} is in a watch zone (${WATCH_LABEL[action]}) as of ${date} - not a confirmed signal yet.`
+      : `${action} signal detected for ${ticker} on ${date}.`
+  const newsSection = newsSnippet ? `\n\nRecent headlines:\n${newsSnippet}` : ''
+  const text = `${headline}\n\nStrategy: ${strategy}\nPrice: ${price.toFixed(2)} ${currency}\n\nWhy: ${detail}${newsSection}\n\nView the dashboard: https://inspectiq.co/dashboard/stock-monitor\n\nDecision-support only, based on lagging technical indicators - not financial advice.`
 
   try {
     const res = await fetch('https://api.resend.com/emails', {

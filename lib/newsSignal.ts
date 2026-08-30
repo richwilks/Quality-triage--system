@@ -74,6 +74,7 @@ export function computeNewsSignal(dates: string[], news: NewsItem[]): StockSigna
         date: dates[i],
         index: i,
         detail: `News sentiment (${NEWS_LOOKBACK_DAYS}-day avg) = ${avg.toFixed(2)}, crossed above the bullish threshold of ${NEWS_BULLISH_THRESHOLD}. Most influential headline: "${truncateHeadline(top.headline)}" (${top.sentimentScore >= 0 ? '+' : ''}${top.sentimentScore.toFixed(2)}).`,
+        strength: 'CONFIRMED',
       })
     } else if ((prevAvg === null || prevAvg >= NEWS_BEARISH_THRESHOLD) && avg < NEWS_BEARISH_THRESHOLD) {
       const top = mostInfluentialHeadline(inWindow, 'SELL')
@@ -83,6 +84,7 @@ export function computeNewsSignal(dates: string[], news: NewsItem[]): StockSigna
         date: dates[i],
         index: i,
         detail: `News sentiment (${NEWS_LOOKBACK_DAYS}-day avg) = ${avg.toFixed(2)}, crossed below the bearish threshold of ${NEWS_BEARISH_THRESHOLD}. Most influential headline: "${truncateHeadline(top.headline)}" (${top.sentimentScore >= 0 ? '+' : ''}${top.sentimentScore.toFixed(2)}).`,
+        strength: 'CONFIRMED',
       })
     }
     prevAvg = avg
