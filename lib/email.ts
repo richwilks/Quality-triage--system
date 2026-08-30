@@ -13,6 +13,7 @@ export interface SignalEmailDetails {
   price: number
   currency: string
   date: string
+  detail: string
 }
 
 export async function sendSignalEmail(to: string, details: SignalEmailDetails): Promise<boolean> {
@@ -21,9 +22,9 @@ export async function sendSignalEmail(to: string, details: SignalEmailDetails): 
     return false
   }
 
-  const { ticker, action, strategy, price, currency, date } = details
+  const { ticker, action, strategy, price, currency, date, detail } = details
   const subject = `${action} signal: ${ticker}`
-  const text = `${action} signal detected for ${ticker} on ${date}.\n\nStrategy: ${strategy}\nPrice: ${price.toFixed(2)} ${currency}\n\nView the dashboard: https://inspectiq.co/dashboard/stock-monitor\n\nDecision-support only, based on lagging technical indicators - not financial advice.`
+  const text = `${action} signal detected for ${ticker} on ${date}.\n\nStrategy: ${strategy}\nPrice: ${price.toFixed(2)} ${currency}\n\nWhy: ${detail}\n\nView the dashboard: https://inspectiq.co/dashboard/stock-monitor\n\nDecision-support only, based on lagging technical indicators - not financial advice.`
 
   try {
     const res = await fetch('https://api.resend.com/emails', {

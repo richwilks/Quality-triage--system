@@ -26,10 +26,27 @@ export async function notifyReconcileResult(
     supabaseAdmin.from('push_subscriptions').select('id, endpoint, p256dh, auth').eq('user_id', userId),
   ])
 
-  const events: { action: 'BUY' | 'SELL'; strategy: string; price: number; date: string }[] = [
-    ...result.toInsert.map((t) => ({ action: 'BUY' as const, strategy: t.entry_strategy, price: t.entry_price, date: t.entry_date })),
-    ...result.toClose.map((c) => ({ action: 'SELL' as const, strategy: c.exit_strategy, price: c.exit_price, date: c.exit_date })),
+  const events: { action: 'BUY' | 'SELL'; strategy: string; price: number; date: string; detail: string }[] = [
+    ...result.toInsert.map((t) => ({
+      action: 'BUY' as const,
+      strategy: t.entry_strategy,
+      price: t.entry_price,
+      date: t.entry_date,
+      detail: t.entry_detail,
+    })),
+    ...result.toClose.map((c) => ({
+      action: 'SELL' as const,
+      strategy: c.exit_strategy,
+      price: c.exit_price,
+      date: c.exit_date,
+      detail: c.exit_detail,
+    })),
   ]
+
+  // Push notification bodies get cut off by the OS well before this length;
+  // email has no such limit so gets the full detail string.
+  const MAX_PUSH_BODY_CHARS = 140
+  const truncateForPush = (text: string) => (text.length > MAX_PUSH_BODY_CHARS ? `${text.slice(0, MAX_PUSH_BODY_CHARS - 1)}…` : text)
 
   for (const event of events) {
     if (settings?.email && settings.email_enabled !== false) {
@@ -41,7 +58,7 @@ export async function notifyReconcileResult(
         { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
         {
           title: `${ticker} ${event.action} signal`,
-          body: `${event.strategy} - ${event.price.toFixed(2)} ${currency}`,
+          body: truncateForPush(event.detail),
           url: '/dashboard/stock-monitor',
         }
       )

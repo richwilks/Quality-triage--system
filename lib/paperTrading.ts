@@ -15,6 +15,7 @@ export interface NewTrade {
   entry_date: string
   entry_price: number
   entry_strategy: string
+  entry_detail: string
   invested_amount: number
   shares: number
 }
@@ -24,6 +25,7 @@ export interface TradeClose {
   exit_date: string
   exit_price: number
   exit_strategy: string
+  exit_detail: string
 }
 
 export interface ReconcileResult {
@@ -65,6 +67,7 @@ export function reconcileTicker(
         entry_date: signal.date,
         entry_price: price,
         entry_strategy: signal.strategy,
+        entry_detail: signal.detail,
         invested_amount: INVESTED_AMOUNT,
         shares: INVESTED_AMOUNT / price,
       })
@@ -75,6 +78,7 @@ export function reconcileTicker(
         exit_date: signal.date,
         exit_price: close[signal.index],
         exit_strategy: signal.strategy,
+        exit_detail: signal.detail,
       })
       open = null
     }
@@ -130,6 +134,7 @@ export async function reconcileAndPersist(
         exit_date: c.exit_date,
         exit_price: c.exit_price,
         exit_strategy: c.exit_strategy,
+        exit_detail: c.exit_detail,
         status: 'closed',
       })
       .eq('user_id', userId)

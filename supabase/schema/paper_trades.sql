@@ -13,11 +13,13 @@ create table if not exists public.paper_trades (
   entry_date date not null,
   entry_price numeric not null,
   entry_strategy text not null,
+  entry_detail text,
   invested_amount numeric not null default 100,
   shares numeric not null,
   exit_date date,
   exit_price numeric,
   exit_strategy text,
+  exit_detail text,
   status text not null default 'open',
   created_at timestamptz not null default now(),
   unique (user_id, ticker, entry_date)

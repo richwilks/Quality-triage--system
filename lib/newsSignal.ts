@@ -18,6 +18,22 @@ export const NEWS_BEARISH_THRESHOLD = -0.3
 export interface NewsItem {
   publishedAt: string // ISO date/datetime
   sentimentScore: number
+  headline: string
+}
+
+const MAX_HEADLINE_CHARS = 80
+
+function truncateHeadline(headline: string): string {
+  return headline.length > MAX_HEADLINE_CHARS ? `${headline.slice(0, MAX_HEADLINE_CHARS - 1)}…` : headline
+}
+
+// Names the single article that actually drove the average past the
+// threshold - the highest-scored one for a BUY, lowest for a SELL - so the
+// signal's `detail` cites something concrete, not just the rolling number.
+function mostInfluentialHeadline(inWindow: NewsItem[], action: 'BUY' | 'SELL'): NewsItem {
+  return inWindow.reduce((best, n) =>
+    action === 'BUY' ? (n.sentimentScore > best.sentimentScore ? n : best) : (n.sentimentScore < best.sentimentScore ? n : best)
+  )
 }
 
 // For each date in `dates`, averages sentimentScore over news published in
@@ -51,20 +67,22 @@ export function computeNewsSignal(dates: string[], news: NewsItem[]): StockSigna
     const avg = inWindow.reduce((sum, n) => sum + n.sentimentScore, 0) / inWindow.length
 
     if ((prevAvg === null || prevAvg <= NEWS_BULLISH_THRESHOLD) && avg > NEWS_BULLISH_THRESHOLD) {
+      const top = mostInfluentialHeadline(inWindow, 'BUY')
       signals.push({
         strategy: 'NEWS',
         action: 'BUY',
         date: dates[i],
         index: i,
-        detail: `News sentiment (${NEWS_LOOKBACK_DAYS}-day avg) = ${avg.toFixed(2)}, crossed above the bullish threshold of ${NEWS_BULLISH_THRESHOLD}.`,
+        detail: `News sentiment (${NEWS_LOOKBACK_DAYS}-day avg) = ${avg.toFixed(2)}, crossed above the bullish threshold of ${NEWS_BULLISH_THRESHOLD}. Most influential headline: "${truncateHeadline(top.headline)}" (${top.sentimentScore >= 0 ? '+' : ''}${top.sentimentScore.toFixed(2)}).`,
       })
     } else if ((prevAvg === null || prevAvg >= NEWS_BEARISH_THRESHOLD) && avg < NEWS_BEARISH_THRESHOLD) {
+      const top = mostInfluentialHeadline(inWindow, 'SELL')
       signals.push({
         strategy: 'NEWS',
         action: 'SELL',
         date: dates[i],
         index: i,
-        detail: `News sentiment (${NEWS_LOOKBACK_DAYS}-day avg) = ${avg.toFixed(2)}, crossed below the bearish threshold of ${NEWS_BEARISH_THRESHOLD}.`,
+        detail: `News sentiment (${NEWS_LOOKBACK_DAYS}-day avg) = ${avg.toFixed(2)}, crossed below the bearish threshold of ${NEWS_BEARISH_THRESHOLD}. Most influential headline: "${truncateHeadline(top.headline)}" (${top.sentimentScore >= 0 ? '+' : ''}${top.sentimentScore.toFixed(2)}).`,
       })
     }
     prevAvg = avg
@@ -89,13 +107,14 @@ export async function fetchNewsSignals(
 
   const { data } = await supabase
     .from('stock_news')
-    .select('published_at, sentiment_score')
+    .select('published_at, sentiment_score, headline')
     .eq('ticker', ticker)
     .gte('published_at', lookbackStart.toISOString())
 
   const news: NewsItem[] = (data || []).map((row: any) => ({
     publishedAt: row.published_at,
     sentimentScore: row.sentiment_score,
+    headline: row.headline,
   }))
 
   return computeNewsSignal(dates, news)
