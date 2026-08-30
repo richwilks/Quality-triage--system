@@ -6,6 +6,7 @@ import PageHeader from '@/components/PageHeader'
 import StockChart, { StockHistory } from '@/components/charts/StockChart'
 import PaperTradingSummary from '@/components/PaperTradingSummary'
 import NewsFeed from '@/components/NewsFeed'
+import RecentTriggers from '@/components/RecentTriggers'
 import { NASDAQ100_TOP20_PLUS_QQQ, FTSE100_TOP20 } from '@/lib/watchlistPresets'
 
 // The stock signal monitor's actual page body, shared by two routes:
@@ -331,6 +332,8 @@ export default function StockMonitorDashboard() {
           </p>
           {bulkAddMessage && <p className="mt-1 text-xs text-deck-dim">{bulkAddMessage}</p>}
         </div>
+
+        <RecentTriggers />
 
         <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
           {!activeTicker && <p className="text-sm text-deck-dim">Add a ticker above to see its chart.</p>}
