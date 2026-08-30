@@ -6,7 +6,7 @@ import PageHeader from '@/components/PageHeader'
 import StockChart, { StockHistory } from '@/components/charts/StockChart'
 import PaperTradingSummary from '@/components/PaperTradingSummary'
 import NewsFeed from '@/components/NewsFeed'
-import { NASDAQ100_TOP20_PLUS_QQQ } from '@/lib/watchlistPresets'
+import { NASDAQ100_TOP20_PLUS_QQQ, FTSE100_TOP20 } from '@/lib/watchlistPresets'
 
 // The stock signal monitor's actual page body, shared by two routes:
 // /dashboard/stock-monitor (original) and /stock-monitoring (top-level, so
@@ -309,7 +309,7 @@ export default function StockMonitorDashboard() {
           </form>
           {watchlistError && <p className="mt-2 text-sm text-red-600">{watchlistError}</p>}
 
-          <div className="mt-4 border-t border-deck-border pt-4">
+          <div className="mt-4 flex flex-wrap gap-2 border-t border-deck-border pt-4">
             <button
               onClick={() => handleBulkAdd(NASDAQ100_TOP20_PLUS_QQQ, 'Nasdaq-100 top 20 + QQQ')}
               disabled={bulkAddLoading}
@@ -317,12 +317,19 @@ export default function StockMonitorDashboard() {
             >
               {bulkAddLoading ? 'Adding...' : 'Add Nasdaq-100 top 20 + QQQ'}
             </button>
-            <p className="mt-1 text-xs text-deck-dim">
-              The 20 largest Nasdaq-100 companies by weight (from general knowledge, not a live-verified current
-              ranking) plus QQQ, the ETF that tracks the index.
-            </p>
-            {bulkAddMessage && <p className="mt-1 text-xs text-deck-dim">{bulkAddMessage}</p>}
+            <button
+              onClick={() => handleBulkAdd(FTSE100_TOP20, 'FTSE 100 top 20')}
+              disabled={bulkAddLoading}
+              className="rounded-md bg-deck-raised px-3 py-2 text-sm font-medium text-deck-text hover:bg-deck-border disabled:opacity-50"
+            >
+              {bulkAddLoading ? 'Adding...' : 'Add FTSE 100 top 20'}
+            </button>
           </div>
+          <p className="mt-1 text-xs text-deck-dim">
+            The 20 largest companies by market cap in each index (from general knowledge, not a live-verified
+            current ranking) - the Nasdaq-100 list also includes QQQ, the ETF that tracks it.
+          </p>
+          {bulkAddMessage && <p className="mt-1 text-xs text-deck-dim">{bulkAddMessage}</p>}
         </div>
 
         <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
