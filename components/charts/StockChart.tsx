@@ -78,25 +78,61 @@ function niceDate(iso: string): string {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+// Trailing trading-day windows for the range picker; 'All' shows everything
+// the API returned (nominally a year of daily closes).
+const RANGE_PRESETS: { label: string; days: number | null }[] = [
+  { label: '1M', days: 21 },
+  { label: '3M', days: 63 },
+  { label: '6M', days: 126 },
+  { label: 'All', days: null },
+]
+
 export default function StockChart({ history }: { history: StockHistory }) {
   const { dates, close, sma50, sma200, rsi, macd, signals, smaShortWindow, smaLongWindow } = history
-  const n = dates.length
+  const fullN = dates.length
   const [hovered, setHovered] = useState<number | null>(null)
+  const [rangeDays, setRangeDays] = useState<number | null>(63)
+  const [showSma50, setShowSma50] = useState(true)
+  const [showSma200, setShowSma200] = useState(true)
+  const [showRsiPanel, setShowRsiPanel] = useState(true)
+  const [showMacdPanel, setShowMacdPanel] = useState(true)
   const priceRef = useRef<SVGSVGElement>(null)
   const rsiRef = useRef<SVGSVGElement>(null)
   const macdRef = useRef<SVGSVGElement>(null)
+
+  // Client-side zoom: the API already returns the full fetched history, so a
+  // range preset just slices it and re-scales the y-axes to what's visible,
+  // rather than re-fetching.
+  const sliceStart = rangeDays == null ? 0 : Math.max(0, fullN - rangeDays)
+  const vDates = dates.slice(sliceStart)
+  const vClose = close.slice(sliceStart)
+  const vSma50 = sma50.slice(sliceStart)
+  const vSma200 = sma200.slice(sliceStart)
+  const vRsi = rsi.slice(sliceStart)
+  const vMacd: MACDData = {
+    macdLine: macd.macdLine.slice(sliceStart),
+    signalLine: macd.signalLine.slice(sliceStart),
+    histogram: macd.histogram.slice(sliceStart),
+  }
+  const vSignals = useMemo(
+    () => signals.filter((s) => s.index >= sliceStart).map((s) => ({ ...s, index: s.index - sliceStart })),
+    [signals, sliceStart]
+  )
+  const n = vDates.length
 
   const plotRight = VIEW_W - MARGIN.right
   const xScale = (i: number) => (n <= 1 ? MARGIN.left : MARGIN.left + (i / (n - 1)) * (plotRight - MARGIN.left))
 
   const priceBottom = PRICE_H - PRICE_BOTTOM
   const { min: priceMin, max: priceMax } = useMemo(() => {
-    const values = [...close, ...sma50, ...sma200].filter((v): v is number => v != null)
+    const values = [...vClose, ...(showSma50 ? vSma50 : []), ...(showSma200 ? vSma200 : [])].filter(
+      (v): v is number => v != null
+    )
     const lo = Math.min(...values)
     const hi = Math.max(...values)
     const pad = (hi - lo) * 0.08 || 1
     return { min: lo - pad, max: hi + pad }
-  }, [close, sma50, sma200])
+  }, [vClose, vSma50, vSma200, showSma50, showSma200])
   const priceYScale = (v: number) => priceBottom - ((v - priceMin) / (priceMax - priceMin)) * (priceBottom - MARGIN.top)
 
   const rsiBottom = RSI_H - RSI_BOTTOM
@@ -104,13 +140,13 @@ export default function StockChart({ history }: { history: StockHistory }) {
 
   const macdBottom = MACD_H - MACD_BOTTOM
   const { min: macdMin, max: macdMax } = useMemo(() => {
-    const values = [...macd.macdLine, ...macd.signalLine].filter((v): v is number => v != null)
+    const values = [...vMacd.macdLine, ...vMacd.signalLine].filter((v): v is number => v != null)
     if (values.length === 0) return { min: -1, max: 1 }
     const lo = Math.min(...values, 0)
     const hi = Math.max(...values, 0)
     const pad = (hi - lo) * 0.1 || 1
     return { min: lo - pad, max: hi + pad }
-  }, [macd])
+  }, [vMacd])
   const macdYScale = (v: number) => macdBottom - ((v - macdMin) / (macdMax - macdMin)) * (macdBottom - MARGIN.top)
 
   function indexFromClientX(svg: SVGSVGElement | null, clientX: number): number {
@@ -130,36 +166,71 @@ export default function StockChart({ history }: { history: StockHistory }) {
     })
   }, [priceMin, priceMax])
 
-  const smaSignals = signals.filter((s) => s.strategy === 'SMA_CROSSOVER')
-  const rsiSignals = signals.filter((s) => s.strategy === 'RSI')
-  const macdSignals = signals.filter((s) => s.strategy === 'MACD')
+  const smaSignals = vSignals.filter((s) => s.strategy === 'SMA_CROSSOVER')
+  const rsiSignals = vSignals.filter((s) => s.strategy === 'RSI')
+  const macdSignals = vSignals.filter((s) => s.strategy === 'MACD')
 
-  const hoveredSignals = hovered != null ? signals.filter((s) => s.index === hovered) : []
+  const hoveredSignals = hovered != null ? vSignals.filter((s) => s.index === hovered) : []
   const tooltipLeftPct = hovered != null ? (xScale(hovered) / VIEW_W) * 100 : null
 
   return (
-    <div className="space-y-1">
-      {/* Legend - identity channel for the line series, plus the BUY/SELL status key */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-deck-body">
-        <span className="flex items-center gap-1.5">
+    <div className="space-y-2">
+      {/* Range picker - zooms the whole chart (all panels + y-axes rescale)
+          without a re-fetch, since the API already returns the full window. */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {RANGE_PRESETS.map((p) => (
+          <button
+            key={p.label}
+            type="button"
+            onClick={() => setRangeDays(p.days)}
+            className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+              rangeDays === p.days
+                ? 'bg-deck-accent text-white'
+                : 'border border-deck-border text-deck-body hover:bg-deck-raised'
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Legend - identity channel for the line series, plus the BUY/SELL status key.
+          Close always shows; the SMA chips double as show/hide toggles so a busy
+          chart can be decluttered without losing the crosshair/tooltip. */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs text-deck-body">
+        <span className="flex items-center gap-1.5 rounded-full px-2 py-1">
           <span className="inline-block h-0.5 w-4" style={{ backgroundColor: COLOR.close }} />
           Close
         </span>
-        <span className="flex items-center gap-1.5">
+        <button
+          type="button"
+          aria-pressed={showSma50}
+          onClick={() => setShowSma50((v) => !v)}
+          className={`flex items-center gap-1.5 rounded-full border px-2 py-1 transition-colors ${
+            showSma50 ? 'border-transparent' : 'border-deck-border text-deck-dim opacity-50'
+          }`}
+        >
           <span className="inline-block h-0.5 w-4" style={{ backgroundColor: COLOR.sma50 }} />
           {smaShortWindow}-day SMA
-        </span>
-        <span className="flex items-center gap-1.5">
+        </button>
+        <button
+          type="button"
+          aria-pressed={showSma200}
+          onClick={() => setShowSma200((v) => !v)}
+          className={`flex items-center gap-1.5 rounded-full border px-2 py-1 transition-colors ${
+            showSma200 ? 'border-transparent' : 'border-deck-border text-deck-dim opacity-50'
+          }`}
+        >
           <span className="inline-block h-0.5 w-4" style={{ backgroundColor: COLOR.sma200 }} />
           {smaLongWindow}-day SMA
-        </span>
-        <span className="flex items-center gap-1.5">
+        </button>
+        <span className="flex items-center gap-1.5 px-2 py-1">
           <svg width="10" height="10" viewBox="0 0 10 10">
             <polygon points="5,0 10,9 0,9" fill={COLOR.buy} />
           </svg>
           BUY
         </span>
-        <span className="flex items-center gap-1.5">
+        <span className="flex items-center gap-1.5 px-2 py-1">
           <svg width="10" height="10" viewBox="0 0 10 10">
             <polygon points="0,0 10,0 5,9" fill={COLOR.sell} />
           </svg>
@@ -188,18 +259,22 @@ export default function StockChart({ history }: { history: StockHistory }) {
           {n > 0 && (
             <>
               <text x={MARGIN.left} y={PRICE_H - 8} fontSize={10} fill={COLOR.ink}>
-                {niceDate(dates[0])}
+                {niceDate(vDates[0])}
               </text>
               <text x={plotRight} y={PRICE_H - 8} textAnchor="end" fontSize={10} fill={COLOR.ink}>
-                {niceDate(dates[n - 1])}
+                {niceDate(vDates[n - 1])}
               </text>
             </>
           )}
 
-          <path d={buildPath(sma200, xScale, priceYScale)} fill="none" stroke={COLOR.sma200} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-          <path d={buildPath(sma50, xScale, priceYScale)} fill="none" stroke={COLOR.sma50} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+          {showSma200 && (
+            <path d={buildPath(vSma200, xScale, priceYScale)} fill="none" stroke={COLOR.sma200} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+          )}
+          {showSma50 && (
+            <path d={buildPath(vSma50, xScale, priceYScale)} fill="none" stroke={COLOR.sma50} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+          )}
           <path
-            d={buildPath(close.map((v) => v), xScale, priceYScale)}
+            d={buildPath(vClose, xScale, priceYScale)}
             fill="none"
             stroke={COLOR.close}
             strokeWidth={2}
@@ -209,7 +284,7 @@ export default function StockChart({ history }: { history: StockHistory }) {
 
           {smaSignals.map((s, idx) => {
             const x = xScale(s.index)
-            const y = priceYScale(close[s.index])
+            const y = priceYScale(vClose[s.index])
             const isBuy = s.action === 'BUY'
             const yOffset = isBuy ? y + 14 : y - 14
             return (
@@ -244,23 +319,23 @@ export default function StockChart({ history }: { history: StockHistory }) {
             className="pointer-events-none absolute top-2 z-10 w-44 -translate-x-1/2 rounded-md border border-deck-border bg-deck-surface p-2 text-xs shadow-md"
             style={{ left: `${Math.min(Math.max(tooltipLeftPct, 12), 88)}%` }}
           >
-            <p className="font-semibold text-deck-text">{niceDate(dates[hovered])}</p>
+            <p className="font-semibold text-deck-text">{niceDate(vDates[hovered])}</p>
             <p className="mt-1 text-deck-body">
-              Close <span className="font-semibold text-deck-text">{close[hovered].toFixed(2)}</span>
+              Close <span className="font-semibold text-deck-text">{vClose[hovered].toFixed(2)}</span>
             </p>
-            {sma50[hovered] != null && (
+            {showSma50 && vSma50[hovered] != null && (
               <p className="text-deck-body">
-                {smaShortWindow}-day SMA <span className="font-semibold text-deck-text">{sma50[hovered]!.toFixed(2)}</span>
+                {smaShortWindow}-day SMA <span className="font-semibold text-deck-text">{vSma50[hovered]!.toFixed(2)}</span>
               </p>
             )}
-            {sma200[hovered] != null && (
+            {showSma200 && vSma200[hovered] != null && (
               <p className="text-deck-body">
-                {smaLongWindow}-day SMA <span className="font-semibold text-deck-text">{sma200[hovered]!.toFixed(2)}</span>
+                {smaLongWindow}-day SMA <span className="font-semibold text-deck-text">{vSma200[hovered]!.toFixed(2)}</span>
               </p>
             )}
-            {rsi[hovered] != null && (
+            {showRsiPanel && vRsi[hovered] != null && (
               <p className="text-deck-body">
-                RSI <span className="font-semibold text-deck-text">{rsi[hovered]!.toFixed(1)}</span>
+                RSI <span className="font-semibold text-deck-text">{vRsi[hovered]!.toFixed(1)}</span>
               </p>
             )}
             {hoveredSignals.map((s, idx) => (
@@ -273,53 +348,76 @@ export default function StockChart({ history }: { history: StockHistory }) {
       </div>
 
       {/* RSI panel - its own 0-100 scale, kept as a separate chart rather than
-          a second y-axis on the price panel. */}
-      <p className="pt-2 text-xs font-medium uppercase tracking-wide text-deck-dim">RSI (14-day)</p>
-      <div className="relative">
-        <svg
-          ref={rsiRef}
-          viewBox={`0 0 ${VIEW_W} ${RSI_H}`}
-          className="w-full touch-none"
-          onPointerMove={(e) => setHovered(indexFromClientX(rsiRef.current, e.clientX))}
-          onPointerLeave={() => setHovered(null)}
+          a second y-axis on the price panel. Collapsible so it can be tucked
+          away when only the price trend matters. */}
+      <div className="flex items-center justify-between pt-2">
+        <p className="text-xs font-medium uppercase tracking-wide text-deck-dim">RSI (14-day)</p>
+        <button
+          type="button"
+          onClick={() => setShowRsiPanel((v) => !v)}
+          className="text-xs font-medium text-deck-accent"
         >
-          <line x1={MARGIN.left} x2={plotRight} y1={rsiYScale(70)} y2={rsiYScale(70)} stroke={COLOR.grid} strokeWidth={1} />
-          <text x={plotRight + 2} y={rsiYScale(70) + 3} fontSize={9} fill={COLOR.ink}>
-            70 overbought
-          </text>
-          <line x1={MARGIN.left} x2={plotRight} y1={rsiYScale(30)} y2={rsiYScale(30)} stroke={COLOR.grid} strokeWidth={1} />
-          <text x={plotRight + 2} y={rsiYScale(30) + 3} fontSize={9} fill={COLOR.ink}>
-            30 oversold
-          </text>
-
-          <path d={buildPath(rsi, xScale, rsiYScale)} fill="none" stroke={COLOR.ink} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-
-          {rsiSignals.map((s, idx) => {
-            const x = xScale(s.index)
-            const y = rsiYScale(rsi[s.index]!)
-            const isBuy = s.action === 'BUY'
-            return (
-              <circle
-                key={idx}
-                cx={x}
-                cy={y}
-                r={4}
-                fill={isBuy ? COLOR.buy : COLOR.sell}
-                stroke={COLOR.surface}
-                strokeWidth={2}
-              />
-            )
-          })}
-
-          {hovered != null && (
-            <line x1={xScale(hovered)} x2={xScale(hovered)} y1={MARGIN.top} y2={rsiBottom} stroke={COLOR.axis} strokeWidth={1} />
-          )}
-        </svg>
+          {showRsiPanel ? 'Hide' : 'Show'}
+        </button>
       </div>
+      {showRsiPanel && (
+        <div className="relative">
+          <svg
+            ref={rsiRef}
+            viewBox={`0 0 ${VIEW_W} ${RSI_H}`}
+            className="w-full touch-none"
+            onPointerMove={(e) => setHovered(indexFromClientX(rsiRef.current, e.clientX))}
+            onPointerLeave={() => setHovered(null)}
+          >
+            <line x1={MARGIN.left} x2={plotRight} y1={rsiYScale(70)} y2={rsiYScale(70)} stroke={COLOR.grid} strokeWidth={1} />
+            <text x={plotRight + 2} y={rsiYScale(70) + 3} fontSize={9} fill={COLOR.ink}>
+              70 overbought
+            </text>
+            <line x1={MARGIN.left} x2={plotRight} y1={rsiYScale(30)} y2={rsiYScale(30)} stroke={COLOR.grid} strokeWidth={1} />
+            <text x={plotRight + 2} y={rsiYScale(30) + 3} fontSize={9} fill={COLOR.ink}>
+              30 oversold
+            </text>
+
+            <path d={buildPath(vRsi, xScale, rsiYScale)} fill="none" stroke={COLOR.ink} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+
+            {rsiSignals.map((s, idx) => {
+              const x = xScale(s.index)
+              const y = rsiYScale(vRsi[s.index]!)
+              const isBuy = s.action === 'BUY'
+              return (
+                <circle
+                  key={idx}
+                  cx={x}
+                  cy={y}
+                  r={4}
+                  fill={isBuy ? COLOR.buy : COLOR.sell}
+                  stroke={COLOR.surface}
+                  strokeWidth={2}
+                />
+              )
+            })}
+
+            {hovered != null && (
+              <line x1={xScale(hovered)} x2={xScale(hovered)} y1={MARGIN.top} y2={rsiBottom} stroke={COLOR.axis} strokeWidth={1} />
+            )}
+          </svg>
+        </div>
+      )}
 
       {/* MACD panel - line + signal line, own scale (can go negative, unlike
-          price/RSI), so it's a separate chart rather than sharing an axis. */}
-      <p className="pt-2 text-xs font-medium uppercase tracking-wide text-deck-dim">MACD (12, 26, 9)</p>
+          price/RSI), so it's a separate chart rather than sharing an axis.
+          Collapsible for the same reason as RSI above. */}
+      <div className="flex items-center justify-between pt-2">
+        <p className="text-xs font-medium uppercase tracking-wide text-deck-dim">MACD (12, 26, 9)</p>
+        <button
+          type="button"
+          onClick={() => setShowMacdPanel((v) => !v)}
+          className="text-xs font-medium text-deck-accent"
+        >
+          {showMacdPanel ? 'Hide' : 'Show'}
+        </button>
+      </div>
+      {showMacdPanel && (
       <div className="flex items-center gap-4 text-xs text-deck-body">
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-0.5 w-4" style={{ backgroundColor: COLOR.macdLine }} />
@@ -330,6 +428,8 @@ export default function StockChart({ history }: { history: StockHistory }) {
           Signal
         </span>
       </div>
+      )}
+      {showMacdPanel && (
       <div className="relative">
         <svg
           ref={macdRef}
@@ -340,7 +440,7 @@ export default function StockChart({ history }: { history: StockHistory }) {
         >
           <line x1={MARGIN.left} x2={plotRight} y1={macdYScale(0)} y2={macdYScale(0)} stroke={COLOR.grid} strokeWidth={1} />
 
-          {macd.histogram.map((h, i) => {
+          {vMacd.histogram.map((h, i) => {
             if (h == null) return null
             const x = xScale(i)
             const zeroY = macdYScale(0)
@@ -358,12 +458,12 @@ export default function StockChart({ history }: { history: StockHistory }) {
             )
           })}
 
-          <path d={buildPath(macd.signalLine, xScale, macdYScale)} fill="none" stroke={COLOR.ink} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-          <path d={buildPath(macd.macdLine, xScale, macdYScale)} fill="none" stroke={COLOR.macdLine} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+          <path d={buildPath(vMacd.signalLine, xScale, macdYScale)} fill="none" stroke={COLOR.ink} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+          <path d={buildPath(vMacd.macdLine, xScale, macdYScale)} fill="none" stroke={COLOR.macdLine} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
 
           {macdSignals.map((s, idx) => {
             const x = xScale(s.index)
-            const y = macdYScale(macd.macdLine[s.index]!)
+            const y = macdYScale(vMacd.macdLine[s.index]!)
             const isBuy = s.action === 'BUY'
             return (
               <circle
@@ -383,6 +483,7 @@ export default function StockChart({ history }: { history: StockHistory }) {
           )}
         </svg>
       </div>
+      )}
 
       {signals.length > 0 && (
         <details className="pt-1">
