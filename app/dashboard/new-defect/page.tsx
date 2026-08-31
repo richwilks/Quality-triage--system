@@ -9,6 +9,7 @@ import MeasurementFields, { MeasurementData } from '@/components/MeasurementFiel
 import ClauseViewer from '@/components/ClauseViewer'
 import CameraCapture, { OrientationHint } from '@/components/CameraCapture'
 import { useActiveInspection } from '@/components/ActiveInspectionContext'
+import { useOfflineSync } from '@/components/OfflineSyncContext'
 import FileDropZone from '@/components/FileDropZone'
 import PolygonBoxEditor, { Point } from '@/components/PolygonBoxEditor'
 
@@ -63,6 +64,10 @@ const DEFAULT_MANUAL_POLYGON: Point[] = [
   { x: 35, y: 65 },
 ]
 
+function isOffline() {
+  return typeof navigator !== 'undefined' && !navigator.onLine
+}
+
 function polygonToBox(points: Point[]) {
   const xs = points.map((p) => p.x)
   const ys = points.map((p) => p.y)
@@ -77,6 +82,7 @@ function NewDefectPageInner() {
   const supabase = createClient()
   const searchParams = useSearchParams()
   const { activeInspection, getCurrentPositionForPhoto } = useActiveInspection()
+  const { queueOfflineDefect, isOnline } = useOfflineSync()
 
   const initialProjectId = searchParams.get('projectId') || ''
   const initialLocation = searchParams.get('location') || ''
@@ -107,6 +113,7 @@ function NewDefectPageInner() {
   const [items, setItems] = useState<ReviewItem[]>([])
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  const [savedOffline, setSavedOffline] = useState(false)
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null)
 
   const [showManualAdd, setShowManualAdd] = useState(false)
@@ -418,6 +425,86 @@ function NewDefectPageInner() {
     setShowManualAdd(false)
   }
 
+  function resetAfterSave() {
+    setFile(null)
+    setPreview(null)
+    setOrientationHint(null)
+    setItems([])
+    setLocation('')
+    setFinishGrade('')
+    setTargetDate('')
+    setAssignedCompany('')
+    setDuplicateWarning(null)
+    setSaved(false)
+    setSavedOffline(false)
+    setError(null)
+    setShowManualAdd(false)
+    setManualPolygon(DEFAULT_MANUAL_POLYGON)
+  }
+
+  // Queues each included defect in the local offline store instead of
+  // saving to Supabase directly - used when there's no connection at all,
+  // or when a save attempt fails partway through because signal dropped.
+  // The OfflineSyncProvider (mounted in the dashboard layout) picks these
+  // up and syncs them the moment the browser reports being back online.
+  async function saveOffline(included: ReviewItem[]) {
+    if (!file || !projectId) return
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    const userId = session?.user?.id
+    if (!userId) throw new Error('Not logged in')
+
+    const companyPartners = assignedCompany ? partners.filter((p) => p.company_name === assignedCompany) : []
+    const partnerId = companyPartners[0]?.id || null
+
+    let geoTag = null
+    try {
+      geoTag = activeInspection?.projectId === projectId ? await getCurrentPositionForPhoto() : null
+    } catch {
+      geoTag = null
+    }
+
+    for (const it of included) {
+      await queueOfflineDefect({
+        projectId,
+        title: it.title,
+        location,
+        finishGrade,
+        drawingId,
+        pinX,
+        pinY,
+        description: it.description,
+        aiDescription: it.ai_description,
+        aiConfidence: it.confidence,
+        standardReference: it.standard_reference,
+        requiresMeasurement: it.requires_measurement,
+        classification: it.classification,
+        elementType: it.element_type,
+        box: it.box,
+        measuredGapMm: it.measurement.measuredGapMm ? parseFloat(it.measurement.measuredGapMm) : null,
+        testedDetailReference: it.measurement.testedDetailReference || null,
+        manufacturerSystem: it.measurement.manufacturerSystem || null,
+        assignedCompanyName: assignedCompany || null,
+        assignedPartnerId: partnerId,
+        targetCloseDate: targetDate || null,
+        createdBy: userId,
+        inspectionId: activeInspection?.projectId === projectId ? activeInspection.id : null,
+        photoLat: geoTag?.lat ?? null,
+        photoLng: geoTag?.lng ?? null,
+        photoAccuracyM: geoTag?.accuracyM ?? null,
+        photoLevelLabel: activeInspection?.projectId === projectId ? activeInspection.levelLabel || null : null,
+        photoBlob: file,
+        photoName: file.name,
+        photoType: file.type || 'image/jpeg',
+      })
+    }
+
+    setSavedOffline(true)
+    setTimeout(resetAfterSave, 1600)
+  }
+
   async function handleSave() {
     const included = items.filter((it) => it.included)
     if (!file || !projectId || included.length === 0) {
@@ -428,6 +515,11 @@ function NewDefectPageInner() {
     setError(null)
 
     try {
+      if (isOffline()) {
+        await saveOffline(included)
+        return
+      }
+
       const {
         data: { user },
       } = await supabase.auth.getUser()
@@ -444,9 +536,11 @@ function NewDefectPageInner() {
         .from('defect-photos')
         .upload(filePath, file)
       if (uploadError) {
-        setError(`Upload failed: ${uploadError.message}`)
-        setSaving(false)
-        return
+        if (isOffline()) {
+          await saveOffline(included)
+          return
+        }
+        throw new Error(`Upload failed: ${uploadError.message}`)
       }
 
       const {
@@ -489,29 +583,21 @@ function NewDefectPageInner() {
 
       const { error: insertError } = await supabase.from('defects').insert(rows)
       if (insertError) {
-        setError(`Save failed: ${insertError.message}`)
-        setSaving(false)
-        return
+        if (isOffline()) {
+          await saveOffline(included)
+          return
+        }
+        throw new Error(`Save failed: ${insertError.message}`)
       }
 
       setSaved(true)
-      setTimeout(() => {
-        setFile(null)
-        setPreview(null)
-        setOrientationHint(null)
-        setItems([])
-        setLocation('')
-        setFinishGrade('')
-        setTargetDate('')
-        setAssignedCompany('')
-        setDuplicateWarning(null)
-        setSaved(false)
-        setError(null)
-        setShowManualAdd(false)
-        setManualPolygon(DEFAULT_MANUAL_POLYGON)
-      }, 1200)
+      setTimeout(resetAfterSave, 1200)
     } catch (err: any) {
-      setError(`Unexpected error: ${err?.message || 'unknown'}`)
+      if (isOffline()) {
+        await saveOffline(included)
+      } else {
+        setError(err?.message || 'Unexpected error')
+      }
     } finally {
       setSaving(false)
     }
@@ -636,7 +722,7 @@ function NewDefectPageInner() {
             </div>
           )}
 
-          {file && items.length === 0 && !analyzing && (
+          {file && items.length === 0 && !analyzing && isOnline && (
             <button
               onClick={handleAnalyze}
               disabled={!projectId}
@@ -644,6 +730,13 @@ function NewDefectPageInner() {
             >
               Analyze photo
             </button>
+          )}
+
+          {file && items.length === 0 && !analyzing && !isOnline && (
+            <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+              You're offline, so AI analysis isn't available right now. Use "+ Mark up a defect manually" below -
+              it'll save to this device and sync automatically once you're back online.
+            </p>
           )}
 
           {analyzing && (
@@ -919,14 +1012,18 @@ function NewDefectPageInner() {
                 </div>
               </div>
 
-              {!saved ? (
+              {!saved && !savedOffline ? (
                 <button
                   onClick={handleSave}
                   disabled={saving || items.filter((i) => i.included).length === 0}
                   className="w-full rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
                 >
-                  {saving ? 'Saving...' : 'Save selected defects'}
+                  {saving ? 'Saving...' : !isOnline ? 'Save offline' : 'Save selected defects'}
                 </button>
+              ) : savedOffline ? (
+                <p className="text-sm font-medium text-amber-700">
+                  Saved offline - will sync automatically once you're back online.
+                </p>
               ) : (
                 <p className="text-sm font-medium text-emerald-700">
                   Saved. Ready for the next one.
