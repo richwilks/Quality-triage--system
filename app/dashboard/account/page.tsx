@@ -141,6 +141,13 @@ const [isCompanyAdmin, setIsCompanyAdmin] = useState(false)
         >
           Log out
         </button>
+
+        <a
+          href="/dashboard/credits"
+          className="mt-4 block text-center text-xs font-medium text-deck-dim underline"
+        >
+          Credits
+        </a>
       </div>
     </div>
   )
