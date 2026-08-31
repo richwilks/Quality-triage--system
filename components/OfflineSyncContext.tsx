@@ -9,6 +9,7 @@ import {
   queueOfflineDefect as queueOfflineDefectRecord,
   removeQueuedDefect,
 } from '@/lib/offlineDefects'
+import { imageToBase64 } from '@/lib/imageToBase64'
 
 // Retries the queue on this interval even without a fresh 'online' event -
 // browsers don't always fire it reliably (e.g. a flaky connection that
@@ -69,6 +70,47 @@ export function OfflineSyncProvider({ children }: { children: React.ReactNode })
             data: { publicUrl },
           } = supabase.storage.from('defect-photos').getPublicUrl(path)
 
+          // Best-effort AI cross-check now that we're back online: analyzes
+          // the same photo through the normal pipeline and uses it to fill
+          // in whatever the inspector left blank (element type, standard
+          // reference), and gives the review queue a genuine AI baseline to
+          // diff their edits against - same as any AI-detected defect. It
+          // never overwrites the inspector's own title, description, or
+          // snag/NCR classification; if it fails or times out, the defect
+          // still syncs with exactly what the inspector entered.
+          let aiDescription = entry.aiDescription
+          let aiConfidence = entry.aiConfidence
+          let standardReference = entry.standardReference
+          let elementType = entry.elementType
+          try {
+            const imageBase64 = await imageToBase64(entry.photoBlob)
+            const aiRes = await fetch('/api/analyze-defect', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                imageBase64,
+                mimeType: entry.photoType || 'image/jpeg',
+                projectId: entry.projectId,
+                location: entry.location,
+                finishGrade: entry.finishGrade,
+                orientationHint: null,
+                source: 'photo',
+              }),
+            })
+            if (aiRes.ok) {
+              const aiResult = await aiRes.json()
+              const match = aiResult?.defects?.[0]
+              if (match) {
+                if (match.description) aiDescription = match.description
+                if (typeof match.confidence === 'number') aiConfidence = match.confidence
+                if (!standardReference && match.standard_reference) standardReference = match.standard_reference
+                if (!elementType && match.element_type) elementType = match.element_type
+              }
+            }
+          } catch {
+            // AI cross-check is enrichment, not a requirement.
+          }
+
           const { error: insertError } = await supabase.from('defects').insert({
             project_id: entry.projectId,
             title: entry.title,
@@ -78,14 +120,14 @@ export function OfflineSyncProvider({ children }: { children: React.ReactNode })
             pin_x: entry.pinX,
             pin_y: entry.pinY,
             photo_url: publicUrl,
-            ai_description: entry.aiDescription,
-            ai_confidence: entry.aiConfidence,
-            standard_reference: entry.standardReference,
+            ai_description: aiDescription,
+            ai_confidence: aiConfidence,
+            standard_reference: standardReference,
             description: entry.description,
             bounding_box: entry.box,
             requires_measurement: entry.requiresMeasurement,
             classification: entry.classification,
-            element_type: entry.elementType || null,
+            element_type: elementType || null,
             measured_gap_mm: entry.measuredGapMm,
             tested_detail_reference: entry.testedDetailReference,
             manufacturer_system: entry.manufacturerSystem,

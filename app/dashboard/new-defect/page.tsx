@@ -12,6 +12,7 @@ import { useActiveInspection } from '@/components/ActiveInspectionContext'
 import { useOfflineSync } from '@/components/OfflineSyncContext'
 import FileDropZone from '@/components/FileDropZone'
 import PolygonBoxEditor, { Point } from '@/components/PolygonBoxEditor'
+import { imageToBase64 } from '@/lib/imageToBase64'
 
 type Project = { id: string; name: string }
 type Partner = { id: string; full_name: string | null; company_name: string | null }
@@ -227,58 +228,6 @@ function NewDefectPageInner() {
     applySelectedFile(captured, orientation)
   }
 
-  function fileToBase64(f: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const img = new Image()
-      const objectUrl = URL.createObjectURL(f)
-
-      img.onload = () => {
-        try {
-          const maxDimension = 1600
-          let { width, height } = img
-
-          if (width > maxDimension || height > maxDimension) {
-            if (width > height) {
-              height = Math.round((height * maxDimension) / width)
-              width = maxDimension
-            } else {
-              width = Math.round((width * maxDimension) / height)
-              height = maxDimension
-            }
-          }
-
-          const canvas = document.createElement('canvas')
-          canvas.width = width
-          canvas.height = height
-          const ctx = canvas.getContext('2d')
-          if (!ctx) {
-            reject(new Error('Could not process image (no canvas context)'))
-            return
-          }
-          ctx.drawImage(img, 0, 0, width, height)
-
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.85)
-          const parts = dataUrl.split(',')
-          if (parts.length < 2) {
-            reject(new Error('File reading step: unexpected file format'))
-            return
-          }
-          URL.revokeObjectURL(objectUrl)
-          resolve(parts[1])
-        } catch (err) {
-          reject(new Error('File reading step: could not process this file'))
-        }
-      }
-
-      img.onerror = () => {
-        URL.revokeObjectURL(objectUrl)
-        reject(new Error('File reading step: could not load this image'))
-      }
-
-      img.src = objectUrl
-    })
-  }
-
   async function handleAnalyze() {
     if (!file || !projectId) return
     setAnalyzing(true)
@@ -289,7 +238,7 @@ function NewDefectPageInner() {
     try {
       let base64: string
       try {
-        base64 = await fileToBase64(file)
+        base64 = await imageToBase64(file)
       } catch (err: any) {
         setError(`${err?.message || 'Failed to read the photo file.'} (file size: ${Math.round(file.size / 1024)}KB)`)
         stopProgressSimulation(false)
