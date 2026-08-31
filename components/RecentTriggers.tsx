@@ -1,23 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-
-// TODO: once PR #78 (which extracts this into lib/stockSignals.ts) merges,
-// switch this to `import { strategyLabel } from '@/lib/stockSignals'` and
-// delete this copy - kept local for now so this PR doesn't depend on #78's
-// merge order.
-function strategyLabel(strategy: string): string {
-  switch (strategy) {
-    case 'SMA_CROSSOVER':
-      return 'SMA crossover'
-    case 'MACD':
-      return 'MACD'
-    case 'NEWS':
-      return 'News sentiment'
-    default:
-      return 'RSI'
-  }
-}
+import { strategyLabel } from '@/lib/stockSignals'
 
 type Trigger = {
   ticker: string

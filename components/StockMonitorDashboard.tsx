@@ -310,27 +310,30 @@ export default function StockMonitorDashboard() {
           </form>
           {watchlistError && <p className="mt-2 text-sm text-red-600">{watchlistError}</p>}
 
-          <div className="mt-4 flex flex-wrap gap-2 border-t border-deck-border pt-4">
-            <button
-              onClick={() => handleBulkAdd(NASDAQ100_TOP20_PLUS_QQQ, 'Nasdaq-100 top 20 + QQQ')}
-              disabled={bulkAddLoading}
-              className="rounded-md bg-deck-raised px-3 py-2 text-sm font-medium text-deck-text hover:bg-deck-border disabled:opacity-50"
-            >
-              {bulkAddLoading ? 'Adding...' : 'Add Nasdaq-100 top 20 + QQQ'}
-            </button>
-            <button
-              onClick={() => handleBulkAdd(FTSE100_TOP20, 'FTSE 100 top 20')}
-              disabled={bulkAddLoading}
-              className="rounded-md bg-deck-raised px-3 py-2 text-sm font-medium text-deck-text hover:bg-deck-border disabled:opacity-50"
-            >
-              {bulkAddLoading ? 'Adding...' : 'Add FTSE 100 top 20'}
-            </button>
-          </div>
-          <p className="mt-1 text-xs text-deck-dim">
-            The 20 largest companies by market cap in each index (from general knowledge, not a live-verified
-            current ranking) - the Nasdaq-100 list also includes QQQ, the ETF that tracks it.
-          </p>
-          {bulkAddMessage && <p className="mt-1 text-xs text-deck-dim">{bulkAddMessage}</p>}
+          <details className="mt-4 border-t border-deck-border pt-4">
+            <summary className="cursor-pointer text-xs font-medium text-deck-accent">Bulk-add a preset list</summary>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                onClick={() => handleBulkAdd(NASDAQ100_TOP20_PLUS_QQQ, 'Nasdaq-100 top 20 + QQQ')}
+                disabled={bulkAddLoading}
+                className="rounded-md bg-deck-raised px-3 py-2 text-sm font-medium text-deck-text hover:bg-deck-border disabled:opacity-50"
+              >
+                {bulkAddLoading ? 'Adding...' : 'Add Nasdaq-100 top 20 + QQQ'}
+              </button>
+              <button
+                onClick={() => handleBulkAdd(FTSE100_TOP20, 'FTSE 100 top 20')}
+                disabled={bulkAddLoading}
+                className="rounded-md bg-deck-raised px-3 py-2 text-sm font-medium text-deck-text hover:bg-deck-border disabled:opacity-50"
+              >
+                {bulkAddLoading ? 'Adding...' : 'Add FTSE 100 top 20'}
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-deck-dim">
+              The 20 largest companies by market cap in each index (from general knowledge, not a live-verified
+              current ranking) - the Nasdaq-100 list also includes QQQ, the ETF that tracks it.
+            </p>
+            {bulkAddMessage && <p className="mt-1 text-xs text-deck-dim">{bulkAddMessage}</p>}
+          </details>
         </div>
 
         <RecentTriggers />
@@ -385,65 +388,69 @@ export default function StockMonitorDashboard() {
         {activeTicker && <NewsFeed ticker={activeTicker} />}
 
         <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-wide text-deck-dim">Alerts</p>
-          <p className="mt-1 text-xs text-deck-dim">
-            Get emailed or pushed to this device the moment a BUY/SELL signal fires - based on an intraday,
-            still-forming price that can occasionally reverse by market close. That reversal still gets recorded
-            in the ledger below, not hidden - it's part of tracking how accurate the signals really are.
-          </p>
-          <p className="mt-1 text-xs text-deck-dim">
-            <strong>Confirmed</strong> alerts mean a signal actually fired and (for technical signals) opened or
-            closed a position in the ledger. <strong>Watch</strong> alerts are an earlier heads-up - RSI closing in
-            on its threshold, or the 50/200-day SMAs converging toward a cross - before anything is confirmed;
-            they never affect the ledger, and recent news headlines are attached when available for context.
-          </p>
+          <details>
+            <summary className="cursor-pointer text-xs font-medium uppercase tracking-wide text-deck-accent">
+              Alerts
+            </summary>
+            <p className="mt-2 text-xs text-deck-dim">
+              Get emailed or pushed to this device the moment a BUY/SELL signal fires - based on an intraday,
+              still-forming price that can occasionally reverse by market close. That reversal still gets recorded
+              in the ledger below, not hidden - it's part of tracking how accurate the signals really are.
+            </p>
+            <p className="mt-1 text-xs text-deck-dim">
+              <strong>Confirmed</strong> alerts mean a signal actually fired and (for technical signals) opened or
+              closed a position in the ledger. <strong>Watch</strong> alerts are an earlier heads-up - RSI closing in
+              on its threshold, or the 50/200-day SMAs converging toward a cross - before anything is confirmed;
+              they never affect the ledger, and recent news headlines are attached when available for context.
+            </p>
 
-          {alertsLoading ? (
-            <p className="mt-3 text-sm text-deck-dim">Loading...</p>
-          ) : (
-            <>
-              <form onSubmit={handleSaveAlertSettings} className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-                <input
-                  type="email"
-                  value={alertEmail}
-                  onChange={(e) => setAlertEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="flex-1 rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
-                />
-                <label className="flex items-center gap-1.5 whitespace-nowrap text-sm text-deck-text">
+            {alertsLoading ? (
+              <p className="mt-3 text-sm text-deck-dim">Loading...</p>
+            ) : (
+              <>
+                <form onSubmit={handleSaveAlertSettings} className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
                   <input
-                    type="checkbox"
-                    checked={alertEmailEnabled}
-                    onChange={(e) => setAlertEmailEnabled(e.target.checked)}
+                    type="email"
+                    value={alertEmail}
+                    onChange={(e) => setAlertEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="flex-1 rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                   />
-                  Email me
-                </label>
-                <button
-                  type="submit"
-                  className="rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-white"
-                >
-                  Save
-                </button>
-              </form>
+                  <label className="flex items-center gap-1.5 whitespace-nowrap text-sm text-deck-text">
+                    <input
+                      type="checkbox"
+                      checked={alertEmailEnabled}
+                      onChange={(e) => setAlertEmailEnabled(e.target.checked)}
+                    />
+                    Email me
+                  </label>
+                  <button
+                    type="submit"
+                    className="rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-white"
+                  >
+                    Save
+                  </button>
+                </form>
 
-              <div className="mt-3">
-                <button
-                  onClick={pushEnabled ? handleDisablePush : handleEnablePush}
-                  className="rounded-md bg-deck-raised px-3 py-2 text-sm font-medium text-deck-text hover:bg-deck-border"
-                >
-                  {pushEnabled ? 'Disable push on this device' : 'Enable push on this device'}
-                </button>
-              </div>
+                <div className="mt-3">
+                  <button
+                    onClick={pushEnabled ? handleDisablePush : handleEnablePush}
+                    className="rounded-md bg-deck-raised px-3 py-2 text-sm font-medium text-deck-text hover:bg-deck-border"
+                  >
+                    {pushEnabled ? 'Disable push on this device' : 'Enable push on this device'}
+                  </button>
+                </div>
 
-              <p className="mt-2 text-xs text-deck-dim">
-                On iPhone: add this page to your Home Screen first (Share → Add to Home Screen), then open it from
-                there before tapping Enable - Safari tabs can't receive push notifications directly.
-              </p>
+                <p className="mt-2 text-xs text-deck-dim">
+                  On iPhone: add this page to your Home Screen first (Share → Add to Home Screen), then open it from
+                  there before tapping Enable - Safari tabs can't receive push notifications directly.
+                </p>
 
-              {alertsError && <p className="mt-2 text-sm text-red-600">{alertsError}</p>}
-              {alertsMessage && <p className="mt-2 text-sm text-emerald-700">{alertsMessage}</p>}
-            </>
-          )}
+                {alertsError && <p className="mt-2 text-sm text-red-600">{alertsError}</p>}
+                {alertsMessage && <p className="mt-2 text-sm text-emerald-700">{alertsMessage}</p>}
+              </>
+            )}
+          </details>
         </div>
 
         <PaperTradingSummary />
