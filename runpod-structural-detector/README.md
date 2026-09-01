@@ -11,12 +11,41 @@ service. `next build` never touches this folder.
 
 There is no trained model yet. This package expects a trained Ultralytics
 YOLO weights file at `model/best.pt` (gitignored — do not commit weights
-files to this repo). Training that file is a separate step: fine-tune a
-YOLO model (e.g. `yolov8s.pt` as a starting checkpoint) on the MBDD2025
-dataset. That needs its own training script tailored to MBDD2025's actual
-folder/annotation layout, which isn't written yet — happy to build it once
-you can share what's inside the unzipped dataset (folder structure, whether
-it already ships a `data.yaml`, image/label file naming).
+files to this repo). Training that file is a separate step, done on a
+machine with a GPU (a RunPod **Pod** — a rented GPU instance, different
+from the Serverless endpoint, which is for inference *after* training).
+This app dev environment cannot run it.
+
+MBDD2025 ships PASCAL VOC XML annotations (`Annotations/*.xml`, one per
+image in `JPEGImages/`), five defect classes (crack, leakage, abscission,
+corrosion, bulge) across six structure types. `training/` has both scripts
+needed:
+
+1. **Convert VOC XML → YOLO format** (Ultralytics needs YOLO-style
+   `images/` + `labels/` folders and a `data.yaml`, not raw VOC XML):
+   ```
+   cd runpod-structural-detector/training
+   pip install -r ../requirements.txt
+   python voc_to_yolo.py --source /path/to/MBDD2025 --dest /path/to/mbdd2025-yolo --val-split 0.1
+   ```
+   Class names are read directly from the XML files rather than assumed,
+   and it prints a warning if it doesn't find exactly five - a quick sanity
+   check that the dataset matches what MBDD2025's own README describes.
+
+2. **Train:**
+   ```
+   python train.py --data /path/to/mbdd2025-yolo/data.yaml --epochs 100 --imgsz 640
+   ```
+   Defaults to fine-tuning from `yolov8s.pt` (a good speed/accuracy
+   balance for defect-sized objects - swap `--base-model yolov8m.pt` for
+   higher accuracy at more training cost). On completion this copies the
+   best checkpoint to `model/best.pt` automatically - the exact path the
+   Dockerfile and handler expect.
+
+   Cost/time note: with ~13,000 training images this will run for a
+   meaningful chunk of GPU-hours, billed for the whole time the Pod is
+   running - budget for that before kicking it off, same as any RunPod GPU
+   rental.
 
 ## Once you have a trained `model/best.pt`
 
