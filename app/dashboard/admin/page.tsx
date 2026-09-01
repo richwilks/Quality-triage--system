@@ -55,6 +55,14 @@ type FeatureKey =
   | 'feature_custom_email_sender'
   | 'feature_reg38_custom_template'
 
+type InfraNote = {
+  id: string
+  title: string
+  note: string
+  status: string
+  created_at: string
+}
+
 const ACCOUNT_TYPES = ['employee', 'contractor', 'client_agent', 'client']
 const TABS = ['Users', 'Projects', 'Invites', 'Branding'] as const
 
@@ -71,6 +79,8 @@ export default function PlatformAdminPage() {
   const [userProjectIds, setUserProjectIds] = useState<Record<string, string[]>>({})
   const [companyBrandings, setCompanyBrandings] = useState<Record<string, CompanyBranding>>({})
   const [brandingBusy, setBrandingBusy] = useState<string | null>(null)
+  const [infraNotes, setInfraNotes] = useState<InfraNote[]>([])
+  const [resolvingNoteId, setResolvingNoteId] = useState<string | null>(null)
 
   const [editingUser, setEditingUser] = useState<string | null>(null)
   const [editingProject, setEditingProject] = useState<string | null>(null)
@@ -138,7 +148,26 @@ export default function PlatformAdminPage() {
     })
     setCompanyBrandings(brandingMap)
 
+    const { data: noteData } = await supabase
+      .from('platform_infra_notes')
+      .select('id, title, note, status, created_at')
+      .eq('status', 'open')
+      .order('created_at', { ascending: true })
+    setInfraNotes(noteData || [])
+
     setLoading(false)
+  }
+
+  async function resolveInfraNote(id: string) {
+    setResolvingNoteId(id)
+    const { error } = await supabase
+      .from('platform_infra_notes')
+      .update({ status: 'resolved', resolved_at: new Date().toISOString() })
+      .eq('id', id)
+    if (!error) {
+      setInfraNotes((prev) => prev.filter((n) => n.id !== id))
+    }
+    setResolvingNoteId(null)
   }
 
   function getProjectName(inv: InviteRow) {
@@ -288,6 +317,29 @@ export default function PlatformAdminPage() {
             Defect knowledge base →
           </a>
         </div>
+
+        {infraNotes.length > 0 && (
+          <div className="mt-4 space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-deck-mute">
+              Infrastructure notes
+            </p>
+            {infraNotes.map((n) => (
+              <div key={n.id} className="rounded-lg border border-amber-300 bg-amber-50 p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-medium text-amber-900">{n.title}</p>
+                  <button
+                    onClick={() => resolveInfraNote(n.id)}
+                    disabled={resolvingNoteId === n.id}
+                    className="shrink-0 whitespace-nowrap text-xs font-medium text-amber-800 underline disabled:opacity-50"
+                  >
+                    {resolvingNoteId === n.id ? 'Saving...' : 'Mark resolved'}
+                  </button>
+                </div>
+                <p className="mt-1 text-xs text-amber-800">{n.note}</p>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="mt-4 flex flex-wrap gap-2">
 
