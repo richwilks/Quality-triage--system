@@ -1,0 +1,5 @@
+model/
+*.pt
+__pycache__/
+*.pyc
+test_input.json
