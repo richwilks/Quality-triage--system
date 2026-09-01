@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
+import FileDropZone from '@/components/FileDropZone'
+import { imageToBase64 } from '@/lib/imageToBase64'
 
 type UserRow = {
   id: string
@@ -64,7 +66,7 @@ type InfraNote = {
 }
 
 const ACCOUNT_TYPES = ['employee', 'contractor', 'client_agent', 'client']
-const TABS = ['Users', 'Projects', 'Invites', 'Branding'] as const
+const TABS = ['Users', 'Projects', 'Invites', 'Branding', 'Structural Test'] as const
 
 export default function PlatformAdminPage() {
   const supabase = createClient()
@@ -81,6 +83,12 @@ export default function PlatformAdminPage() {
   const [brandingBusy, setBrandingBusy] = useState<string | null>(null)
   const [infraNotes, setInfraNotes] = useState<InfraNote[]>([])
   const [resolvingNoteId, setResolvingNoteId] = useState<string | null>(null)
+
+  const [testProjectId, setTestProjectId] = useState('')
+  const [testFile, setTestFile] = useState<File | null>(null)
+  const [testPreview, setTestPreview] = useState<string | null>(null)
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<string | null>(null)
 
   const [editingUser, setEditingUser] = useState<string | null>(null)
   const [editingProject, setEditingProject] = useState<string | null>(null)
@@ -156,6 +164,33 @@ export default function PlatformAdminPage() {
     setInfraNotes(noteData || [])
 
     setLoading(false)
+  }
+
+  function selectTestFile(files: File[]) {
+    const f = files[0]
+    if (!f) return
+    setTestFile(f)
+    setTestPreview(URL.createObjectURL(f))
+    setTestResult(null)
+  }
+
+  async function runStructuralTest() {
+    if (!testFile || !testProjectId) return
+    setTesting(true)
+    setTestResult(null)
+    try {
+      const imageBase64 = await imageToBase64(testFile)
+      const res = await fetch('/api/analyze-structural', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64, projectId: testProjectId }),
+      })
+      const body = await res.json()
+      setTestResult(JSON.stringify({ status: res.status, ...body }, null, 2))
+    } catch (err: any) {
+      setTestResult(JSON.stringify({ error: err?.message || 'Request failed' }, null, 2))
+    }
+    setTesting(false)
   }
 
   async function resolveInfraNote(id: string) {
@@ -721,6 +756,58 @@ export default function PlatformAdminPage() {
                 </div>
               )
             })}
+          </div>
+        )}
+
+        {tab === 'Structural Test' && (
+          <div className="mt-4 space-y-3">
+            <p className="text-xs text-deck-dim">
+              Calls <span className="font-mono">/api/analyze-structural</span> directly and shows the raw
+              response - use this to confirm the RunPod endpoint is reachable and configured, independent of any
+              defect-logging UI (which doesn't call this route yet).
+            </p>
+
+            <div>
+              <label className="block text-xs font-medium text-deck-body">Project</label>
+              <select
+                value={testProjectId}
+                onChange={(e) => setTestProjectId(e.target.value)}
+                className="mt-1 w-full rounded-md border border-deck-border px-2 py-1.5 text-sm bg-deck-surface text-deck-text"
+              >
+                <option value="">Select a project</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <FileDropZone
+              onFiles={selectTestFile}
+              accept="image/*"
+              className="flex cursor-pointer items-center justify-center rounded-md border-2 border-dashed border-deck-border px-3 py-4 text-center text-sm text-deck-dim"
+            >
+              {testFile ? testFile.name : 'Choose a test photo, or drag and drop it here'}
+            </FileDropZone>
+
+            {testPreview && (
+              <img src={testPreview} alt="Test preview" className="w-full rounded-md border border-deck-border" />
+            )}
+
+            <button
+              onClick={runStructuralTest}
+              disabled={testing || !testFile || !testProjectId}
+              className="w-full rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
+            >
+              {testing ? 'Calling endpoint...' : 'Run test'}
+            </button>
+
+            {testResult && (
+              <pre className="overflow-x-auto rounded-md border border-deck-border bg-deck-raised p-3 text-xs text-deck-body">
+                {testResult}
+              </pre>
+            )}
           </div>
         )}
       </div>
