@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { checkCronAuth } from '@/lib/cronAuth'
 import { createWatchlistAdminClient } from '@/lib/supabase/watchlistAdmin'
 import { computeSignals } from '@/lib/stockSignals'
 import { fetchDailyCloses } from '@/lib/yahooFinance'
@@ -12,15 +13,9 @@ export const maxDuration = 120
 
 // Daily Vercel Cron job (see vercel.json) that keeps every user's paper-
 // trading ledger up to date, even if nobody opens the dashboard that day.
-// Vercel auto-attaches `Authorization: Bearer ${CRON_SECRET}` to its own
-// invocations when CRON_SECRET is set as a project env var - this checks
-// that header so the route can't be triggered by an arbitrary public request.
 export async function GET(req: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET
-  const authHeader = req.headers.get('authorization')
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const authError = checkCronAuth(req)
+  if (authError) return authError
 
   const supabaseAdmin = createWatchlistAdminClient()
 

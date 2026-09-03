@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { checkCronAuth } from '@/lib/cronAuth'
 import { createWatchlistAdminClient } from '@/lib/supabase/watchlistAdmin'
 import { computeSignals } from '@/lib/stockSignals'
 import { fetchDailyCloses } from '@/lib/yahooFinance'
@@ -27,11 +28,8 @@ export const maxDuration = 120
 // running this every 15 minutes (and backtest-cron afterwards) safe: a
 // signal already recorded for today is never reprocessed.
 export async function GET(req: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET
-  const authHeader = req.headers.get('authorization')
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const authError = checkCronAuth(req)
+  if (authError) return authError
 
   const supabaseAdmin = createWatchlistAdminClient()
 
