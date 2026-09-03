@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { checkCronAuth } from '@/lib/cronAuth'
 import { createWatchlistAdminClient } from '@/lib/supabase/watchlistAdmin'
 import { tuneTicker, upsertSignalParams } from '@/lib/paramTuning'
 
@@ -8,13 +9,10 @@ export const maxDuration = 300
 // per ticker against the paper-trading simulation, across everyone's
 // watchlists. Weekly rather than daily - parameters this coarse shouldn't
 // meaningfully change day to day, and daily re-tuning would just overreact
-// to noise. Same CRON_SECRET bearer-token pattern as backtest-cron/route.ts.
+// to noise.
 export async function GET(req: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET
-  const authHeader = req.headers.get('authorization')
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const authError = checkCronAuth(req)
+  if (authError) return authError
 
   const supabaseAdmin = createWatchlistAdminClient()
   const { data: watchlistRows, error } = await supabaseAdmin.from('stock_watchlist').select('ticker')

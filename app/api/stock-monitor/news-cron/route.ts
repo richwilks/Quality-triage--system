@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { checkCronAuth } from '@/lib/cronAuth'
 import { createWatchlistAdminClient } from '@/lib/supabase/watchlistAdmin'
 import { fetchCompanyNews } from '@/lib/finnhub'
 import { scoreNewsSentiments } from '@/lib/anthropic'
@@ -9,13 +10,10 @@ export const maxDuration = 120
 
 // Hourly Vercel Cron job (see vercel.json) - hourly rather than daily like
 // backtest-cron, since news breaks intraday unlike the daily-bar price
-// signals. Same CRON_SECRET bearer-token pattern as the other crons.
+// signals.
 export async function GET(req: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET
-  const authHeader = req.headers.get('authorization')
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const authError = checkCronAuth(req)
+  if (authError) return authError
 
   const supabaseAdmin = createWatchlistAdminClient()
 
