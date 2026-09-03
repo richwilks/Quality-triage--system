@@ -87,6 +87,11 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    // The stock-monitor cron routes are called by Vercel's Cron dispatcher
+    // with a CRON_SECRET bearer token, not a browser session cookie - they
+    // check that secret themselves, so this blanket sign-in gate must not
+    // redirect them to /login before they ever reach the route handler.
+    // Every other API route keeps going through this middleware unchanged.
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$|api/stock-monitor/(?:intraday|backtest|news|tune)-cron).*)',
   ],
 }
