@@ -14,7 +14,7 @@
     },
     {
       "path": "/api/stock-monitor/intraday-cron",
-      "schedule": "*/15 13-21 * * 1-5"
+      "schedule": "*/15 7-21 * * 1-5"
     }
   ]
 }
