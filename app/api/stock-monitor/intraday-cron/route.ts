@@ -15,8 +15,10 @@ import { fetchRecentHeadlines, formatNewsSnippet } from '@/lib/newsContext'
 export const maxDuration = 120
 
 // Intraday companion to backtest-cron (see vercel.json for the schedule -
-// every 15 minutes during a window wide enough to cover US market hours
-// across both EST/EDT). Where backtest-cron reconciles once a day off the
+// every 15 minutes, 07:00-21:00 UTC, wide enough to cover both the LSE's
+// session (07:00/08:00-15:30/16:30 UTC across BST/GMT, for .L tickers) and
+// the US market's (13:30/14:30-20:00/21:00 UTC across EDT/EST). Where
+// backtest-cron reconciles once a day off the
 // real closing price, this appends today's still-forming bar (from
 // Finnhub's free /quote endpoint) onto the daily history and runs the same
 // reconcileAndPersist used there - so a signal gets caught, recorded in
