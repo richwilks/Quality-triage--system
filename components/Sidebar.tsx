@@ -66,6 +66,17 @@ const ITEMS = [
     ),
   },
   {
+    href: '/dashboard/dva',
+    label: 'DVA',
+    icon: (active: boolean) => (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={active ? 'var(--deck-accent-color, #2A6F77)' : 'currentColor'} strokeWidth="2">
+        <path d="M4 20V10M4 10l4-4M4 10l4 4" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M20 4v10M20 14l-4-4M20 14l-4 4" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M10 4h4M10 20h4" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
     href: '/dashboard/account',
     label: 'Account',
     icon: (active: boolean) => (
