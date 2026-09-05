@@ -2,6 +2,7 @@
 
 import { EvidenceRecord, downloadEvidenceJson } from '@/lib/dva/evidenceLog'
 import ResultFlagBadge from './ResultFlagBadge'
+import AccessFlagBadge from './AccessFlagBadge'
 
 export default function EvidenceLogPanel({
   records,
@@ -32,6 +33,9 @@ export default function EvidenceLogPanel({
             </div>
             <div className="flex items-center gap-2">
               <ResultFlagBadge flag={record.overallFlag} className="text-xs" />
+              {record.buildability && record.buildability.fixings.length > 0 && (
+                <AccessFlagBadge flag={record.buildability.overallFlag} className="text-xs" />
+              )}
               <button
                 type="button"
                 onClick={() => onView(record)}

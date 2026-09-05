@@ -1,13 +1,17 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Junction, JunctionRequirement, MonteCarloEngineResult, StackUpEngineResult } from '@/lib/dva/types'
+import { BuildabilityResult, Junction, JunctionRequirement, MonteCarloEngineResult, StackUpEngineResult } from '@/lib/dva/types'
 import { runStackUp } from '@/lib/dva/calculationEngine'
 import { runMonteCarlo } from '@/lib/dva/monteCarlo'
+import { runBuildabilityCheck } from '@/lib/dva/buildabilityEngine'
 import { createPrecastPanelToSteelFramePreset } from '@/lib/dva/presets'
 import { EvidenceRecord, createEvidenceRecord } from '@/lib/dva/evidenceLog'
 import ComponentTable from './ComponentTable'
+import FixingTable from './FixingTable'
 import ResultsPanel from './ResultsPanel'
+import RiskOverview from './RiskOverview'
+import BuildabilityResults from './BuildabilityResults'
 import EvidenceLogPanel from './EvidenceLogPanel'
 import EvidencePrintView from './EvidencePrintView'
 
@@ -20,6 +24,7 @@ export default function DvaTool() {
 
   const [stackUpResult, setStackUpResult] = useState<StackUpEngineResult | null>(null)
   const [monteCarloResult, setMonteCarloResult] = useState<MonteCarloEngineResult | null>(null)
+  const [buildabilityResult, setBuildabilityResult] = useState<BuildabilityResult | null>(null)
 
   const [evidenceRecords, setEvidenceRecords] = useState<EvidenceRecord[]>([])
   const [printRecord, setPrintRecord] = useState<EvidenceRecord | null>(null)
@@ -34,11 +39,15 @@ export default function DvaTool() {
     const stackUp = runStackUp(junction)
     setStackUpResult(stackUp)
 
-    if (mode === 'monte-carlo') {
-      setMonteCarloResult(runMonteCarlo(junction, { samples: sampleCount }))
-    } else {
-      setMonteCarloResult(null)
-    }
+    const monteCarlo = mode === 'monte-carlo' ? runMonteCarlo(junction, { samples: sampleCount }) : null
+    setMonteCarloResult(monteCarlo)
+
+    const buildability = runBuildabilityCheck(
+      junction,
+      { nominal: stackUp.nominal, worstCaseMin: stackUp.worstCase.min, worstCaseMax: stackUp.worstCase.max },
+      { monteCarloOutcomes: monteCarlo?.outcomes }
+    )
+    setBuildabilityResult(buildability)
   }
 
   function logEvidence() {
@@ -49,6 +58,7 @@ export default function DvaTool() {
       overallFlag: monteCarloResult?.flag ?? stackUpResult.overallFlag,
       stackUp: stackUpResult,
       monteCarlo: monteCarloResult ?? undefined,
+      buildability: buildabilityResult ?? undefined,
     })
     setEvidenceRecords((records) => [record, ...records])
   }
@@ -137,6 +147,20 @@ export default function DvaTool() {
       </div>
 
       <div className="rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
+        <h2 className="text-sm font-semibold text-deck-text">Fixings</h2>
+        <p className="mt-1 text-xs text-deck-dim">
+          The bolts, pins, welds or brackets that have to physically be installed at this junction — checked for tool
+          access space and installation sequence, independently of the dimensional fit above.
+        </p>
+        <div className="mt-3">
+          <FixingTable
+            fixings={junction.fixings ?? []}
+            onChange={(fixings) => setJunction((j) => ({ ...j, fixings }))}
+          />
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
         <h2 className="text-sm font-semibold text-deck-text">Run</h2>
         <div className="mt-3 flex flex-wrap items-end gap-4">
           <div>
@@ -193,7 +217,16 @@ export default function DvaTool() {
         </div>
       </div>
 
+      {hasResults && (
+        <RiskOverview
+          dimensionalFlag={monteCarloResult?.flag ?? stackUpResult?.overallFlag ?? null}
+          buildabilityFlag={buildabilityResult && buildabilityResult.fixings.length > 0 ? buildabilityResult.overallFlag : null}
+        />
+      )}
+
       <ResultsPanel junction={junction} stackUp={stackUpResult} monteCarlo={monteCarloResult} />
+
+      <BuildabilityResults result={buildabilityResult} unit={requirement.unit} />
 
       <div>
         <h2 className="mb-2 text-sm font-semibold text-deck-text">Evidence log</h2>

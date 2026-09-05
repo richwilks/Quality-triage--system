@@ -46,6 +46,33 @@ describe('DvaTool end-to-end wiring', () => {
     expect(screen.getByText(/was the largest contributor in|No failing runs/)).toBeInTheDocument()
   })
 
+  it('runs the buildability check alongside the dimensional one, on the preset fixings', async () => {
+    const user = userEvent.setup()
+    render(<DvaTool />)
+
+    await user.click(screen.getByRole('button', { name: 'Run calculation' }))
+
+    // Risk overview shows both flags independently.
+    const riskHeading = await screen.findByText('Risk overview')
+    const riskSection = riskHeading.closest('div') as HTMLElement
+    expect(within(riskSection).getByText('Dimensional (fit)')).toBeInTheDocument()
+    expect(within(riskSection).getByText('Buildability (installation)')).toBeInTheDocument()
+
+    // Fixing access table lists all three preset fixings.
+    const fixingHeading = screen.getByText('Fixing access')
+    const fixingSection = fixingHeading.closest('div')!.parentElement as HTMLElement
+    expect(within(fixingSection).getByText('Top bracket bolt')).toBeInTheDocument()
+    expect(within(fixingSection).getByText('Base plate anchor bolt')).toBeInTheDocument()
+    expect(within(fixingSection).getByText('Packer shim insertion')).toBeInTheDocument()
+
+    // The base plate anchor is defined with less clearance than it requires -> Fail.
+    const anchorRow = within(fixingSection).getByText('Base plate anchor bolt').closest('tr')!
+    expect(within(anchorRow).getByText('Fail')).toBeInTheDocument()
+
+    // The sequence is satisfiable for the preset (no circular dependency).
+    expect(await screen.findByText(/A valid installation order exists/)).toBeInTheDocument()
+  })
+
   it('logs a result as evidence and can view/export it', async () => {
     const user = userEvent.setup()
     render(<DvaTool />)

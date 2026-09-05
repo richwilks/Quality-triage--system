@@ -1,7 +1,7 @@
 // Evidence log records: the Golden Thread / Regulation 38 audit trail hook.
 // Captures what was checked, how, and what the result was, at a point in time.
 
-import { Junction, MonteCarloEngineResult, ResultFlag, StackUpEngineResult } from './types'
+import { BuildabilityResult, Junction, MonteCarloEngineResult, ResultFlag, StackUpEngineResult } from './types'
 
 export type EvidenceMethod = 'worst-case-rss' | 'monte-carlo'
 
@@ -21,6 +21,8 @@ export interface EvidenceRecord {
     max: number
     dominantDrivers: MonteCarloEngineResult['dominantDrivers']
   }
+  /** Buildability layer (addendum): fixing access + installation sequence, independent of the dimensional flag above. */
+  buildability?: BuildabilityResult
 }
 
 export function createEvidenceRecord(params: {
@@ -29,6 +31,7 @@ export function createEvidenceRecord(params: {
   overallFlag: ResultFlag
   stackUp?: StackUpEngineResult
   monteCarlo?: MonteCarloEngineResult
+  buildability?: BuildabilityResult
 }): EvidenceRecord {
   return {
     id: `evidence-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -48,6 +51,7 @@ export function createEvidenceRecord(params: {
           dominantDrivers: params.monteCarlo.dominantDrivers,
         }
       : undefined,
+    buildability: params.buildability,
   }
 }
 

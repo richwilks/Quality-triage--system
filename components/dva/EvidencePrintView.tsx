@@ -33,7 +33,10 @@ export default function EvidencePrintView({ record, onClose }: { record: Evidenc
             Method: {record.method === 'monte-carlo' ? 'Monte Carlo simulation' : 'Worst-case & RSS stack-up'}
           </p>
           <p className="mt-1 text-sm text-deck-body">Logged: {new Date(record.createdAt).toLocaleString('en-GB')}</p>
-          <p className="mt-1 text-sm text-deck-body">Overall result: {record.overallFlag.toUpperCase()}</p>
+          <p className="mt-1 text-sm text-deck-body">Dimensional result: {record.overallFlag.toUpperCase()}</p>
+          {record.buildability && record.buildability.fixings.length > 0 && (
+            <p className="mt-1 text-sm text-deck-body">Buildability result: {record.buildability.overallFlag.toUpperCase()}</p>
+          )}
 
           <h2 className="mt-6 text-sm font-semibold text-deck-text">Requirement</h2>
           <p className="mt-1 text-sm text-deck-body">
@@ -132,6 +135,64 @@ export default function EvidencePrintView({ record, onClose }: { record: Evidenc
                   </tr>
                 </tbody>
               </table>
+            </>
+          )}
+
+          {record.buildability && record.buildability.fixings.length > 0 && (
+            <>
+              <h2 className="mt-6 text-sm font-semibold text-deck-text">Fixing access</h2>
+              <table className="mt-2 w-full text-sm">
+                <thead>
+                  <tr className="border-b border-deck-border text-left text-xs uppercase tracking-wide text-deck-dim">
+                    <th className="py-1.5 pr-3">Fixing</th>
+                    <th className="py-1.5 pr-3">Required</th>
+                    <th className="py-1.5 pr-3">Nominal</th>
+                    <th className="py-1.5 pr-3">Worst-case</th>
+                    <th className="py-1.5 pr-3">Clearance fail rate</th>
+                    <th className="py-1.5">Result</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {record.buildability.fixings.map((f) => (
+                    <tr key={f.fixingId} className="border-b border-deck-border last:border-0">
+                      <td className="py-1.5 pr-3">{f.fixingName}</td>
+                      <td className="py-1.5 pr-3">
+                        {f.staticAccess.requiredClearance.toFixed(0)} {junction.requirement.unit}
+                      </td>
+                      <td className="py-1.5 pr-3">
+                        {f.staticAccess.nominalClearance.toFixed(0)} {junction.requirement.unit}
+                      </td>
+                      <td className="py-1.5 pr-3">
+                        {f.staticAccess.worstCaseClearance.toFixed(0)} {junction.requirement.unit}
+                      </td>
+                      <td className="py-1.5 pr-3">
+                        {f.toleranceSensitivity ? `${(f.toleranceSensitivity.clearanceFailRate * 100).toFixed(1)}%` : '—'}
+                      </td>
+                      <td className="py-1.5">
+                        {f.overallFlag.toUpperCase()}
+                        {!f.sequenceOk ? ' (sequence blocked)' : ''}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <h2 className="mt-6 text-sm font-semibold text-deck-text">Installation sequence</h2>
+              {record.buildability.sequence.satisfiable ? (
+                <p className="mt-1 text-sm text-deck-body">
+                  Valid order:{' '}
+                  {record.buildability.sequence.order
+                    .map((id) => record.buildability!.fixings.find((f) => f.fixingId === id)?.fixingName ?? id)
+                    .join(' → ')}
+                  .
+                </p>
+              ) : (
+                <ul className="mt-1 list-disc pl-5 text-sm text-deck-body">
+                  {record.buildability.sequence.issues.map((issue, i) => (
+                    <li key={i}>{issue.reason}</li>
+                  ))}
+                </ul>
+              )}
             </>
           )}
 

@@ -1,8 +1,59 @@
 // MVP scope is a single junction type (build brief section 3): precast panel to
 // steel frame connection. This is the starter definition the input form
 // prefills, based on typical face-gap tolerance chains for that junction.
+//
+// Fixings (addendum): the same junction also carries the bolts/anchors that have
+// to physically be installed there, so the input form can demonstrate the
+// buildability layer (fixing access + sequence) alongside the dimensional one.
 
-import { Junction } from './types'
+import { Fixing, Junction } from './types'
+
+export function createPrecastPanelFixingsPreset(): Fixing[] {
+  return [
+    {
+      id: 'top-bracket-bolt',
+      name: 'Top bracket bolt',
+      type: 'M20 bolt',
+      toolType: 'torque wrench',
+      requiredClearance: 150,
+      nominalAvailableClearance: 180,
+      // Sits directly in the face gap: a wider gap gives the wrench more swing room.
+      clearanceSensitivity: 1,
+      oneSideAccessOnly: false,
+      lineOfSightRequired: true,
+      mustFollow: [],
+      mustPrecede: [],
+    },
+    {
+      id: 'base-plate-anchor',
+      name: 'Base plate anchor bolt',
+      type: 'shot-fired pin',
+      toolType: 'torque wrench',
+      requiredClearance: 180,
+      nominalAvailableClearance: 140,
+      // Off to the side of the face gap, so gap variation barely affects its own access.
+      clearanceSensitivity: 0,
+      oneSideAccessOnly: true,
+      lineOfSightRequired: false,
+      mustFollow: [],
+      mustPrecede: [],
+    },
+    {
+      id: 'packer-shim',
+      name: 'Packer shim insertion',
+      type: 'proprietary bracket',
+      toolType: 'hand tool',
+      requiredClearance: 20,
+      nominalAvailableClearance: 60,
+      clearanceSensitivity: 1,
+      oneSideAccessOnly: false,
+      lineOfSightRequired: true,
+      // Can only go in once the top bracket bolt is torqued up and holding the panel.
+      mustFollow: ['top-bracket-bolt'],
+      mustPrecede: [],
+    },
+  ]
+}
 
 export function createPrecastPanelToSteelFramePreset(): Junction {
   return {
@@ -57,5 +108,6 @@ export function createPrecastPanelToSteelFramePreset(): Junction {
         sign: 1,
       },
     ],
+    fixings: createPrecastPanelFixingsPreset(),
   }
 }

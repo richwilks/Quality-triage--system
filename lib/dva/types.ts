@@ -48,6 +48,8 @@ export interface Junction {
   type: string
   requirement: JunctionRequirement
   components: JunctionComponent[]
+  /** Fixings that must physically be installed at this junction — the buildability layer (see fixingAccess.ts). */
+  fixings?: Fixing[]
 }
 
 export type ResultFlag = 'pass' | 'at-risk' | 'fail'
@@ -89,3 +91,84 @@ export interface MonteCarloEngineResult {
 
 /** At-risk band as a fraction of the requirement's own width, applied inward from each acceptable bound. */
 export const AT_RISK_MARGIN_FRACTION = 0.1
+
+// --- Fixing & installation buildability (DVA addendum) ---
+// A junction can pass the dimensional stack-up and still fail in practice because a
+// fixing has nowhere for the tool to go, or because the installation sequence blocks
+// its own access. This is a second, independent analysis layer over the same junction.
+
+export interface Fixing {
+  id: string
+  name: string
+  /** e.g. "M12 bolt", "shot-fired pin", "weld", "proprietary bracket" */
+  type: string
+  /** e.g. "torque wrench", "impact driver", "welding equipment" */
+  toolType: string
+  /** mm of working space the tool needs around the fixing point to operate — not just the fixing itself. */
+  requiredClearance: number
+  /** mm of space actually available around the fixing point at nominal junction geometry. */
+  nominalAvailableClearance: number
+  /**
+   * How many mm this fixing's available clearance shifts for every 1mm the junction's
+   * dimensional outcome shifts from its nominal value. Captures that a fixing's access
+   * envelope is consumed by the same tolerance chain as the dimensional gap — not an
+   * independent variable. Positive: clearance opens up as the outcome grows. Negative:
+   * clearance closes as the outcome grows. Zero: this fixing's access is unaffected by
+   * the junction's dimensional variation.
+   */
+  clearanceSensitivity: number
+  oneSideAccessOnly: boolean
+  lineOfSightRequired: boolean
+  /** Ids of other fixings at this junction that must already be installed before this one is accessible. */
+  mustFollow: string[]
+  /** Ids of other fixings at this junction that must NOT yet be installed when this one is done. */
+  mustPrecede: string[]
+}
+
+export type AccessFlag = 'pass' | 'marginal' | 'fail'
+
+export interface FixingStaticAccessResult {
+  requiredClearance: number
+  nominalClearance: number
+  worstCaseClearance: number
+  nominalFlag: AccessFlag
+  worstCaseFlag: AccessFlag
+  overallFlag: AccessFlag
+  /** requiredClearance - worstCaseClearance, mm. Positive means the envelope doesn't fit; 0 if it does. */
+  shortfall: number
+}
+
+export interface FixingToleranceSensitivityResult {
+  runs: number
+  clearanceFailCount: number
+  clearanceFailRate: number
+  worstClearance: number
+  flag: AccessFlag
+}
+
+export interface FixingResult {
+  fixingId: string
+  fixingName: string
+  staticAccess: FixingStaticAccessResult
+  toleranceSensitivity: FixingToleranceSensitivityResult | null
+  sequenceOk: boolean
+  overallFlag: AccessFlag
+}
+
+export interface SequenceIssue {
+  fixingIds: string[]
+  reason: string
+}
+
+export interface SequenceCheckResult {
+  satisfiable: boolean
+  /** A valid installation order of fixing ids — only every fixing that isn't part of an issue below. */
+  order: string[]
+  issues: SequenceIssue[]
+}
+
+export interface BuildabilityResult {
+  fixings: FixingResult[]
+  sequence: SequenceCheckResult
+  overallFlag: AccessFlag
+}
