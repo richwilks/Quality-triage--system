@@ -113,7 +113,7 @@ export const GOLDEN_THREAD_ITEMS: Reg38ItemDef[] = [
     label: 'Design & construction records',
     regime: 'golden_thread',
     guidance:
-      'Original design plans and as-built drawings, including material specifications for the external wall system, cladding, insulation, and structural design.',
+      "Original design plans and as-built drawings, including material specifications for the external wall system, cladding, insulation, and structural design. A project's As-built record (dimensions recorded on drawings during site inspections) is a ready-made source for this - see the project's \"As-built record\" page.",
   },
   {
     key: 'construction_control_plan',
@@ -169,7 +169,7 @@ export const GOLDEN_THREAD_ITEMS: Reg38ItemDef[] = [
     label: 'Change & compliance records',
     regime: 'golden_thread',
     guidance:
-      'A record of changes made during design, construction, or occupation - what changed, why, and how it was approved - plus how the building complies with the regulations it was approved against.',
+      "A record of changes made during design, construction, or occupation - what changed, why, and how it was approved - plus how the building complies with the regulations it was approved against. The project's As-built record shows dimensions actually measured on site against each drawing, useful evidence of what changed from the design-stage version.",
   },
   {
     key: 'completion_certificates',
