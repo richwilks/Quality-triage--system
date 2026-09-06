@@ -8,6 +8,7 @@ import { runBuildabilityCheck } from '@/lib/dva/buildabilityEngine'
 import { createPrecastPanelToSteelFramePreset } from '@/lib/dva/presets'
 import { EvidenceRecord, createEvidenceRecord } from '@/lib/dva/evidenceLog'
 import ComponentTable from './ComponentTable'
+import IfcImportPanel from './IfcImportPanel'
 import FixingTable from './FixingTable'
 import ResultsPanel from './ResultsPanel'
 import RiskOverview from './RiskOverview'
@@ -28,6 +29,8 @@ export default function DvaTool() {
 
   const [evidenceRecords, setEvidenceRecords] = useState<EvidenceRecord[]>([])
   const [printRecord, setPrintRecord] = useState<EvidenceRecord | null>(null)
+
+  const [showImport, setShowImport] = useState(false)
 
   const requirement = junction.requirement
 
@@ -133,6 +136,33 @@ export default function DvaTool() {
             />
           </label>
         </div>
+      </div>
+
+      <div className="rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold text-deck-text">Import from BIM model</h2>
+            <p className="mt-1 text-xs text-deck-dim">
+              Optional — pull real dimensions from an IFC model instead of typing them in below.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowImport((v) => !v)}
+            className="rounded-md border border-deck-border px-3 py-1.5 text-sm font-medium text-deck-body hover:bg-deck-raised"
+          >
+            {showImport ? 'Hide' : 'Show'}
+          </button>
+        </div>
+        {showImport && (
+          <div className="mt-4">
+            <IfcImportPanel
+              onAddComponent={(component) =>
+                setJunction((j) => ({ ...j, components: [...j.components, component] }))
+              }
+            />
+          </div>
+        )}
       </div>
 
       <div className="rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
