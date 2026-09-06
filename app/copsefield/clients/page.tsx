@@ -69,7 +69,7 @@ export default function ClientsPage() {
           >
             Add a client
           </Link>
-          <input
+          <input spellCheck="true"
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}

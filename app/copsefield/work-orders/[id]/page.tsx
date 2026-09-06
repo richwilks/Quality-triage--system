@@ -365,7 +365,7 @@ export default function WorkOrderDetailPage() {
             </div>
             {workOrder.status === 'accepted' && (
               <div className="mt-3 flex gap-2">
-                <input
+                <input spellCheck="true"
                   type="text"
                   value={materialDesc}
                   onChange={(e) => setMaterialDesc(e.target.value)}
@@ -419,7 +419,7 @@ export default function WorkOrderDetailPage() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-deck-body">Assigned to (worker or subcontractor)</label>
-                <input
+                <input spellCheck="true"
                   type="text"
                   value={contractorName}
                   onChange={(e) => {

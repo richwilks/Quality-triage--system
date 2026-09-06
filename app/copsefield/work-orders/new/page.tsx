@@ -111,7 +111,7 @@ function NewWorkOrderInner() {
 
           <div>
             <label className="block text-sm font-medium text-deck-body">Title</label>
-            <input
+            <input spellCheck="true"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -122,7 +122,7 @@ function NewWorkOrderInner() {
 
           <div>
             <label className="block text-sm font-medium text-deck-body">Description</label>
-            <textarea
+            <textarea spellCheck="true"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}

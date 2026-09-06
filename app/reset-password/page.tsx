@@ -87,7 +87,7 @@ export default function ResetPasswordPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700">Reset code</label>
-                  <input
+                  <input spellCheck="true"
                     type="text"
                     required
                     value={code}

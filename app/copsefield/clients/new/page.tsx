@@ -57,7 +57,7 @@ export default function NewClientPage() {
 
         <div className="mt-4 rounded-xl border border-deck-border bg-deck-surface p-5 shadow-sm">
           <label className="block text-sm font-medium text-deck-body">Client / company name</label>
-          <input
+          <input spellCheck="true"
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -68,7 +68,7 @@ export default function NewClientPage() {
           <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-deck-body">Contact name</label>
-              <input
+              <input spellCheck="true"
                 type="text"
                 value={contactName}
                 onChange={(e) => setContactName(e.target.value)}
@@ -95,7 +95,7 @@ export default function NewClientPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-deck-body">Address</label>
-              <input
+              <input spellCheck="true"
                 type="text"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
@@ -105,7 +105,7 @@ export default function NewClientPage() {
           </div>
 
           <label className="mt-4 block text-sm font-medium text-deck-body">Notes</label>
-          <textarea
+          <textarea spellCheck="true"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}

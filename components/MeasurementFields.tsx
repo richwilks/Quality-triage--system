@@ -27,7 +27,7 @@ export default function MeasurementFields({
         className="mt-1 w-full rounded-md border border-deck-border bg-deck-surface px-2 py-1.5 text-sm text-deck-text placeholder:text-deck-mute"
       />
       <label className="mt-2 block text-xs font-medium text-deck-body">Tested detail reference</label>
-      <input
+      <input spellCheck="true"
         type="text"
         value={data.testedDetailReference}
         onChange={(e) => onChange({ testedDetailReference: e.target.value })}
@@ -35,7 +35,7 @@ export default function MeasurementFields({
         className="mt-1 w-full rounded-md border border-deck-border bg-deck-surface px-2 py-1.5 text-sm text-deck-text placeholder:text-deck-mute"
       />
       <label className="mt-2 block text-xs font-medium text-deck-body">Manufacturer / system</label>
-      <input
+      <input spellCheck="true"
         type="text"
         value={data.manufacturerSystem}
         onChange={(e) => onChange({ manufacturerSystem: e.target.value })}

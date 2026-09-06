@@ -197,7 +197,7 @@ export default function MyTasksPage() {
             </select>
 
             <label className="mt-2 block text-xs font-medium text-deck-body">Title</label>
-            <input
+            <input spellCheck="true"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -249,7 +249,7 @@ export default function MyTasksPage() {
             </select>
 
             <label className="mt-2 block text-xs font-medium text-deck-body">Notes (optional)</label>
-            <textarea
+            <textarea spellCheck="true"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}

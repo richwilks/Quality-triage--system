@@ -263,7 +263,7 @@ export default function ProjectSpecPage() {
 
         <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
           <p className="text-sm font-medium text-deck-body">Add specification(s)</p>
-          <input
+          <input spellCheck="true"
             type="text"
             value={specName}
             onChange={(e) => setSpecName(e.target.value)}

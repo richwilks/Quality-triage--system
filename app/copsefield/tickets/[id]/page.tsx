@@ -254,7 +254,7 @@ export default function TicketDetailPage() {
         </select>
 
         <label className="mt-3 block text-sm font-medium text-deck-body">Location</label>
-        <input
+        <input spellCheck="true"
           type="text"
           value={form.location || ''}
           onChange={(e) => setForm((prev) => ({ ...prev, location: e.target.value }))}
@@ -276,7 +276,7 @@ export default function TicketDetailPage() {
         </select>
 
         <label className="mt-3 block text-sm font-medium text-deck-body">Observation</label>
-        <textarea
+        <textarea spellCheck="true"
           value={form.observation || ''}
           onChange={(e) => setForm((prev) => ({ ...prev, observation: e.target.value }))}
           rows={3}
@@ -284,7 +284,7 @@ export default function TicketDetailPage() {
         />
 
         <label className="mt-3 block text-sm font-medium text-deck-body">Recommendation</label>
-        <textarea
+        <textarea spellCheck="true"
           value={form.recommendation || ''}
           onChange={(e) => setForm((prev) => ({ ...prev, recommendation: e.target.value }))}
           rows={3}

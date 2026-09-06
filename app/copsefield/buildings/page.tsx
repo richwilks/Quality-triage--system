@@ -74,7 +74,7 @@ export default function BuildingsPage() {
           >
             Add a building
           </Link>
-          <input
+          <input spellCheck="true"
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}

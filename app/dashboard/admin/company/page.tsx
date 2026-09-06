@@ -438,7 +438,7 @@ export default function CompanyAdminPage() {
                 onChange={(e) => setAccentColor(e.target.value)}
                 className="h-9 w-9 rounded-md border border-deck-border"
               />
-              <input
+              <input spellCheck="true"
                 type="text"
                 value={accentColor}
                 onChange={(e) => setAccentColor(e.target.value)}

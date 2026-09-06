@@ -213,7 +213,7 @@ export default function CopsefieldReportPage() {
             )}
 
             {isStaff && editing ? (
-              <textarea
+              <textarea spellCheck="true"
                 value={content}
                 onChange={(e) => handleContentChange(e.target.value)}
                 rows={28}

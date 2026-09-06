@@ -164,7 +164,7 @@ export default function InspectPage() {
               </select>
             </div>
             <div className="mt-2 flex gap-2">
-              <input
+              <input spellCheck="true"
                 type="text"
                 value={customLevel}
                 onChange={(e) => setCustomLevel(e.target.value)}
@@ -225,7 +225,7 @@ export default function InspectPage() {
                 <option key={d.id} value={d.name || ''}>{d.name}</option>
               ))}
             </select>
-            <input
+            <input spellCheck="true"
               type="text"
               value={customLevel}
               onChange={(e) => setCustomLevel(e.target.value)}

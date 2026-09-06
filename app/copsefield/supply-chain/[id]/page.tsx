@@ -127,7 +127,7 @@ export default function ContractorDetailPage() {
         </select>
 
         <label className="mt-3 block text-sm font-medium text-deck-body">Name</label>
-        <input
+        <input spellCheck="true"
           type="text"
           value={contractor.name}
           onChange={(e) => set('name', e.target.value)}
@@ -135,7 +135,7 @@ export default function ContractorDetailPage() {
         />
 
         <label className="mt-3 block text-sm font-medium text-deck-body">Trade</label>
-        <input
+        <input spellCheck="true"
           type="text"
           value={contractor.trade || ''}
           onChange={(e) => set('trade', e.target.value)}
@@ -143,7 +143,7 @@ export default function ContractorDetailPage() {
         />
 
         <label className="mt-3 block text-sm font-medium text-deck-body">Contact name</label>
-        <input
+        <input spellCheck="true"
           type="text"
           value={contractor.contact_name || ''}
           onChange={(e) => set('contact_name', e.target.value)}
@@ -172,7 +172,7 @@ export default function ContractorDetailPage() {
         </div>
 
         <label className="mt-3 block text-sm font-medium text-deck-body">Address</label>
-        <input
+        <input spellCheck="true"
           type="text"
           value={contractor.address || ''}
           onChange={(e) => set('address', e.target.value)}
@@ -180,7 +180,7 @@ export default function ContractorDetailPage() {
         />
 
         <label className="mt-3 block text-sm font-medium text-deck-body">Notes</label>
-        <textarea
+        <textarea spellCheck="true"
           value={contractor.notes || ''}
           onChange={(e) => set('notes', e.target.value)}
           rows={3}
