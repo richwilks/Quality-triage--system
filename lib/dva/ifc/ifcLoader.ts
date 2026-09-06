@@ -9,6 +9,7 @@
 
 import * as THREE from 'three'
 import { IfcAPI, type FlatMesh } from 'web-ifc'
+import { detectLengthUnit } from './units'
 
 let sharedApi: IfcAPI | null = null
 
@@ -25,16 +26,20 @@ export interface LoadedIfcModel {
   api: IfcAPI
   modelID: number
   group: THREE.Group
+  /** Whatever the model's own length unit was, so an extracted dimension is always mm. */
+  unitLabel: string
+  unitDetected: boolean
 }
 
 export async function loadIfcFile(data: Uint8Array): Promise<LoadedIfcModel> {
   const api = await getIfcApi()
   const modelID = api.OpenModel(data)
-  const group = buildMeshes(api, modelID)
-  return { api, modelID, group }
+  const unit = detectLengthUnit(api, modelID)
+  const group = buildMeshes(api, modelID, unit.scaleToMm)
+  return { api, modelID, group, unitLabel: unit.label, unitDetected: unit.detected }
 }
 
-function buildMeshes(api: IfcAPI, modelID: number): THREE.Group {
+function buildMeshes(api: IfcAPI, modelID: number, scaleToMm: number): THREE.Group {
   const group = new THREE.Group()
   const flatMeshes = api.LoadAllGeometry(modelID)
 
@@ -61,6 +66,9 @@ function buildMeshes(api: IfcAPI, modelID: number): THREE.Group {
       geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
       geometry.setIndex(new THREE.BufferAttribute(indexData, 1))
       geometry.applyMatrix4(new THREE.Matrix4().fromArray(placedGeometry.flatTransformation))
+      // Normalize every model to millimetres at load time, so bounding boxes, camera
+      // framing, and anything downstream never has to think about model units again.
+      geometry.scale(scaleToMm, scaleToMm, scaleToMm)
       geometry.computeVertexNormals()
 
       const { x: r, y: g, z: b, w: a } = placedGeometry.color
@@ -87,9 +95,24 @@ export interface PickedElement {
   bounds: { width: number; height: number; depth: number }
 }
 
-export async function describePickedMesh(api: IfcAPI, modelID: number, mesh: THREE.Mesh): Promise<PickedElement> {
-  const expressID: number = mesh.userData.expressID
-  const box = new THREE.Box3().setFromObject(mesh)
+/**
+ * An IFC element can be made of several geometry pieces (e.g. a panel with an
+ * opening, or per-material splits) that all land as separate meshes sharing
+ * the same expressID. Measuring only the clicked piece would understate the
+ * element's real size, so this unions every mesh with a matching expressID.
+ */
+export async function describePickedElement(
+  api: IfcAPI,
+  modelID: number,
+  group: THREE.Group,
+  expressID: number
+): Promise<PickedElement> {
+  const box = new THREE.Box3()
+  group.traverse((obj) => {
+    if (obj instanceof THREE.Mesh && obj.userData.expressID === expressID) {
+      box.union(new THREE.Box3().setFromObject(obj))
+    }
+  })
   const size = new THREE.Vector3()
   box.getSize(size)
 

@@ -50,6 +50,8 @@ export default function ComponentTable({
     onChange([...components, newComponent])
   }
 
+  const presetsByCategory = Array.from(toleranceLibraryByCategory().entries())
+
   return (
     <div>
       <div className="overflow-x-auto rounded-lg border border-deck-border">
@@ -87,7 +89,7 @@ export default function ComponentTable({
                     className="w-full rounded-md border border-deck-border bg-deck-surface px-2 py-1.5 text-xs text-deck-text"
                   >
                     <option value="">Apply preset…</option>
-                    {Array.from(toleranceLibraryByCategory().entries()).map(([category, presets]) => (
+                    {presetsByCategory.map(([category, presets]) => (
                       <optgroup key={category} label={category}>
                         {presets.map((preset) => (
                           <option key={preset.id} value={preset.id}>

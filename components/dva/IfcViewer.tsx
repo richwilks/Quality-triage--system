@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import { disposeIfcModel, describePickedMesh, loadIfcFile, LoadedIfcModel, PickedElement } from '@/lib/dva/ifc/ifcLoader'
+import { disposeIfcModel, describePickedElement, loadIfcFile, LoadedIfcModel, PickedElement } from '@/lib/dva/ifc/ifcLoader'
 
 const SELECTED_COLOR = new THREE.Color('#2A6F77')
 
@@ -11,12 +11,12 @@ export default function IfcViewer({ onElementPicked }: { onElementPicked: (eleme
   const containerRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const modelRef = useRef<LoadedIfcModel | null>(null)
-  const selectedRef = useRef<THREE.Mesh | null>(null)
-  const originalColorRef = useRef<THREE.Color | null>(null)
+  const selectedRef = useRef<{ mesh: THREE.Mesh; originalColor: THREE.Color }[]>([])
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hasModel, setHasModel] = useState(false)
+  const [unitLabel, setUnitLabel] = useState<string | null>(null)
 
   useEffect(() => {
     const container = containerRef.current
@@ -56,16 +56,27 @@ export default function IfcViewer({ onElementPicked }: { onElementPicked: (eleme
       const hit = intersects.find((i) => i.object instanceof THREE.Mesh) as THREE.Intersection<THREE.Mesh> | undefined
       if (!hit) return
 
-      if (selectedRef.current && originalColorRef.current) {
-        ;(selectedRef.current.material as THREE.MeshStandardMaterial).color.copy(originalColorRef.current)
+      for (const { mesh, originalColor } of selectedRef.current) {
+        ;(mesh.material as THREE.MeshStandardMaterial).color.copy(originalColor)
       }
-      const mesh = hit.object
-      const material = mesh.material as THREE.MeshStandardMaterial
-      originalColorRef.current = material.color.clone()
-      material.color.copy(SELECTED_COLOR)
-      selectedRef.current = mesh
 
-      describePickedMesh(loaded.api, loaded.modelID, mesh).then(onElementPicked)
+      // An IFC element can be split across several meshes (an opening, per-material
+      // pieces) that all share the clicked mesh's expressID — highlight all of them,
+      // not just the one the ray happened to hit.
+      const expressID = hit.object.userData.expressID
+      const matchingMeshes: THREE.Mesh[] = []
+      loaded.group.traverse((obj) => {
+        if (obj instanceof THREE.Mesh && obj.userData.expressID === expressID) matchingMeshes.push(obj)
+      })
+
+      selectedRef.current = matchingMeshes.map((mesh) => {
+        const material = mesh.material as THREE.MeshStandardMaterial
+        const originalColor = material.color.clone()
+        material.color.copy(SELECTED_COLOR)
+        return { mesh, originalColor }
+      })
+
+      describePickedElement(loaded.api, loaded.modelID, loaded.group, expressID).then(onElementPicked)
     }
     renderer.domElement.addEventListener('click', onClick)
 
@@ -97,7 +108,7 @@ export default function IfcViewer({ onElementPicked }: { onElementPicked: (eleme
           scene.remove(modelRef.current.group)
           disposeIfcModel(modelRef.current)
           modelRef.current = null
-          selectedRef.current = null
+          selectedRef.current = []
         }
 
         const buffer = await file.arrayBuffer()
@@ -105,6 +116,7 @@ export default function IfcViewer({ onElementPicked }: { onElementPicked: (eleme
         modelRef.current = loaded
         scene.add(loaded.group)
         setHasModel(true)
+        setUnitLabel(loaded.unitLabel)
 
         const box = new THREE.Box3().setFromObject(loaded.group)
         const size = box.getSize(new THREE.Vector3())
@@ -138,9 +150,11 @@ export default function IfcViewer({ onElementPicked }: { onElementPicked: (eleme
   return (
     <div>
       <div className="flex flex-wrap items-center gap-3">
-        <label className="rounded-md border border-deck-border px-3 py-1.5 text-sm font-medium text-deck-body hover:bg-deck-raised">
+        <label
+          className={`rounded-md border border-deck-border px-3 py-1.5 text-sm font-medium text-deck-body ${loading ? 'opacity-50' : 'hover:bg-deck-raised'}`}
+        >
           {hasModel ? 'Load a different .ifc file' : 'Upload .ifc file'}
-          <input ref={fileInputRef} type="file" accept=".ifc" className="hidden" />
+          <input ref={fileInputRef} type="file" accept=".ifc" disabled={loading} className="hidden" />
         </label>
         {loading && <span className="text-sm text-deck-dim">Parsing model…</span>}
         {error && <span className="text-sm text-status-rejected">{error}</span>}
@@ -148,6 +162,11 @@ export default function IfcViewer({ onElementPicked }: { onElementPicked: (eleme
           <span className="text-sm text-deck-dim">Click an element in the model to inspect it.</span>
         )}
       </div>
+      {unitLabel && (
+        <p className="mt-1 text-xs text-deck-dim">
+          Model length unit: {unitLabel} — every dimension below is converted to mm.
+        </p>
+      )}
       <div ref={containerRef} className="mt-3 h-96 w-full overflow-hidden rounded-lg border border-deck-border" />
     </div>
   )

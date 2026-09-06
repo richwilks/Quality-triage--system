@@ -87,12 +87,20 @@ export function findTolerancePreset(id: string): TolerancePreset | undefined {
   return TOLERANCE_LIBRARY.find((preset) => preset.id === id)
 }
 
+// TOLERANCE_LIBRARY is a static constant, so this grouping is computed once and
+// cached rather than rebuilt on every call — call sites include per-row UI
+// pickers that would otherwise redo it on every render.
+let cachedByCategory: Map<string, TolerancePreset[]> | null = null
+
 export function toleranceLibraryByCategory(): Map<string, TolerancePreset[]> {
+  if (cachedByCategory) return cachedByCategory
+
   const byCategory = new Map<string, TolerancePreset[]>()
   for (const preset of TOLERANCE_LIBRARY) {
     const list = byCategory.get(preset.category) ?? []
     list.push(preset)
     byCategory.set(preset.category, list)
   }
+  cachedByCategory = byCategory
   return byCategory
 }
