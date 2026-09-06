@@ -16,7 +16,6 @@ export default function IfcViewer({ onElementPicked }: { onElementPicked: (eleme
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hasModel, setHasModel] = useState(false)
-  const [unitLabel, setUnitLabel] = useState<string | null>(null)
 
   useEffect(() => {
     const container = containerRef.current
@@ -116,7 +115,6 @@ export default function IfcViewer({ onElementPicked }: { onElementPicked: (eleme
         modelRef.current = loaded
         scene.add(loaded.group)
         setHasModel(true)
-        setUnitLabel(loaded.unitLabel)
 
         const box = new THREE.Box3().setFromObject(loaded.group)
         const size = box.getSize(new THREE.Vector3())
@@ -162,10 +160,8 @@ export default function IfcViewer({ onElementPicked }: { onElementPicked: (eleme
           <span className="text-sm text-deck-dim">Click an element in the model to inspect it.</span>
         )}
       </div>
-      {unitLabel && (
-        <p className="mt-1 text-xs text-deck-dim">
-          Model length unit: {unitLabel} — every dimension below is converted to mm.
-        </p>
+      {hasModel && (
+        <p className="mt-1 text-xs text-deck-dim">All dimensions shown in millimetres, regardless of the model's own units.</p>
       )}
       <div ref={containerRef} className="mt-3 h-96 w-full overflow-hidden rounded-lg border border-deck-border" />
     </div>

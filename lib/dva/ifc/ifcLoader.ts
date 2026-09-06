@@ -9,7 +9,19 @@
 
 import * as THREE from 'three'
 import { IfcAPI, type FlatMesh } from 'web-ifc'
-import { detectLengthUnit } from './units'
+
+// web-ifc reads the file's own declared length unit (whatever it is — mm, m,
+// feet...) and bakes a conversion to METRES directly into each placed
+// element's flatTransformation matrix, as part of its internal geometry
+// pipeline. That's true regardless of what the file declares: verified by
+// loading a real Revit-exported (millimetre) IFC file and inspecting the
+// transformation matrix directly — its scale component was exactly 0.001,
+// confirming web-ifc had already converted from the file's mm to metres
+// before we ever see the data. So the ONLY conversion this code needs to do
+// itself is a fixed metres -> millimetres scale after applying that
+// transform — there is no "detect the file's unit" step to get right or
+// wrong; web-ifc has already normalized it away.
+const METRES_TO_MM = 1000
 
 let sharedApi: IfcAPI | null = null
 
@@ -26,20 +38,16 @@ export interface LoadedIfcModel {
   api: IfcAPI
   modelID: number
   group: THREE.Group
-  /** Whatever the model's own length unit was, so an extracted dimension is always mm. */
-  unitLabel: string
-  unitDetected: boolean
 }
 
 export async function loadIfcFile(data: Uint8Array): Promise<LoadedIfcModel> {
   const api = await getIfcApi()
   const modelID = api.OpenModel(data)
-  const unit = detectLengthUnit(api, modelID)
-  const group = buildMeshes(api, modelID, unit.scaleToMm)
-  return { api, modelID, group, unitLabel: unit.label, unitDetected: unit.detected }
+  const group = buildMeshes(api, modelID)
+  return { api, modelID, group }
 }
 
-function buildMeshes(api: IfcAPI, modelID: number, scaleToMm: number): THREE.Group {
+function buildMeshes(api: IfcAPI, modelID: number): THREE.Group {
   const group = new THREE.Group()
   const flatMeshes = api.LoadAllGeometry(modelID)
 
@@ -66,9 +74,10 @@ function buildMeshes(api: IfcAPI, modelID: number, scaleToMm: number): THREE.Gro
       geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
       geometry.setIndex(new THREE.BufferAttribute(indexData, 1))
       geometry.applyMatrix4(new THREE.Matrix4().fromArray(placedGeometry.flatTransformation))
-      // Normalize every model to millimetres at load time, so bounding boxes, camera
-      // framing, and anything downstream never has to think about model units again.
-      geometry.scale(scaleToMm, scaleToMm, scaleToMm)
+      // flatTransformation always places geometry in metres (see METRES_TO_MM above) —
+      // convert to millimetres here so bounding boxes, camera framing, and anything
+      // downstream never has to think about model units again.
+      geometry.scale(METRES_TO_MM, METRES_TO_MM, METRES_TO_MM)
       geometry.computeVertexNormals()
 
       const { x: r, y: g, z: b, w: a } = placedGeometry.color
