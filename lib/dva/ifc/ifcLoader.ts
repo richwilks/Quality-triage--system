@@ -54,6 +54,9 @@ function buildMeshes(api: IfcAPI, modelID: number): THREE.Group {
   for (let i = 0; i < flatMeshes.size(); i++) {
     const flatMesh: FlatMesh = flatMeshes.get(i)
     const elementExpressID = flatMesh.expressID
+    // GetLineType/GetNameFromTypeCode are synchronous — cheap enough to do for every
+    // element up front, so category filtering doesn't need an async lookup per click.
+    const elementIfcType = api.GetNameFromTypeCode(api.GetLineType(modelID, elementExpressID)) ?? 'Unknown'
 
     for (let j = 0; j < flatMesh.geometries.size(); j++) {
       const placedGeometry = flatMesh.geometries.get(j)
@@ -90,6 +93,7 @@ function buildMeshes(api: IfcAPI, modelID: number): THREE.Group {
 
       const mesh = new THREE.Mesh(geometry, material)
       mesh.userData.expressID = elementExpressID
+      mesh.userData.ifcType = elementIfcType
       group.add(mesh)
     }
   }
@@ -117,24 +121,23 @@ export async function describePickedElement(
   expressID: number
 ): Promise<PickedElement> {
   const box = new THREE.Box3()
+  let ifcType = 'Unknown'
   group.traverse((obj) => {
     if (obj instanceof THREE.Mesh && obj.userData.expressID === expressID) {
       box.union(new THREE.Box3().setFromObject(obj))
+      ifcType = obj.userData.ifcType ?? ifcType
     }
   })
   const size = new THREE.Vector3()
   box.getSize(size)
 
   let name = `Element #${expressID}`
-  let ifcType = 'Unknown'
   try {
     const props = await api.properties.getItemProperties(modelID, expressID)
     if (props?.Name?.value) name = props.Name.value
-    const typeCode = api.GetLineType(modelID, expressID)
-    ifcType = api.GetNameFromTypeCode(typeCode) ?? ifcType
   } catch {
     // Some entities (or malformed files) don't resolve properties cleanly — the
-    // bounding box is still useful even if the name/type lookup fails.
+    // bounding box is still useful even if the name lookup fails.
   }
 
   return {
@@ -154,4 +157,46 @@ export function disposeIfcModel(loaded: LoadedIfcModel): void {
     }
   })
   loaded.api.CloseModel(loaded.modelID)
+}
+
+export interface CategoryCount {
+  ifcType: string
+  count: number
+}
+
+/**
+ * Distinct IFC element types present in a loaded model, with how many elements of
+ * each — for a filter panel. Counts distinct expressIDs, not meshes: an element can
+ * be made of several geometry pieces (see describePickedElement above), and a filter
+ * panel showing "662 railings" when there are really 60 would be actively misleading.
+ */
+export function summarizeCategories(group: THREE.Group): CategoryCount[] {
+  const idsByType = new Map<string, Set<number>>()
+  group.traverse((obj) => {
+    if (obj instanceof THREE.Mesh) {
+      const type = obj.userData.ifcType ?? 'Unknown'
+      const ids = idsByType.get(type) ?? new Set<number>()
+      ids.add(obj.userData.expressID)
+      idsByType.set(type, ids)
+    }
+  })
+  return Array.from(idsByType.entries())
+    .map(([ifcType, ids]) => ({ ifcType, count: ids.size }))
+    .sort((a, b) => a.ifcType.localeCompare(b.ifcType))
+}
+
+export type SectionAxis = 'x' | 'y' | 'z'
+
+/**
+ * A clipping plane perpendicular to the given axis, at `position` along it (in the
+ * same world units as the model — mm, per buildMeshes above). `flipped` swaps which
+ * side of the cut stays visible. For a plane through point p with unit normal n,
+ * points on the plane satisfy n·point + constant = 0, so constant = -n·p.
+ */
+export function computeSectionPlane(axis: SectionAxis, position: number, flipped: boolean): THREE.Plane {
+  const normal = new THREE.Vector3(axis === 'x' ? 1 : 0, axis === 'y' ? 1 : 0, axis === 'z' ? 1 : 0)
+  if (flipped) normal.multiplyScalar(-1)
+  const pointOnPlane = new THREE.Vector3(axis === 'x' ? position : 0, axis === 'y' ? position : 0, axis === 'z' ? position : 0)
+  const constant = -normal.dot(pointOnPlane)
+  return new THREE.Plane(normal, constant)
 }
