@@ -1,6 +1,7 @@
 'use client'
 
 import { DistributionType, JunctionComponent, StackUpSign } from '@/lib/dva/types'
+import { findTolerancePreset, toleranceLibraryByCategory } from '@/lib/dva/toleranceLibrary'
 
 function numberInput(value: number, onChange: (v: number) => void, step = 1) {
   return (
@@ -29,6 +30,12 @@ export default function ComponentTable({
     onChange(components.filter((c) => c.id !== id))
   }
 
+  function applyPreset(id: string, presetId: string) {
+    const preset = findTolerancePreset(presetId)
+    if (!preset) return
+    updateComponent(id, { tolerance_plus: preset.tolerancePlus, tolerance_minus: preset.toleranceMinus })
+  }
+
   function addComponent() {
     const newComponent: JunctionComponent = {
       id: `component-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -46,10 +53,11 @@ export default function ComponentTable({
   return (
     <div>
       <div className="overflow-x-auto rounded-lg border border-deck-border">
-        <table className="w-full min-w-[760px] text-sm">
+        <table className="w-full min-w-[920px] text-sm">
           <thead>
             <tr className="border-b border-deck-border bg-deck-raised text-left text-xs font-semibold uppercase tracking-wide text-deck-dim">
               <th className="px-3 py-2">Component</th>
+              <th className="px-3 py-2">Tolerance preset</th>
               <th className="px-3 py-2">Nominal</th>
               <th className="px-3 py-2">Tol +</th>
               <th className="px-3 py-2">Tol −</th>
@@ -68,6 +76,27 @@ export default function ComponentTable({
                     onChange={(e) => updateComponent(c.id, { name: e.target.value })}
                     className="w-full rounded-md border border-deck-border bg-deck-surface px-2 py-1.5 text-sm text-deck-text"
                   />
+                </td>
+                <td className="px-3 py-2">
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      if (e.target.value) applyPreset(c.id, e.target.value)
+                      e.target.value = ''
+                    }}
+                    className="w-full rounded-md border border-deck-border bg-deck-surface px-2 py-1.5 text-xs text-deck-text"
+                  >
+                    <option value="">Apply preset…</option>
+                    {Array.from(toleranceLibraryByCategory().entries()).map(([category, presets]) => (
+                      <optgroup key={category} label={category}>
+                        {presets.map((preset) => (
+                          <option key={preset.id} value={preset.id}>
+                            {preset.label} (±{preset.tolerancePlus}{preset.tolerancePlus === preset.toleranceMinus ? '' : `/-${preset.toleranceMinus}`}mm)
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
                 </td>
                 <td className="px-3 py-2">{numberInput(c.nominal_value, (v) => updateComponent(c.id, { nominal_value: v }))}</td>
                 <td className="px-3 py-2">

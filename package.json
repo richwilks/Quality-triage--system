@@ -17,6 +17,8 @@
     "react": "^18",
     "react-dom": "^18",
     "recharts": "^2.12.7",
+    "three": "^0.180.0",
+    "web-ifc": "^0.0.77",
     "web-push": "^3.6.7"
   },
   "devDependencies": {
@@ -27,6 +29,7 @@
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@types/three": "^0.185.4",
     "@types/web-push": "^3.6.4",
     "autoprefixer": "^10.4.19",
     "eslint": "^8",
