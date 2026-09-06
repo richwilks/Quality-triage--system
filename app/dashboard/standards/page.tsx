@@ -229,14 +229,14 @@ export default function StandardsLibraryPage() {
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
-          <input
+          <input spellCheck="true"
             type="text"
             value={code}
             onChange={(e) => setCode(e.target.value)}
             placeholder="Code, e.g. BS 8204-2 (only used for a single file)"
             className="mt-2 w-full rounded-md border border-deck-border bg-deck-raised px-3 py-2 text-sm text-deck-text placeholder:text-deck-mute"
           />
-          <input
+          <input spellCheck="true"
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -301,7 +301,7 @@ export default function StandardsLibraryPage() {
             <p className="text-sm text-deck-dim">No standards uploaded yet.</p>
           ) : (
             <>
-              <input
+              <input spellCheck="true"
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}

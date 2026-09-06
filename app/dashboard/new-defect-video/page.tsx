@@ -377,7 +377,7 @@ export default function NewDefectVideoPage() {
 
           <div>
             <label className="block text-sm font-medium text-deck-body">Location</label>
-            <input
+            <input spellCheck="true"
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
@@ -470,7 +470,7 @@ export default function NewDefectVideoPage() {
                         style={{ borderLeftWidth: 4, borderLeftColor: BOX_COLORS[colorIndex % BOX_COLORS.length] }}
                       >
                         <div className="flex items-center justify-between">
-                          <input
+                          <input spellCheck="true"
                             type="text"
                             value={it.title}
                             onChange={(e) => updateItem(it.localId, { title: e.target.value })}
@@ -485,7 +485,7 @@ export default function NewDefectVideoPage() {
                             Include
                           </label>
                         </div>
-                        <textarea
+                        <textarea spellCheck="true"
                           value={it.description}
                           onChange={(e) => updateItem(it.localId, { description: e.target.value })}
                           rows={6}

@@ -721,7 +721,7 @@ export default function DrawingPinPage() {
             {drawPoints.length >= 3 && (
               <>
                 <label className="mt-4 block text-sm font-medium text-deck-body">Room name</label>
-                <input
+                <input spellCheck="true"
                   type="text"
                   value={roomName}
                   onChange={(e) => setRoomName(e.target.value)}

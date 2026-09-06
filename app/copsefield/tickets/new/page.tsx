@@ -266,7 +266,7 @@ function NewTicketInner() {
         )}
 
         <label className="mt-3 block text-sm font-medium text-deck-body">Location (optional)</label>
-        <input
+        <input spellCheck="true"
           type="text"
           value={location}
           onChange={(e) => setLocation(e.target.value)}
@@ -294,7 +294,7 @@ function NewTicketInner() {
         <label className="mt-3 block text-sm font-medium text-deck-body">
           {isStaff ? 'Observation' : 'Describe the issue'}
         </label>
-        <textarea
+        <textarea spellCheck="true"
           value={observation}
           onChange={(e) => setObservation(e.target.value)}
           rows={3}
@@ -304,7 +304,7 @@ function NewTicketInner() {
         {isStaff && (
           <>
             <label className="mt-3 block text-sm font-medium text-deck-body">Recommendation (optional)</label>
-            <textarea
+            <textarea spellCheck="true"
               value={recommendation}
               onChange={(e) => setRecommendation(e.target.value)}
               rows={3}

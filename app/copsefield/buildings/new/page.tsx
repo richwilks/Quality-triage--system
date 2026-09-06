@@ -155,7 +155,7 @@ function NewBuildingInner() {
             </div>
             <div>
               <label className="block text-sm font-medium text-deck-body">Name</label>
-              <input
+              <input spellCheck="true"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -166,7 +166,7 @@ function NewBuildingInner() {
           </div>
 
           <label className="mt-4 block text-sm font-medium text-deck-body">Address</label>
-          <input
+          <input spellCheck="true"
             type="text"
             value={address}
             onChange={(e) => setAddress(e.target.value)}
@@ -176,7 +176,7 @@ function NewBuildingInner() {
           <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
             <div>
               <label className="block text-sm font-medium text-deck-body">City</label>
-              <input
+              <input spellCheck="true"
                 type="text"
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
@@ -185,7 +185,7 @@ function NewBuildingInner() {
             </div>
             <div>
               <label className="block text-sm font-medium text-deck-body">Region</label>
-              <input
+              <input spellCheck="true"
                 type="text"
                 value={region}
                 onChange={(e) => setRegion(e.target.value)}
@@ -195,7 +195,7 @@ function NewBuildingInner() {
             </div>
             <div>
               <label className="block text-sm font-medium text-deck-body">Country</label>
-              <input
+              <input spellCheck="true"
                 type="text"
                 value={country}
                 onChange={(e) => setCountry(e.target.value)}
@@ -207,7 +207,7 @@ function NewBuildingInner() {
           <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-deck-body">Property manager name</label>
-              <input
+              <input spellCheck="true"
                 type="text"
                 value={propertyManagerName}
                 onChange={(e) => setPropertyManagerName(e.target.value)}

@@ -164,7 +164,7 @@ export default function EditProjectPage() {
         <div className="mt-6 space-y-5 rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
           <div>
             <label className="block text-sm font-medium text-deck-body">Project name</label>
-            <input
+            <input spellCheck="true"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -174,7 +174,7 @@ export default function EditProjectPage() {
 
           <div>
             <label className="block text-sm font-medium text-deck-body">Description</label>
-            <textarea
+            <textarea spellCheck="true"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
@@ -216,7 +216,7 @@ export default function EditProjectPage() {
             </FileDropZone>
 
             <label className="mt-3 block text-xs font-medium text-deck-body">Principal contractor</label>
-            <input
+            <input spellCheck="true"
               type="text"
               value={principalContractor}
               onChange={(e) => setPrincipalContractor(e.target.value)}
@@ -225,7 +225,7 @@ export default function EditProjectPage() {
             />
 
             <label className="mt-2 block text-xs font-medium text-deck-body">Address</label>
-            <textarea
+            <textarea spellCheck="true"
               value={projectAddress}
               onChange={(e) => setProjectAddress(e.target.value)}
               rows={2}
@@ -317,7 +317,7 @@ export default function EditProjectPage() {
             <label className="mt-4 block text-xs font-medium text-deck-body">
               Additional standards not in your library (comma-separated)
             </label>
-            <textarea
+            <textarea spellCheck="true"
               value={standards}
               onChange={(e) => setStandards(e.target.value)}
               rows={3}

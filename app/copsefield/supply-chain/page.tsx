@@ -71,7 +71,7 @@ export default function SupplyChainPage() {
           >
             Add a contact
           </Link>
-          <input
+          <input spellCheck="true"
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}

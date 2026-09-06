@@ -163,7 +163,7 @@ export default function EconomicReportsLibraryPage() {
         <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm lg:col-span-1">
             <p className="text-sm font-medium text-deck-body">Add report</p>
-            <input
+            <input spellCheck="true"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -179,7 +179,7 @@ export default function EconomicReportsLibraryPage() {
                 <option key={c.value} value={c.value}>{c.label}</option>
               ))}
             </select>
-            <input
+            <input spellCheck="true"
               type="text"
               value={region}
               onChange={(e) => setRegion(e.target.value)}
@@ -210,7 +210,7 @@ export default function EconomicReportsLibraryPage() {
               <p className="text-sm text-deck-dim">No economic reports uploaded yet.</p>
             ) : (
               <>
-                <input
+                <input spellCheck="true"
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}

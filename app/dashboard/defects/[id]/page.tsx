@@ -391,7 +391,7 @@ export default function DefectDetailPage() {
                 Non-conformance - root cause and corrective action required for closure
               </p>
               <label className="mt-2 block text-xs font-medium text-deck-body">Root cause</label>
-              <textarea
+              <textarea spellCheck="true"
                 value={rootCause}
                 onChange={(e) => setRootCause(e.target.value)}
                 rows={2}
@@ -399,7 +399,7 @@ export default function DefectDetailPage() {
                 className="mt-1 w-full rounded-md border border-deck-border px-2 py-1.5 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
               />
               <label className="mt-2 block text-xs font-medium text-deck-body">Corrective action</label>
-              <textarea
+              <textarea spellCheck="true"
                 value={correctiveAction}
                 onChange={(e) => setCorrectiveAction(e.target.value)}
                 rows={2}
@@ -456,7 +456,7 @@ export default function DefectDetailPage() {
                 <label className="mt-4 block text-sm font-medium text-deck-body">
                   Response / closure notes
                 </label>
-                <textarea
+                <textarea spellCheck="true"
                   value={closureNotes}
                   onChange={(e) => setClosureNotes(e.target.value)}
                   rows={3}

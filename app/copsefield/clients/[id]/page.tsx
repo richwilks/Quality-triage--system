@@ -114,7 +114,7 @@ export default function ClientDetailPage() {
             <h2 className="text-sm font-semibold uppercase tracking-wide text-deck-dim">Client details</h2>
 
             <label className="mt-3 block text-xs font-medium text-deck-body">Name</label>
-            <input
+            <input spellCheck="true"
               type="text"
               value={client.name}
               onChange={(e) => set('name', e.target.value)}
@@ -122,7 +122,7 @@ export default function ClientDetailPage() {
             />
 
             <label className="mt-3 block text-xs font-medium text-deck-body">Contact name</label>
-            <input
+            <input spellCheck="true"
               type="text"
               value={client.contact_name || ''}
               onChange={(e) => set('contact_name', e.target.value)}
@@ -146,7 +146,7 @@ export default function ClientDetailPage() {
             />
 
             <label className="mt-3 block text-xs font-medium text-deck-body">Address</label>
-            <input
+            <input spellCheck="true"
               type="text"
               value={client.address || ''}
               onChange={(e) => set('address', e.target.value)}
@@ -154,7 +154,7 @@ export default function ClientDetailPage() {
             />
 
             <label className="mt-3 block text-xs font-medium text-deck-body">Notes</label>
-            <textarea
+            <textarea spellCheck="true"
               value={client.notes || ''}
               onChange={(e) => set('notes', e.target.value)}
               rows={3}

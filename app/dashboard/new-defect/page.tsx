@@ -581,7 +581,7 @@ function NewDefectPageInner() {
 
           <div>
             <label className="block text-sm font-medium text-deck-body">Specified finish/quality grade</label>
-            <input
+            <input spellCheck="true"
               type="text"
               value={finishGrade}
               onChange={(e) => setFinishGrade(e.target.value)}
@@ -605,7 +605,7 @@ function NewDefectPageInner() {
                 </Link>
               )}
             </div>
-            <input
+            <input spellCheck="true"
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
@@ -725,7 +725,7 @@ function NewDefectPageInner() {
                   style={{ borderLeftWidth: 4, borderLeftColor: BOX_COLORS[i % BOX_COLORS.length] }}
                 >
                   <div className="flex items-center justify-between">
-                    <input
+                    <input spellCheck="true"
                       type="text"
                       value={it.title}
                       onChange={(e) => updateItem(it.localId, { title: e.target.value })}
@@ -740,7 +740,7 @@ function NewDefectPageInner() {
                       Approve
                     </label>
                   </div>
-                  <textarea
+                  <textarea spellCheck="true"
                     value={it.description}
                     onChange={(e) => updateItem(it.localId, { description: e.target.value })}
                     rows={6}
@@ -823,7 +823,7 @@ function NewDefectPageInner() {
                   <p className="text-sm font-medium text-deck-body">
                     Drag the box above onto the defect, then fill in the details below.
                   </p>
-                  <input
+                  <input spellCheck="true"
                     type="text"
                     value={manualTitle}
                     onChange={(e) => setManualTitle(e.target.value)}
@@ -842,14 +842,14 @@ function NewDefectPageInner() {
                       </option>
                     ))}
                   </select>
-                  <textarea
+                  <textarea spellCheck="true"
                     value={manualDescription}
                     onChange={(e) => setManualDescription(e.target.value)}
                     placeholder="Describe the defect"
                     rows={3}
                     className="mt-2 w-full rounded-md border border-deck-border px-2 py-1.5 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                   />
-                  <input
+                  <input spellCheck="true"
                     type="text"
                     value={manualStandardReference}
                     onChange={(e) => setManualStandardReference(e.target.value)}
