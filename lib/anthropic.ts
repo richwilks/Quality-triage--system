@@ -910,3 +910,109 @@ Respond with ONLY a JSON array of ${articles.length} numbers, one per headline i
     return articles.map(() => 0)
   }
 }
+
+// --- Buildability review (drawing check against a known risk-pattern checklist) ---
+
+export type BuildabilityChecklistItem = { key: string; label: string; category: string; guidance: string }
+
+export type BuildabilityFinding = {
+  checklistKey: string
+  concern: string
+  location: string
+  confidence: number
+}
+
+// This is deliberately NOT a pass/fail check. It flags places on a drawing that are
+// worth a second look against a known buildability risk pattern - the output is a
+// prioritised list for a human reviewer, not a verdict. See buildabilityChecklist.ts
+// for why: these are experience-based risk patterns, not verifiable clauses, so a
+// model claiming a definitive "fail" against one would be overstating what it can
+// actually know from a drawing alone.
+export async function analyzeBuildabilityDrawing(
+  drawing: { base64: string; mediaType: string; kind: 'image' | 'document' },
+  projectDescription: string,
+  specText: string | null,
+  checklist: BuildabilityChecklistItem[]
+): Promise<{ findings: BuildabilityFinding[]; usage: { input_tokens: number; output_tokens: number } | null }> {
+  const checklistText = checklist
+    .map((c) => `- [${c.key}] (${c.category}) ${c.label}: ${c.guidance}`)
+    .join('\n')
+
+  const instructions = `You are helping a design/site manager spot buildability risks on a construction drawing before issue-for-construction - not checking compliance against any standard, and not producing a pass/fail result.
+
+Project: ${projectDescription || 'not described'}
+${specText ? `\nProject specification (extracted text, for context only):\n${specText}` : ''}
+
+Checklist of known buildability risk patterns to check the drawing against - only these, do not invent new categories:
+${checklistText}
+
+Your task: look at the drawing and identify specific places where it plausibly triggers one of the checklist patterns above - something a reviewer should take a second look at, not something you're certain is wrong. Only from what's actually visible or specified; if nothing in the drawing suggests a pattern, do not report it just to have something to say for every category.
+
+For each concern found:
+- checklistKey: the exact key from the list above it relates to
+- concern: a specific, concrete description tied to what's visible (name the actual element/junction/detail, not a generic restatement of the checklist guidance)
+- location: where on the drawing this is - grid reference, level, room/area name, or a clear visual description if no reference is printed
+- confidence: 0.0-1.0, how confident you are this is a genuine risk worth checking, not certainty that it IS a defect
+
+Be conservative - a shorter list of specific, well-grounded concerns is far more useful than an exhaustive list of generic possibilities. If you see nothing that plausibly triggers any checklist pattern, return an empty array.
+
+Respond with ONLY a JSON array, no markdown, no other text:
+[
+  { "checklistKey": "...", "concern": "...", "location": "...", "confidence": 0.0 }
+]
+
+If nothing found, respond with: []`
+
+  const content: any[] =
+    drawing.kind === 'document'
+      ? [
+          { type: 'document', source: { type: 'base64', media_type: drawing.mediaType, data: drawing.base64 } },
+          { type: 'text', text: instructions },
+        ]
+      : [
+          { type: 'image', source: { type: 'base64', media_type: drawing.mediaType, data: drawing.base64 } },
+          { type: 'text', text: instructions },
+        ]
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': process.env.ANTHROPIC_API_KEY as string,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-5',
+      max_tokens: 2000,
+      messages: [{ role: 'user', content }],
+    }),
+  })
+
+  const data = await response.json()
+  const textBlock = data.content?.find((c: any) => c.type === 'text')
+  const raw = textBlock?.text || '[]'
+  const cleaned = raw.replace(/```json|```/g, '').trim()
+
+  const usage = data.usage
+    ? { input_tokens: data.usage.input_tokens || 0, output_tokens: data.usage.output_tokens || 0 }
+    : null
+
+  const validKeys = new Set(checklist.map((c) => c.key))
+
+  try {
+    const parsed = JSON.parse(cleaned)
+    const findings: BuildabilityFinding[] = Array.isArray(parsed)
+      ? parsed
+          .filter((f: any) => typeof f.checklistKey === 'string' && validKeys.has(f.checklistKey))
+          .map((f: any) => ({
+            checklistKey: f.checklistKey,
+            concern: typeof f.concern === 'string' ? f.concern : '',
+            location: typeof f.location === 'string' ? f.location : '',
+            confidence: Number.isFinite(Number(f.confidence)) ? Math.max(0, Math.min(1, Number(f.confidence))) : 0.5,
+          }))
+      : []
+    return { findings, usage }
+  } catch {
+    return { findings: [], usage }
+  }
+}
