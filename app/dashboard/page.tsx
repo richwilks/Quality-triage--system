@@ -15,19 +15,6 @@ type StatusCounts = Record<string, number>
 const STATUS_ORDER = ['draft', 'confirmed', 'assigned', 'closed', 'rejected']
 const BACKLOG_STATUSES = ['draft', 'confirmed', 'assigned', 'pending_approval']
 
-const QUICK_LINKS = [
-  { href: '/dashboard/projects/new', label: 'New Project', primary: true },
-  { href: '/dashboard/company-analytics', label: 'Company Performance' },
-  { href: '/dashboard/new-defect-video', label: 'From Video' },
-  { href: '/dashboard/drawings', label: 'Drawings' },
-  { href: '/dashboard/my-defects', label: 'My Assigned' },
-  { href: '/dashboard/project-spec', label: 'Project Spec' },
-  { href: '/dashboard/standards', label: 'Standards Library' },
-  { href: '/dashboard/reg38', label: 'Regulation 38' },
-  { href: '/dashboard/golden-thread', label: 'Golden Thread' },
-  { href: '/dashboard/inspection/active', label: 'Active Inspection' },
-]
-
 export default function DashboardPage() {
   const supabase = createClient()
   const router = useRouter()
@@ -36,7 +23,6 @@ export default function DashboardPage() {
   const [counts, setCounts] = useState<Record<string, StatusCounts>>({})
   const [classificationCounts, setClassificationCounts] = useState<Record<string, { snag: number; ncr: number }>>({})
   const [loading, setLoading] = useState(true)
-  const [quickAccessOpen, setQuickAccessOpen] = useState(false)
   const [activeProjectId, setActiveProjectId] = useState<string | 'all'>('all')
 
   useEffect(() => {
@@ -295,42 +281,6 @@ export default function DashboardPage() {
             )}
           </div>
         )}
-
-        <div className="px-4 pt-5">
-          <button
-            onClick={() => setQuickAccessOpen((prev) => !prev)}
-            className="flex w-full items-center justify-between rounded-md border border-deck-border bg-deck-surface px-3.5 py-3"
-          >
-            <span className="font-mono text-[10px] uppercase tracking-wide text-deck-mute">Quick Access</span>
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              className={`text-deck-mute transition-transform ${quickAccessOpen ? 'rotate-180' : ''}`}
-            >
-              <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-          {quickAccessOpen && (
-            <div className="mt-2 overflow-hidden rounded-md border border-deck-border">
-              {QUICK_LINKS.map((link, i) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`flex items-center justify-between px-3.5 py-3 text-[13.5px] font-medium ${
-                    link.primary ? 'bg-deck-raised text-deck-accent' : 'bg-deck-surface text-deck-text'
-                  } ${i < QUICK_LINKS.length - 1 ? 'border-b border-deck-border' : ''}`}
-                >
-                  <span>{link.label}</span>
-                  <span className="font-mono text-deck-mute">→</span>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
 
         <div className="px-4 pt-6">
           <h2 className="mb-2.5 font-mono text-[10px] uppercase tracking-wide text-deck-mute">
