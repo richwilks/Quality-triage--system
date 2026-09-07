@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ReconcileResult } from './paperTrading'
-import type { StockSignal } from './stockSignals'
+import type { ConfidenceScore, StockSignal } from './stockSignals'
 import { sendSignalEmail } from './email'
 import { sendPushNotification } from './webPush'
 
@@ -177,6 +177,62 @@ export async function notifyWatchSignals(
         signal.date,
         signal.detail,
         'WATCH',
+        newsSnippet
+      )
+    }
+  }
+}
+
+// Combined-confidence alert for tickers a user has opted into (see
+// stock_watchlist.confidence_mode) - replaces the normal per-indicator
+// notifyReconcileResult call for that (user, ticker) pair, per the ask
+// ("this replaces single-indicator alerts to cut noise"). Same insert-
+// into-signal_log-first-as-dedupe pattern as notifyWatchSignals above: a
+// unique-violation means this exact score was already alerted on an
+// earlier run.
+export async function notifyConfidenceScores(
+  supabaseAdmin: SupabaseClient,
+  ticker: string,
+  currency: string,
+  scores: ConfidenceScore[],
+  close: number[],
+  userIds: string[],
+  newsSnippet: string | null = null
+): Promise<void> {
+  if (scores.length === 0 || userIds.length === 0) return
+
+  for (const score of scores) {
+    const detail = `${score.action} score ${score.score}: ${score.contributingIndicators.join(' ')}`
+
+    const { error } = await supabaseAdmin.from('signal_log').insert({
+      ticker,
+      signal_date: score.date,
+      strategy: 'CONFIDENCE',
+      action: score.action,
+      signal_strength: 'confirmed',
+      detail,
+      news_snippet: newsSnippet,
+      confidence_score: score.score,
+      contributing_indicators: score.contributingIndicators.join(' '),
+    })
+    if (error) {
+      if (error.code === '23505') continue // already alerted for this exact score
+      continue // some other write error - don't alert on an unrecorded signal
+    }
+
+    for (const userId of userIds) {
+      const channels = await getUserAlertChannels(supabaseAdmin, userId)
+      await sendToChannels(
+        supabaseAdmin,
+        channels,
+        ticker,
+        score.action,
+        'CONFIDENCE',
+        close[score.index],
+        currency,
+        score.date,
+        detail,
+        'CONFIRMED',
         newsSnippet
       )
     }
