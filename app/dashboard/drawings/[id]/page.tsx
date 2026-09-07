@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
+import DistoConnect from '@/components/DistoConnect'
 
 type Drawing = { id: string; name: string | null; image_url: string | null; project_id: string }
 type Point = { x: number; y: number }
@@ -832,6 +833,14 @@ export default function DrawingPinPage() {
                     <option value="m">m</option>
                   </select>
                 </div>
+
+                <DistoConnect
+                  onUseReading={(mm) => {
+                    setDimensionValue(String(mm))
+                    setDimensionUnit('mm')
+                  }}
+                />
+
                 <label className="mt-3 block text-sm font-medium text-deck-body">Label (optional)</label>
                 <input
                   type="text"
