@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
+import InstallAppButton from '@/components/InstallAppButton'
 
 export default function AccountPage() {
   const supabase = createClient()
@@ -118,6 +119,11 @@ const [isCompanyAdmin, setIsCompanyAdmin] = useState(false)
           </button>
           {saved && <p className="mt-2 text-sm text-emerald-700">Saved.</p>}
         </div>
+
+        <div className="mt-4">
+          <InstallAppButton />
+        </div>
+
         {isCompanyAdmin && (
           <a
             href="/dashboard/admin/company"

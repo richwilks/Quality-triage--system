@@ -7,6 +7,7 @@ import PageHeader from '@/components/PageHeader'
 import FileDropZone from '@/components/FileDropZone'
 import { REPORT_LAYOUTS } from '@/lib/reg38ReportLayouts'
 import { REPORT_TEMPLATE_TOKENS } from '@/lib/reg38ReportTemplate'
+import InstallAppButton from '@/components/InstallAppButton'
 
 type ProjectRow = { id: string; name: string; status: string }
 type UserRow = { id: string; full_name: string | null; email: string | null; account_type: string | null }
@@ -320,6 +321,10 @@ export default function CompanyAdminPage() {
       <div className="mx-auto max-w-md">
         <PageHeader title="Company Admin" />
         <p className="mt-1 text-sm text-deck-dim">{companyName} - projects and users.</p>
+
+        <div className="mt-6">
+          <InstallAppButton />
+        </div>
 
         <div className="mt-6 flex gap-3">
           <Link
