@@ -52,7 +52,12 @@ export default function ReportDocument({
 }: ReportDocumentProps) {
   const kindLabel = kind === 'handover' ? 'Handover Pack' : 'Status Report'
   const hasPhoto = !!coverPhotoUrl
-  const effectiveCoverStyle = hasPhoto ? layout.coverStyle : 'solid-color'
+  // Each layout keeps its own cover treatment even without a project cover photo
+  // (an optional field most projects won't have set) - only the <img> itself is
+  // conditional, so Modern/Editorial still get their dark full-bleed panel and
+  // Classic/Corporate still get their framed block, instead of every layout
+  // collapsing to Minimal's plain solid-colour look whenever there's no photo.
+  const effectiveCoverStyle = layout.coverStyle
 
   const tocItems = [{ key: 'executive-summary', title: 'Executive Summary' }, ...sections.map((s) => ({ key: s.key, title: s.title }))]
 
@@ -60,15 +65,18 @@ export default function ReportDocument({
     <div className="report-document" style={{ fontFamily: layout.bodyFont, color: layout.ink, background: layout.paper }}>
       {/* Cover page */}
       <section className={`report-page report-cover report-cover--${effectiveCoverStyle}`}>
-        {effectiveCoverStyle === 'full-bleed-photo' && (
+        {effectiveCoverStyle === 'full-bleed-photo' && hasPhoto && (
           <>
             <img src={coverPhotoUrl!} alt={projectName} className="report-cover-photo" />
             <div className="report-cover-gradient" />
           </>
         )}
         {effectiveCoverStyle === 'inset-photo' && (
-          <div className="report-cover-inset-frame" style={{ borderColor: accentColor }}>
-            <img src={coverPhotoUrl!} alt={projectName} className="report-cover-inset-photo" />
+          <div
+            className={`report-cover-inset-frame${hasPhoto ? '' : ' report-cover-inset-frame--empty'}`}
+            style={{ borderColor: accentColor, background: hasPhoto ? undefined : `${accentColor}1A` }}
+          >
+            {hasPhoto && <img src={coverPhotoUrl!} alt={projectName} className="report-cover-inset-photo" />}
           </div>
         )}
         <div className={`report-cover-content report-cover-content--${effectiveCoverStyle}`}>
@@ -249,6 +257,9 @@ export default function ReportDocument({
           width: 100%;
           max-height: 340px;
           object-fit: cover;
+        }
+        .report-cover-inset-frame--empty {
+          min-height: 200px;
         }
         .report-cover-logo {
           height: 36px;
