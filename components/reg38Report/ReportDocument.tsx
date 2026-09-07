@@ -1,5 +1,6 @@
 import { ReportLayoutTheme } from '@/lib/reg38ReportLayouts'
 import { Reg38ReportSection } from '@/lib/reg38ReportTemplate'
+import ReportCover from '@/components/reportLayouts/ReportCover'
 
 type ReportDocumentProps = {
   layout: ReportLayoutTheme
@@ -51,79 +52,28 @@ export default function ReportDocument({
   sections,
 }: ReportDocumentProps) {
   const kindLabel = kind === 'handover' ? 'Handover Pack' : 'Status Report'
-  const hasPhoto = !!coverPhotoUrl
-  // Each layout keeps its own cover treatment even without a project cover photo
-  // (an optional field most projects won't have set) - only the <img> itself is
-  // conditional, so Modern/Editorial still get their dark full-bleed panel and
-  // Classic/Corporate still get their framed block, instead of every layout
-  // collapsing to Minimal's plain solid-colour look whenever there's no photo.
-  const effectiveCoverStyle = layout.coverStyle
 
   const tocItems = [{ key: 'executive-summary', title: 'Executive Summary' }, ...sections.map((s) => ({ key: s.key, title: s.title }))]
 
+  const coverMeta = [
+    ...(principalContractor ? [{ label: 'Principal Contractor', value: principalContractor }] : []),
+    ...(projectAddress ? [{ label: 'Address', value: projectAddress }] : []),
+    { label: 'Date', value: generatedOn },
+    { label: 'Revision', value: `Rev ${revision}` },
+  ]
+
   return (
     <div className="report-document" style={{ fontFamily: layout.bodyFont, color: layout.ink, background: layout.paper }}>
-      {/* Cover page */}
-      <section className={`report-page report-cover report-cover--${effectiveCoverStyle}`}>
-        {effectiveCoverStyle === 'full-bleed-photo' && hasPhoto && (
-          <>
-            <img src={coverPhotoUrl!} alt={projectName} className="report-cover-photo" />
-            <div className="report-cover-gradient" />
-          </>
-        )}
-        {effectiveCoverStyle === 'inset-photo' && (
-          <div
-            className={`report-cover-inset-frame${hasPhoto ? '' : ' report-cover-inset-frame--empty'}`}
-            style={{ borderColor: accentColor, background: hasPhoto ? undefined : `${accentColor}1A` }}
-          >
-            {hasPhoto && <img src={coverPhotoUrl!} alt={projectName} className="report-cover-inset-photo" />}
-          </div>
-        )}
-        <div className={`report-cover-content report-cover-content--${effectiveCoverStyle}`}>
-          {logoUrl && <img src={logoUrl} alt={companyName || 'Logo'} className="report-cover-logo" />}
-          <p
-            className="report-kicker"
-            style={{
-              color: effectiveCoverStyle === 'full-bleed-photo' ? '#fff' : accentColor,
-              textTransform: layout.headingCase,
-            }}
-          >
-            Regulation 38 / Golden Thread &mdash; {kindLabel}
-          </p>
-          <h1
-            className="report-cover-title"
-            style={{
-              fontFamily: layout.headingFont,
-              color: effectiveCoverStyle === 'full-bleed-photo' ? '#fff' : layout.ink,
-              textTransform: layout.headingCase,
-            }}
-          >
-            {projectName}
-          </h1>
-          <div className={`report-cover-meta report-cover-meta--${effectiveCoverStyle}`}>
-            {principalContractor && (
-              <div>
-                <span className="report-cover-meta-label">Principal Contractor</span>
-                <span className="report-cover-meta-value">{principalContractor}</span>
-              </div>
-            )}
-            {projectAddress && (
-              <div>
-                <span className="report-cover-meta-label">Address</span>
-                <span className="report-cover-meta-value">{projectAddress}</span>
-              </div>
-            )}
-            <div>
-              <span className="report-cover-meta-label">Date</span>
-              <span className="report-cover-meta-value">{generatedOn}</span>
-            </div>
-            <div>
-              <span className="report-cover-meta-label">Revision</span>
-              <span className="report-cover-meta-value">Rev {revision}</span>
-            </div>
-          </div>
-        </div>
-      </section>
+      <ReportCover
+        layout={layout}
+        kicker={`Regulation 38 / Golden Thread — ${kindLabel}`}
+        title={projectName}
+        meta={coverMeta}
+        coverPhotoUrl={coverPhotoUrl}
+        logoUrl={logoUrl}
+        logoAlt={companyName || 'Logo'}
+        accentColor={accentColor}
+      />
 
       {/* Contents page */}
       <section className="report-page report-contents">
@@ -203,103 +153,6 @@ export default function ReportDocument({
             border-bottom: 1px dashed rgba(0, 0, 0, 0.12);
             min-height: 0;
           }
-        }
-
-        .report-cover {
-          display: flex;
-          flex-direction: column;
-          justify-content: flex-end;
-          min-height: 640px;
-          padding: 0;
-          overflow: hidden;
-        }
-        .report-cover--full-bleed-photo {
-          background: #111;
-        }
-        .report-cover-photo {
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-        .report-cover-gradient {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.15) 55%, rgba(0, 0, 0, 0) 100%);
-        }
-        .report-cover-content {
-          position: relative;
-          padding: 48px;
-        }
-        .report-cover--inset-photo {
-          justify-content: flex-start;
-          padding: 56px 48px 0;
-        }
-        .report-cover--inset-photo .report-cover-content {
-          padding: 40px 0 56px;
-        }
-        .report-cover--solid-color {
-          background: ${accentColor};
-          justify-content: center;
-          align-items: flex-start;
-        }
-        .report-cover--solid-color .report-cover-content {
-          padding: 0 56px;
-        }
-        .report-cover-inset-frame {
-          border: 6px solid;
-          margin: 0 0 32px;
-          overflow: hidden;
-        }
-        .report-cover-inset-photo {
-          display: block;
-          width: 100%;
-          max-height: 340px;
-          object-fit: cover;
-        }
-        .report-cover-inset-frame--empty {
-          min-height: 200px;
-        }
-        .report-cover-logo {
-          height: 36px;
-          width: auto;
-          object-fit: contain;
-          margin-bottom: 20px;
-        }
-        .report-kicker {
-          font-size: 11px;
-          font-weight: 600;
-          letter-spacing: 0.08em;
-          margin: 0 0 12px;
-        }
-        .report-cover-title {
-          font-size: 40px;
-          font-weight: 700;
-          line-height: 1.15;
-          margin: 0 0 28px;
-        }
-        .report-cover-meta {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 16px 32px;
-        }
-        .report-cover-meta--solid-color {
-          color: #fff;
-        }
-        .report-cover-meta-label {
-          display: block;
-          font-size: 10px;
-          font-weight: 600;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-          opacity: 0.7;
-        }
-        .report-cover-meta-value {
-          display: block;
-          font-size: 14px;
-          font-weight: 500;
-          margin-top: 2px;
         }
 
         .report-section-heading {

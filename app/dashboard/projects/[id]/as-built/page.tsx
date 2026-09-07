@@ -3,8 +3,23 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { reportLayoutByKey } from '@/lib/reg38ReportLayouts'
+import ReportCover from '@/components/reportLayouts/ReportCover'
 
-type Project = { id: string; name: string; description: string | null }
+type Project = {
+  id: string
+  name: string
+  description: string | null
+  company_name: string | null
+  cover_photo_url: string | null
+}
+type Branding = {
+  feature_branded_reports: boolean
+  feature_hide_inspectiq_brand: boolean
+  logo_url: string | null
+  accent_color: string | null
+  reg38_report_layout: string | null
+}
 type Drawing = { id: string; name: string | null; image_url: string | null }
 type Measurement = {
   id: string
@@ -29,6 +44,7 @@ export default function AsBuiltRecordPage() {
   const projectId = params.id as string
 
   const [project, setProject] = useState<Project | null>(null)
+  const [branding, setBranding] = useState<Branding | null>(null)
   const [drawings, setDrawings] = useState<Drawing[]>([])
   const [measurements, setMeasurements] = useState<Measurement[]>([])
   const [recordedByName, setRecordedByName] = useState<Record<string, string>>({})
@@ -41,10 +57,19 @@ export default function AsBuiltRecordPage() {
   async function load() {
     const { data: projectData } = await supabase
       .from('projects')
-      .select('id, name, description')
+      .select('id, name, description, company_name, cover_photo_url')
       .eq('id', projectId)
       .single()
     setProject(projectData)
+
+    if (projectData?.company_name) {
+      const { data: brandingData } = await supabase
+        .from('company_settings')
+        .select('feature_branded_reports, feature_hide_inspectiq_brand, logo_url, accent_color, reg38_report_layout')
+        .eq('company_name', projectData.company_name)
+        .maybeSingle()
+      setBranding(brandingData)
+    }
 
     const { data: drawingData } = await supabase
       .from('drawings')
@@ -77,6 +102,11 @@ export default function AsBuiltRecordPage() {
   }
 
   const generatedOn = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+  const layout = reportLayoutByKey(branding?.reg38_report_layout)
+  const useBrandedReport = branding?.feature_branded_reports || false
+  const hideInspectIQ = branding?.feature_hide_inspectiq_brand || false
+  const accentColor = (useBrandedReport && branding?.accent_color) || layout.defaultAccent
+  const logoUrl = useBrandedReport && branding?.logo_url ? branding.logo_url : null
 
   if (loading) {
     return (
@@ -106,26 +136,39 @@ export default function AsBuiltRecordPage() {
           </p>
           <button
             onClick={() => window.print()}
-            className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white"
+            className="rounded-md px-4 py-2 text-sm font-medium text-white"
+            style={{ backgroundColor: accentColor }}
           >
             Print / Save as PDF
           </button>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm print:rounded-none print:border-0 print:shadow-none">
-          <div className="flex items-start justify-between border-b border-slate-200 pb-4">
-            <div>
-              <h1 className="text-2xl font-semibold">{project.name}</h1>
-              <p className="mt-1 text-sm text-slate-500">As-built dimension record</p>
-              {project.description && <p className="mt-2 text-sm text-slate-600">{project.description}</p>}
-            </div>
-            <img src="/icon-192.png" alt="InspectIQ" className="h-12 w-12 rounded-lg" />
-          </div>
+        <div
+          className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm print:rounded-none print:border-0 print:shadow-none"
+          style={{ fontFamily: layout.bodyFont }}
+        >
+          <ReportCover
+            layout={layout}
+            kicker="As-Built Dimension Record"
+            title={project.name}
+            meta={[
+              ...(project.company_name ? [{ label: 'Company', value: project.company_name }] : []),
+              { label: 'Date', value: generatedOn },
+              { label: 'Dimensions', value: `${measurements.length}` },
+              { label: 'Drawings', value: `${drawingsWithMeasurements.length}` },
+            ]}
+            coverPhotoUrl={project.cover_photo_url}
+            logoUrl={logoUrl || (!hideInspectIQ ? '/icon-192.png' : null)}
+            logoAlt={logoUrl ? project.company_name || 'Company logo' : 'InspectIQ'}
+            accentColor={accentColor}
+          />
 
-          <p className="mt-3 text-xs text-slate-400">
-            Generated {generatedOn} — as-built dimensions recorded on site during inspections, for the design team to
-            reconcile against the design-stage drawings and for the project's Golden Thread change &amp; compliance
-            records.
+          <div className="p-8">
+          {project.description && <p className="text-sm text-slate-600">{project.description}</p>}
+
+          <p className={project.description ? 'mt-3 text-xs text-slate-400' : 'text-xs text-slate-400'}>
+            As-built dimensions recorded on site during inspections, for the design team to reconcile against the
+            design-stage drawings and for the project's Golden Thread change &amp; compliance records.
           </p>
 
           <div className="mt-8 space-y-10">
@@ -133,7 +176,9 @@ export default function AsBuiltRecordPage() {
               const drawingMeasurements = measurements.filter((m) => m.drawing_id === d.id)
               return (
                 <div key={d.id} className="break-inside-avoid">
-                  <h2 className="text-base font-semibold text-slate-900">{d.name || 'Untitled drawing'}</h2>
+                  <h2 className="text-base font-semibold" style={{ fontFamily: layout.headingFont, color: accentColor }}>
+                    {d.name || 'Untitled drawing'}
+                  </h2>
 
                   {d.image_url && (
                     <div className="relative mt-2 w-full overflow-hidden rounded-md border border-slate-200">
@@ -225,7 +270,10 @@ export default function AsBuiltRecordPage() {
             )}
           </div>
 
-          <p className="mt-8 text-center text-[10px] text-slate-300 print:text-slate-400">Generated with InspectIQ</p>
+          {!hideInspectIQ && (
+            <p className="mt-8 text-center text-[10px] text-slate-300 print:text-slate-400">Generated with InspectIQ</p>
+          )}
+          </div>
         </div>
       </div>
 

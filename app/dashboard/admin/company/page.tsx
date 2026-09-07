@@ -491,8 +491,9 @@ export default function CompanyAdminPage() {
         <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
           <p className="text-sm font-medium text-deck-body">Report layout &amp; design</p>
           <p className="mt-1 text-xs text-deck-dim">
-            Controls the cover page, contents page, and visual style of generated Regulation 38 / Golden Thread
-            reports (separate from the content structure above). Pick one of our layouts, or upload your own.
+            Controls the cover page and visual style of every PDF report your company generates - the defect/NCR
+            report, the as-built dimension record, and Regulation 38 / Golden Thread reports (separate from the
+            content structure above). Pick one of our layouts, or upload your own.
           </p>
 
           <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
