@@ -571,6 +571,7 @@ export default function DrawingPinPage() {
 
   const drawPointsStr = drawPoints.map((p) => `${p.x}%,${p.y}%`).join(' ')
   const selectedRoom = selectedRoomId ? rooms.find((r) => r.id === selectedRoomId) : null
+  const hasImage = !!drawing.image_url
 
   return (
     <div className="min-h-screen px-4 py-8">
@@ -588,7 +589,9 @@ export default function DrawingPinPage() {
               <button
                 onClick={() => {
                   setMarkingMode((m) => !m)
-                  setManualMode(false)
+                  // No photo to auto-detect walls from on a blank plan - manual
+                  // corner-tapping is the only option there.
+                  setManualMode(!hasImage)
                   setPin(null)
                   setDrawPoints([])
                   setRoomName('')
@@ -599,7 +602,7 @@ export default function DrawingPinPage() {
                 }}
                 className="whitespace-nowrap text-xs font-medium text-deck-text underline"
               >
-                {markingMode ? 'Cancel marking' : 'Mark rooms'}
+                {markingMode ? 'Cancel marking' : hasImage ? 'Mark rooms' : 'Draw room outline'}
               </button>
             )}
           </div>
@@ -617,7 +620,8 @@ export default function DrawingPinPage() {
           {dimensionMode && dimensionPoints.length === 2 && 'Enter the measured value below and save.'}
           {!dimensionMode && markingMode && !manualMode && 'Tap once inside a room - AI will trace its walls automatically.'}
           {!dimensionMode && markingMode && manualMode && `Tap each corner of the room in order (${drawPoints.length} point${drawPoints.length === 1 ? '' : 's'} so far). Need at least 3.`}
-          {!dimensionMode && !markingMode && 'Tap the drawing to drop a pin at your location. Tap a highlighted room to see its name and options.'}
+          {!dimensionMode && !markingMode && hasImage && 'Tap the drawing to drop a pin at your location. Tap a highlighted room to see its name and options.'}
+          {!dimensionMode && !markingMode && !hasImage && 'This is a blank plan - use "Draw room outline" to sketch a room, then "Record as-built dimension" to add its measured wall lengths.'}
         </p>
 
         <div
@@ -629,13 +633,23 @@ export default function DrawingPinPage() {
           onTouchMove={handleContainerPointerMove}
           onTouchEnd={handleContainerPointerUp}
         >
-          {drawing.image_url && (
+          {hasImage ? (
             <img
               ref={imgRef}
-              src={drawing.image_url}
+              src={drawing.image_url!}
               alt={drawing.name || 'Drawing'}
               className="w-full"
               crossOrigin="anonymous"
+            />
+          ) : (
+            <div
+              className="aspect-square w-full"
+              style={{
+                backgroundColor: '#F5F3EE',
+                backgroundImage:
+                  'linear-gradient(to right, rgba(36,34,29,0.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(36,34,29,0.08) 1px, transparent 1px)',
+                backgroundSize: '10% 10%',
+              }}
             />
           )}
 

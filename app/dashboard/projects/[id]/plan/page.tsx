@@ -229,8 +229,18 @@ export default function PlanViewPage() {
               className="relative mt-3 w-full cursor-crosshair overflow-hidden rounded-lg border border-deck-border"
               onClick={handleImageClick}
             >
-              {drawing?.image_url && (
+              {drawing?.image_url ? (
                 <img src={drawing.image_url} alt={drawing.name || 'Drawing'} className="w-full" />
+              ) : (
+                <div
+                  className="aspect-square w-full"
+                  style={{
+                    backgroundColor: '#F5F3EE',
+                    backgroundImage:
+                      'linear-gradient(to right, rgba(36,34,29,0.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(36,34,29,0.08) 1px, transparent 1px)',
+                    backgroundSize: '10% 10%',
+                  }}
+                />
               )}
 
               {filteredDefects.map((d) => (

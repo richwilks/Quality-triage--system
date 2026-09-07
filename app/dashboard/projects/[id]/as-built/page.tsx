@@ -180,9 +180,20 @@ export default function AsBuiltRecordPage() {
                     {d.name || 'Untitled drawing'}
                   </h2>
 
-                  {d.image_url && (
-                    <div className="relative mt-2 w-full overflow-hidden rounded-md border border-slate-200">
+                  <div className="relative mt-2 w-full overflow-hidden rounded-md border border-slate-200">
+                    {d.image_url ? (
                       <img src={d.image_url} alt={d.name || 'Drawing'} className="w-full" />
+                    ) : (
+                      <div
+                        className="aspect-square w-full"
+                        style={{
+                          backgroundColor: '#F5F3EE',
+                          backgroundImage:
+                            'linear-gradient(to right, rgba(36,34,29,0.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(36,34,29,0.08) 1px, transparent 1px)',
+                          backgroundSize: '10% 10%',
+                        }}
+                      />
+                    )}
                       <svg
                         className="pointer-events-none absolute inset-0 h-full w-full"
                         preserveAspectRatio="none"
@@ -232,7 +243,6 @@ export default function AsBuiltRecordPage() {
                         </div>
                       ))}
                     </div>
-                  )}
 
                   <table className="mt-3 w-full border-collapse text-left text-sm">
                     <thead>
