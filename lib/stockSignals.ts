@@ -18,21 +18,38 @@ export const MACD_FAST_WINDOW = 12
 export const MACD_SLOW_WINDOW = 26
 export const MACD_SIGNAL_WINDOW = 9
 export const SMA_WATCH_MARGIN_PCT = 2
+export const BOLLINGER_WINDOW = 20
+export const BOLLINGER_STD_DEV_MULTIPLIER = 2
+export const VOLUME_SPIKE_WINDOW = 20
+export const VOLUME_SPIKE_MULTIPLIER = 2
+// The "combined confidence" alert threshold for opted-in tickers (see
+// computeConfidenceScores) - one point per agreeing indicator (SMA/RSI/
+// MACD/Bollinger), +0.5 for a same-day volume spike. This is the single
+// knob to change to make combined alerts more/less noisy.
+export const CONFIDENCE_SCORE_THRESHOLD = 2
 
 export type SignalAction = 'BUY' | 'SELL'
-export type SignalStrategy = 'SMA_CROSSOVER' | 'RSI' | 'MACD' | 'NEWS'
+export type SignalStrategy = 'SMA_CROSSOVER' | 'RSI' | 'MACD' | 'BOLLINGER' | 'NEWS'
 export type SignalStrength = 'CONFIRMED' | 'WATCH'
 
 // Shared human-readable label, used by both the paper-trading ledger UI
-// and email alert subjects so the two never drift out of sync.
+// and email alert subjects so the two never drift out of sync. 'CONFIDENCE'
+// isn't a real SignalStrategy - it's a pseudo-strategy passed through the
+// same email/push plumbing for the combined-score alert (see
+// notifyConfidenceScores in lib/signalAlerts.ts) so that path needs no
+// separate subject-line formatting.
 export function strategyLabel(strategy: string): string {
   switch (strategy) {
     case 'SMA_CROSSOVER':
       return 'SMA crossover'
     case 'MACD':
       return 'MACD'
+    case 'BOLLINGER':
+      return 'Bollinger Bands'
     case 'NEWS':
       return 'News sentiment'
+    case 'CONFIDENCE':
+      return 'Combined score'
     default:
       return 'RSI'
   }
@@ -168,6 +185,63 @@ export function calculateMACD(
   return { macdLine, signalLine, histogram }
 }
 
+export interface BollingerResult {
+  middle: (number | null)[]
+  upper: (number | null)[]
+  lower: (number | null)[]
+}
+
+// 20-day SMA +/- 2 population standard deviations of the trailing window -
+// a mean-reversion band, same regime RSI targets (see the "no ADX filter"
+// note on the Bollinger signal below).
+export function calculateBollingerBands(
+  close: number[],
+  window: number = BOLLINGER_WINDOW,
+  stdDevMultiplier: number = BOLLINGER_STD_DEV_MULTIPLIER
+): BollingerResult {
+  const middle = calculateSMA(close, window)
+  const upper: (number | null)[] = new Array(close.length).fill(null)
+  const lower: (number | null)[] = new Array(close.length).fill(null)
+  for (let i = 0; i < close.length; i++) {
+    const m = middle[i]
+    if (m == null) continue
+    let sumSquares = 0
+    for (let j = i - window + 1; j <= i; j++) {
+      const diff = close[j] - m
+      sumSquares += diff * diff
+    }
+    const stdDev = Math.sqrt(sumSquares / window)
+    upper[i] = m + stdDevMultiplier * stdDev
+    lower[i] = m - stdDevMultiplier * stdDev
+  }
+  return { middle, upper, lower }
+}
+
+export interface VolumeSpike {
+  isSpike: boolean
+  ratio: number | null
+}
+
+// Flags a day whose volume exceeds `multiplier`x the trailing `window`-day
+// average - a context signal only (see computeConfidenceScores), never
+// directional on its own. `ratio` is null until the average has warmed up,
+// or when the average itself is 0 (no real volume data for this ticker/
+// day - e.g. the still-forming intraday bar, which has no live volume
+// source and is seeded at 0 by fetchDailyCloses/appendTodayBar).
+export function calculateVolumeSpike(
+  volume: number[],
+  window: number = VOLUME_SPIKE_WINDOW,
+  multiplier: number = VOLUME_SPIKE_MULTIPLIER
+): VolumeSpike[] {
+  const avgVolume = calculateSMA(volume, window)
+  return volume.map((v, i) => {
+    const avg = avgVolume[i]
+    if (avg == null || avg === 0) return { isSpike: false, ratio: null }
+    const ratio = v / avg
+    return { isSpike: ratio > multiplier, ratio }
+  })
+}
+
 // Wilder's smoothing (alpha = 1/window): seeds with the first value in
 // range, seeded with the plain average of the first `window` values (the
 // classic Wilder convention - distinct from calculateRSI's smoothing above,
@@ -258,6 +332,8 @@ export interface ComputeSignalsResult {
   rsi: (number | null)[]
   macd: MACDResult
   adx: (number | null)[]
+  bollinger: BollingerResult
+  volumeSpikes: VolumeSpike[]
   signals: StockSignal[]
   // Near-trigger heads-up, kept entirely separate from `signals` above -
   // never fed into reconcileTicker/reconcileAndPersist (a near-miss must
@@ -265,6 +341,12 @@ export interface ComputeSignalsResult {
   // (a near-miss must never render as a confirmed chart marker). Only the
   // crons consume this, for the "watch zone" alert path.
   watchSignals: StockSignal[]
+  // Bollinger BUY/SELL, kept separate from `signals` for the same reason
+  // watchSignals is: reconcileAndPersist and the chart both only read
+  // `signals`, so adding a new indicator here can never silently open a
+  // paper trade or draw a new marker for every existing ticker - only
+  // computeConfidenceScores (opt-in per ticker) reads this.
+  bollingerSignals: StockSignal[]
 }
 
 // Scans the full series for SMA golden/death crosses, MACD-line/signal-line
@@ -280,15 +362,24 @@ export function computeSignals(
   close: number[],
   high: number[],
   low: number[],
-  params: SignalParams = DEFAULT_PARAMS
+  params: SignalParams = DEFAULT_PARAMS,
+  // Optional: only the confidence-scoring path (intraday-cron, for tickers
+  // opted into it) needs real volume, so every existing call site can keep
+  // calling this positionally with no changes. Omitted entirely -> treated
+  // as all-zero, which calculateVolumeSpike already turns into "never a
+  // spike" rather than a special case here.
+  volume?: number[]
 ): ComputeSignalsResult {
   const smaShort = calculateSMA(close, params.smaShort)
   const smaLong = calculateSMA(close, params.smaLong)
   const rsi = calculateRSI(close, RSI_WINDOW)
   const macd = calculateMACD(close)
   const adx = calculateADX(high, low, close, ADX_WINDOW)
+  const bollinger = calculateBollingerBands(close, BOLLINGER_WINDOW, BOLLINGER_STD_DEV_MULTIPLIER)
+  const volumeSpikes = calculateVolumeSpike(volume ?? close.map(() => 0), VOLUME_SPIKE_WINDOW, VOLUME_SPIKE_MULTIPLIER)
   const signals: StockSignal[] = []
   const watchSignals: StockSignal[] = []
+  const bollingerSignals: StockSignal[] = []
 
   const adxConfirmsTrend = (i: number): boolean => {
     const a = adx[i]
@@ -443,7 +534,94 @@ export function computeSignals(
     prevRsi = r
   }
 
+  // Bollinger: fires once on entering outside a band, not every day it
+  // stays there - same "fire once" convention as every signal above. Not
+  // ADX-filtered, for the same reason RSI isn't: this is a mean-reversion
+  // signal for ranging markets, the opposite regime ADX-filtering selects
+  // for. Kept in bollingerSignals (not signals) - see ComputeSignalsResult.
+  let prevBelowLower = false
+  let prevAboveUpper = false
+  for (let i = 0; i < close.length; i++) {
+    const lower = bollinger.lower[i]
+    const upper = bollinger.upper[i]
+    if (lower == null || upper == null) {
+      prevBelowLower = false
+      prevAboveUpper = false
+      continue
+    }
+    const belowLower = close[i] < lower
+    const aboveUpper = close[i] > upper
+    if (belowLower && !prevBelowLower) {
+      bollingerSignals.push({
+        strategy: 'BOLLINGER',
+        action: 'BUY',
+        date: dates[i],
+        index: i,
+        detail: `Close (${close[i].toFixed(2)}) dropped below the lower Bollinger Band (${lower.toFixed(2)}).`,
+        strength: 'CONFIRMED',
+      })
+    } else if (aboveUpper && !prevAboveUpper) {
+      bollingerSignals.push({
+        strategy: 'BOLLINGER',
+        action: 'SELL',
+        date: dates[i],
+        index: i,
+        detail: `Close (${close[i].toFixed(2)}) rose above the upper Bollinger Band (${upper.toFixed(2)}).`,
+        strength: 'CONFIRMED',
+      })
+    }
+    prevBelowLower = belowLower
+    prevAboveUpper = aboveUpper
+  }
+
   signals.sort((a, b) => a.index - b.index)
   watchSignals.sort((a, b) => a.index - b.index)
-  return { sma50: smaShort, sma200: smaLong, rsi, macd, adx, signals, watchSignals }
+  bollingerSignals.sort((a, b) => a.index - b.index)
+  return { sma50: smaShort, sma200: smaLong, rsi, macd, adx, bollinger, volumeSpikes, signals, watchSignals, bollingerSignals }
+}
+
+export interface ConfidenceScore {
+  date: string
+  index: number
+  action: SignalAction
+  score: number
+  // Each entry is the contributing signal's own `detail` text (or, for a
+  // volume spike, a purpose-built sentence) - reused verbatim rather than
+  // redrafted into shorthand, so the alert's reasoning can never drift out
+  // of sync with what the indicator itself actually detected.
+  contributingIndicators: string[]
+}
+
+// Combines confirmed directional signals (SMA/RSI/MACD from `signals`,
+// Bollinger from `bollingerSignals` - the caller passes both together)
+// with the day's volume-spike reading into a same-day, same-direction
+// score: one point per distinct agreeing indicator, +0.5 for a same-day
+// volume spike (a confirming factor only - it can push an already-
+// directional day over the threshold, but never sets direction alone,
+// since it's never the sole contributor to a key). Only entries at or
+// above CONFIDENCE_SCORE_THRESHOLD are returned - this is the "replaces
+// single-indicator alerts to cut noise" behavior for tickers opted into
+// confidence mode (see notifyConfidenceScores in lib/signalAlerts.ts).
+export function computeConfidenceScores(directionalSignals: StockSignal[], volumeSpikes: VolumeSpike[]): ConfidenceScore[] {
+  const byKey = new Map<string, ConfidenceScore>()
+  for (const s of directionalSignals) {
+    const key = `${s.index}|${s.action}`
+    let entry = byKey.get(key)
+    if (!entry) {
+      entry = { date: s.date, index: s.index, action: s.action, score: 0, contributingIndicators: [] }
+      byKey.set(key, entry)
+    }
+    entry.score += 1
+    entry.contributingIndicators.push(s.detail)
+  }
+
+  for (const entry of byKey.values()) {
+    const spike = volumeSpikes[entry.index]
+    if (spike?.isSpike) {
+      entry.score += 0.5
+      entry.contributingIndicators.push(`Volume spike: ${spike.ratio!.toFixed(1)}x the ${VOLUME_SPIKE_WINDOW}-day average.`)
+    }
+  }
+
+  return [...byKey.values()].filter((e) => e.score >= CONFIDENCE_SCORE_THRESHOLD).sort((a, b) => a.index - b.index)
 }

@@ -26,6 +26,7 @@ type HistoryWithTuning = StockHistory & {
 
 export default function StockMonitorDashboard() {
   const [tickers, setTickers] = useState<string[]>([])
+  const [confidenceModeByTicker, setConfidenceModeByTicker] = useState<Record<string, boolean>>({})
   const [activeTicker, setActiveTicker] = useState<string | null>(null)
   const [newTicker, setNewTicker] = useState('')
   const [watchlistError, setWatchlistError] = useState<string | null>(null)
@@ -61,6 +62,7 @@ export default function StockMonitorDashboard() {
       const body = await res.json()
       if (!res.ok) throw new Error(body.error || 'Could not load watchlist')
       setTickers(body.tickers)
+      setConfidenceModeByTicker(body.confidenceModeByTicker || {})
       setActiveTicker((prev) => prev && body.tickers.includes(prev) ? prev : body.tickers[0] ?? null)
     } catch (err: any) {
       setWatchlistError(err.message || 'Could not load watchlist')
@@ -248,6 +250,30 @@ export default function StockMonitorDashboard() {
     }
   }
 
+  // Combined-confidence-score alerting mode, per ticker on your own
+  // watchlist (see the "Which signal to trust" card below for what this
+  // changes). Updated optimistically since it's a low-stakes toggle - a
+  // failure just reverts on the next loadWatchlist().
+  async function handleToggleConfidenceMode(ticker: string) {
+    const next = !confidenceModeByTicker[ticker]
+    setConfidenceModeByTicker((prev) => ({ ...prev, [ticker]: next }))
+    setWatchlistError(null)
+    try {
+      const res = await fetch('/api/stock-monitor/watchlist', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticker, confidenceMode: next }),
+      })
+      if (!res.ok) {
+        const body = await res.json()
+        throw new Error(body.error || 'Could not update ticker')
+      }
+    } catch (err: any) {
+      setConfidenceModeByTicker((prev) => ({ ...prev, [ticker]: !next }))
+      setWatchlistError(err.message || 'Could not update ticker')
+    }
+  }
+
   return (
     <div className="min-h-screen px-4 py-8">
       <div className="mx-auto max-w-2xl">
@@ -277,6 +303,22 @@ export default function StockMonitorDashboard() {
                   {ticker}
                   <span
                     role="button"
+                    aria-label={
+                      confidenceModeByTicker[ticker]
+                        ? `Turn off combined confidence mode for ${ticker}`
+                        : `Turn on combined confidence mode for ${ticker}`
+                    }
+                    title="Combined confidence mode: alert once when multiple indicators agree, instead of on every single one"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleToggleConfidenceMode(ticker)
+                    }}
+                    className={`rounded-full px-1 text-xs ${confidenceModeByTicker[ticker] ? 'opacity-100' : 'opacity-40 hover:opacity-70'}`}
+                  >
+                    ★
+                  </span>
+                  <span
+                    role="button"
                     aria-label={`Remove ${ticker}`}
                     onClick={(e) => {
                       e.stopPropagation()
@@ -290,6 +332,11 @@ export default function StockMonitorDashboard() {
               ))}
               {tickers.length === 0 && <p className="text-sm text-deck-dim">No tickers yet - add one below.</p>}
             </div>
+          )}
+          {tickers.length > 0 && (
+            <p className="mt-2 text-xs text-deck-dim">
+              ★ toggles combined confidence mode for that ticker - see &ldquo;Which signal to trust&rdquo; below.
+            </p>
           )}
 
           <form onSubmit={handleAddTicker} className="mt-4 flex gap-2">
@@ -383,6 +430,27 @@ export default function StockMonitorDashboard() {
             </li>
             <li>News sentiment is the newest, least-proven signal here - weight it lowest in any conflict.</li>
           </ul>
+
+          <p className="mt-4 text-xs font-medium uppercase tracking-wide text-deck-dim">Combined confidence mode</p>
+          <p className="mt-1 text-sm text-deck-text">
+            Toggle the ★ next to a ticker above to switch it into combined-confidence alerting instead of the
+            per-indicator alerts described above. In this mode you also get two more indicators: <strong>Bollinger
+            Bands</strong> (a 20-day price average ± 2 standard deviations - a close outside either band is a
+            mean-reversion signal, the same regime RSI is built for) and a <strong>volume spike</strong> check (daily
+            volume more than double its 20-day average) - volume alone never sets a direction, it only adds
+            confidence when it agrees with something that already has.
+          </p>
+          <p className="mt-1 text-sm text-deck-text">
+            Each of SMA crossover, RSI, MACD, and Bollinger Bands that agree on the same day and direction adds 1
+            point; a same-day volume spike adds 0.5. A ticker in this mode only alerts once that combined score
+            reaches 2 (fixed in code, not adjustable from this page) - replacing every per-indicator alert on that
+            ticker with a single notification listing exactly which indicators contributed, so you see the full
+            reasoning rather than just a verdict.
+          </p>
+          <p className="mt-2 text-xs text-deck-dim">
+            This is a decision-support tool based on historical price patterns - not a prediction system, and
+            shouldn&apos;t be the sole basis for investment decisions.
+          </p>
         </div>
 
         {activeTicker && <NewsFeed ticker={activeTicker} />}

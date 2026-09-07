@@ -18,7 +18,7 @@ export async function GET() {
 
   let { data } = await watchlistDb
     .from('stock_watchlist')
-    .select('ticker')
+    .select('ticker, confidence_mode')
     .eq('user_id', user.id)
     .order('created_at', { ascending: true })
 
@@ -31,13 +31,52 @@ export async function GET() {
 
     const seeded = await watchlistDb
       .from('stock_watchlist')
-      .select('ticker')
+      .select('ticker, confidence_mode')
       .eq('user_id', user.id)
       .order('created_at', { ascending: true })
     data = seeded.data
   }
 
-  return NextResponse.json({ tickers: (data || []).map((row) => row.ticker) })
+  const rows = data || []
+  return NextResponse.json({
+    tickers: rows.map((row) => row.ticker),
+    // Kept as a separate map (rather than reshaping `tickers`) so every
+    // existing consumer keyed on the plain ticker-string array is
+    // unaffected by this addition.
+    confidenceModeByTicker: Object.fromEntries(rows.map((row) => [row.ticker, !!row.confidence_mode])),
+  })
+}
+
+// Toggles combined-confidence-score alerting mode for one ticker on this
+// user's own watchlist (see lib/stockSignals.ts's computeConfidenceScores)
+// - per (user, ticker), not global, since stock_watchlist is already one
+// row per pair.
+export async function PATCH(req: NextRequest) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
+  }
+
+  const { ticker: rawTicker, confidenceMode } = await req.json()
+  const ticker = String(rawTicker || '').toUpperCase().trim()
+  if (!TICKER_PATTERN.test(ticker) || typeof confidenceMode !== 'boolean') {
+    return NextResponse.json({ error: 'Invalid ticker or confidenceMode' }, { status: 400 })
+  }
+
+  const { error } = await createWatchlistAdminClient()
+    .from('stock_watchlist')
+    .update({ confidence_mode: confidenceMode })
+    .eq('user_id', user.id)
+    .eq('ticker', ticker)
+
+  if (error) {
+    return NextResponse.json({ error: 'Could not update ticker' }, { status: 500 })
+  }
+
+  return NextResponse.json({ ok: true })
 }
 
 export async function POST(req: NextRequest) {

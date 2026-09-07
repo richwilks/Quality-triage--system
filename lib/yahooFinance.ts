@@ -8,6 +8,7 @@ export type DailyCloses = {
   close: number[]
   high: number[]
   low: number[]
+  volume: number[]
   currency: string
 }
 
@@ -38,6 +39,7 @@ export async function fetchDailyCloses(ticker: string, range: string = '1y'): Pr
   const closes: (number | null)[] | undefined = quote?.close
   const highs: (number | null)[] | undefined = quote?.high
   const lows: (number | null)[] | undefined = quote?.low
+  const volumes: (number | null)[] | undefined = quote?.volume
   const currency: string = result?.meta?.currency || 'USD'
 
   if (!timestamps || !closes || timestamps.length === 0) {
@@ -46,18 +48,23 @@ export async function fetchDailyCloses(ticker: string, range: string = '1y'): Pr
 
   // Drop any bars with a null close (holidays/gaps in the raw feed). A
   // missing high/low on an otherwise-valid bar falls back to that day's
-  // close, so downstream indicators never see a hole mid-series.
+  // close, so downstream indicators never see a hole mid-series. A missing
+  // volume falls back to 0 rather than the close price - a volume-spike
+  // check on a 0 just never fires, whereas inventing a fake trade count
+  // would be actively misleading.
   const dates: string[] = []
   const close: number[] = []
   const high: number[] = []
   const low: number[] = []
+  const volume: number[] = []
   for (let i = 0; i < timestamps.length; i++) {
     if (closes[i] == null) continue
     dates.push(new Date(timestamps[i] * 1000).toISOString().slice(0, 10))
     close.push(closes[i] as number)
     high.push(highs?.[i] ?? (closes[i] as number))
     low.push(lows?.[i] ?? (closes[i] as number))
+    volume.push(volumes?.[i] ?? 0)
   }
 
-  return { ok: true, data: { dates, close, high, low, currency } }
+  return { ok: true, data: { dates, close, high, low, volume, currency } }
 }

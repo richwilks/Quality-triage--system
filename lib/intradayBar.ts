@@ -9,6 +9,7 @@ export interface DailySeries {
   close: number[]
   high: number[]
   low: number[]
+  volume: number[]
 }
 
 export interface IntradayQuote {
@@ -29,5 +30,10 @@ export function appendTodayBar(history: DailySeries, todayDate: string, quote: I
     close: [...history.close, quote.price],
     high: [...history.high, quote.high],
     low: [...history.low, quote.low],
+    // Finnhub's free /quote endpoint has no live volume field, so today's
+    // still-forming bar gets 0 (never a spike) until the real daily bar
+    // lands with its actual volume, same convention fetchDailyCloses uses
+    // for a missing historical entry.
+    volume: [...history.volume, 0],
   }
 }
