@@ -110,6 +110,8 @@ export default function DrawingPinPage() {
   const [detectingBoundary, setDetectingBoundary] = useState(false)
   const [savingRoom, setSavingRoom] = useState(false)
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null)
+  const [snapshotRoomId, setSnapshotRoomId] = useState<string | null>(null)
+  const [imgAspect, setImgAspect] = useState(1)
   const [boundaryError, setBoundaryError] = useState<string | null>(null)
   const [deletingRoom, setDeletingRoom] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -393,7 +395,57 @@ export default function DrawingPinPage() {
     setDrawPoints([])
     setRoomName('')
     setSelectedRoomId(null)
+    setSnapshotRoomId(null)
     resetOpeningForm()
+  }
+
+  // A cropped, zoomed-in window onto one room, so you can jump straight into
+  // recording its as-built dimensions without opening the full drawing and
+  // pinch-zooming to find it. Uses one uniform scale for both axes (not
+  // independent x/y) and an outer box matching the photo's own aspect ratio
+  // (imgAspect) - otherwise the photo itself would render visibly stretched,
+  // unlike the abstract overlay lines elsewhere in this file which can take
+  // that shortcut because they're not photographic content.
+  function roomSnapshotCrop(boundary: Point[]) {
+    const xs = boundary.map((p) => p.x)
+    const ys = boundary.map((p) => p.y)
+    const minX = Math.min(...xs)
+    const maxX = Math.max(...xs)
+    const minY = Math.min(...ys)
+    const maxY = Math.max(...ys)
+    const padX = Math.max(6, (maxX - minX) * 0.25)
+    const padY = Math.max(6, (maxY - minY) * 0.25)
+    const boxW = Math.max(Math.min(100, maxX + padX) - Math.max(0, minX - padX), 8)
+    const boxH = Math.max(Math.min(100, maxY + padY) - Math.max(0, minY - padY), 8)
+    const cx = Math.max(0, minX - padX) + boxW / 2
+    const cy = Math.max(0, minY - padY) + boxH / 2
+    const scale = 100 / Math.max(boxW, boxH)
+    return { left: 50 - cx * scale, top: 50 - cy * scale, width: scale * 100, height: scale * 100 }
+  }
+
+  function openRoomSnapshot(roomId: string) {
+    setMarkingMode(false)
+    setManualMode(false)
+    setFreehandMode(false)
+    setIsFreehandDrawing(false)
+    setFreehandRawPoints([])
+    setInsertMode(false)
+    resetOpeningForm()
+    setEditingBoundary(false)
+    setEditPoints([])
+    setPin(null)
+    setDrawPoints([])
+    setSelectedRoomId(roomId)
+    setSnapshotRoomId(roomId)
+  }
+
+  function closeRoomSnapshot() {
+    setSnapshotRoomId(null)
+    setDimensionMode(false)
+    setDimensionPoints([])
+    setDimensionValue('')
+    setDimensionLabel('')
+    setDimensionError(null)
   }
 
   function resetOpeningForm() {
@@ -774,6 +826,9 @@ export default function DrawingPinPage() {
   const drawPointsStr = drawPoints.map((p) => `${p.x}%,${p.y}%`).join(' ')
   const selectedRoom = selectedRoomId ? rooms.find((r) => r.id === selectedRoomId) : null
   const hasImage = !!drawing.image_url
+  const snapshotRoom = snapshotRoomId ? rooms.find((r) => r.id === snapshotRoomId) : null
+  const snapshotCrop =
+    snapshotRoom?.boundary && snapshotRoom.boundary.length >= 3 ? roomSnapshotCrop(snapshotRoom.boundary) : null
 
   return (
     <div className="min-h-screen px-4 py-8">
@@ -810,6 +865,7 @@ export default function DrawingPinPage() {
                   // twice, but still editable for a plan with several rooms.
                   setRoomName(!hasImage && rooms.length === 0 ? drawing?.name || '' : '')
                   setSelectedRoomId(null)
+                  setSnapshotRoomId(null)
                   setBoundaryError(null)
                   setDimensionMode(false)
                   setDimensionPoints([])
@@ -823,6 +879,40 @@ export default function DrawingPinPage() {
             )}
           </div>
         </div>
+        {rooms.length > 0 && (
+          <div className="mt-3">
+            {snapshotCrop ? (
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-deck-border bg-deck-raised px-3 py-2">
+                <p className="min-w-0 truncate text-sm font-medium text-deck-text">
+                  Zoomed in: {snapshotRoom?.name}
+                </p>
+                <button
+                  onClick={closeRoomSnapshot}
+                  className="shrink-0 text-xs font-medium text-deck-accent underline"
+                >
+                  Back to full drawing
+                </button>
+              </div>
+            ) : (
+              <>
+                <p className="text-xs font-semibold uppercase tracking-wide text-deck-dim">Rooms</p>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {rooms.map((r) => (
+                    <button
+                      key={r.id}
+                      onClick={() => openRoomSnapshot(r.id)}
+                      disabled={!r.boundary || r.boundary.length < 3}
+                      className="rounded-full border border-deck-border bg-deck-surface px-3 py-1 text-xs font-medium text-deck-text disabled:opacity-40"
+                    >
+                      {r.name}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
         {/* TEMPORARY DEBUG - remove once admin gating is confirmed working */}
         {adminDebug && (
           <p className="mt-1 rounded bg-amber-50 p-2 text-xs text-amber-700">
@@ -831,6 +921,7 @@ export default function DrawingPinPage() {
         )}
 
         <p className="mt-1 text-sm text-deck-dim">
+          {snapshotCrop && !dimensionMode && !insertMode && 'Tap "Record as-built dimension" to measure this room, or "Back to full drawing" above to leave.'}
           {dimensionMode && dimensionPoints.length === 0 && 'Tap the first point of the dimension on the drawing.'}
           {dimensionMode && dimensionPoints.length === 1 && 'Now tap the second point.'}
           {dimensionMode && dimensionPoints.length === 2 && 'Enter the measured value below and save.'}
@@ -840,13 +931,17 @@ export default function DrawingPinPage() {
           {insertMode && !pendingOpeningType && 'Pick Door or Window below, then tap where it sits on the plan.'}
           {insertMode && pendingOpeningType && !pendingOpeningPoint && `Tap where this ${pendingOpeningType} sits on the plan.`}
           {insertMode && pendingOpeningPoint && 'Set its dimensions below and save.'}
-          {!dimensionMode && !markingMode && !insertMode && hasImage && 'Tap the drawing to drop a pin at your location. Tap a highlighted room to see its name and options.'}
-          {!dimensionMode && !markingMode && !insertMode && !hasImage && 'This is a blank plan - use "Draw room outline" to sketch a room, then "Record as-built dimension" to add its measured wall lengths.'}
+          {!dimensionMode && !markingMode && !insertMode && !snapshotCrop && hasImage && 'Tap the drawing to drop a pin at your location. Tap a highlighted room to see its name and options.'}
+          {!dimensionMode && !markingMode && !insertMode && !snapshotCrop && !hasImage && 'This is a blank plan - use "Draw room outline" to sketch a room, then "Record as-built dimension" to add its measured wall lengths.'}
         </p>
 
         <div
+          className="relative mt-4 w-full overflow-hidden rounded-lg border border-deck-border"
+          style={snapshotCrop ? { aspectRatio: `${imgAspect} / 1` } : undefined}
+        >
+        <div
           ref={containerRef}
-          className="relative mt-4 w-full cursor-crosshair overflow-hidden rounded-lg border border-deck-border"
+          className={snapshotCrop ? 'absolute cursor-crosshair' : 'relative w-full cursor-crosshair'}
           onClick={handleImageClick}
           onMouseDown={handleFreehandStart}
           onTouchStart={handleFreehandStart}
@@ -854,7 +949,16 @@ export default function DrawingPinPage() {
           onMouseUp={handleContainerPointerUp}
           onTouchMove={handleContainerPointerMove}
           onTouchEnd={handleContainerPointerUp}
-          style={{ touchAction: markingMode && manualMode && freehandMode ? 'none' : undefined }}
+          style={
+            snapshotCrop
+              ? {
+                  left: `${snapshotCrop.left}%`,
+                  top: `${snapshotCrop.top}%`,
+                  width: `${snapshotCrop.width}%`,
+                  height: `${snapshotCrop.height}%`,
+                }
+              : { touchAction: markingMode && manualMode && freehandMode ? 'none' : undefined }
+          }
         >
           {hasImage ? (
             <img
@@ -863,6 +967,10 @@ export default function DrawingPinPage() {
               alt={drawing.name || 'Drawing'}
               className="w-full"
               crossOrigin="anonymous"
+              onLoad={(e) => {
+                const el = e.currentTarget
+                if (el.naturalWidth && el.naturalHeight) setImgAspect(el.naturalWidth / el.naturalHeight)
+              }}
             />
           ) : (
             <div
@@ -1096,6 +1204,7 @@ export default function DrawingPinPage() {
               className="h-4 w-4 rounded-full border-2 border-white bg-teal-600 shadow"
             />
           )}
+        </div>
         </div>
 
         {dimensionMode && (
