@@ -386,7 +386,6 @@ export default function DrawingPinPage() {
 
   function handleRoomClick(e: React.MouseEvent, roomId: string) {
     e.stopPropagation()
-    if (markingMode) return
     setSelectedRoomId((current) => (current === roomId ? null : roomId))
   }
 
@@ -708,6 +707,11 @@ export default function DrawingPinPage() {
               if (!r.boundary || r.boundary.length < 3) return null
               const isSelected = selectedRoomId === r.id
               const pointsStr = r.boundary.map((p) => `${p.x},${p.y}`).join(' ')
+              // Only catches clicks (for room selection) when just browsing -
+              // in dimension or marking mode it must let taps through to the
+              // container, or a saved room's own area would be permanently
+              // dead space for adding dimensions, pins or new corners inside it.
+              const roomsClickable = !dimensionMode && !markingMode
               return (
                 <polygon
                   key={r.id}
@@ -715,8 +719,8 @@ export default function DrawingPinPage() {
                   fill={isSelected ? 'rgba(13,148,136,0.35)' : 'rgba(20,184,166,0.2)'}
                   stroke={isSelected ? 'rgba(13,148,136,0.9)' : 'rgba(13,148,136,0.5)'}
                   strokeWidth={0.3}
-                  className="pointer-events-auto cursor-pointer"
-                  onClick={(e: any) => handleRoomClick(e, r.id)}
+                  className={roomsClickable ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none'}
+                  onClick={roomsClickable ? (e: any) => handleRoomClick(e, r.id) : undefined}
                 />
               )
             })}
