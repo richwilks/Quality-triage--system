@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
 import DistoConnect from '@/components/DistoConnect'
 import { cleanFreehandStroke } from '@/lib/freehandCleanup'
+import OpeningElevationEditor from '@/components/OpeningElevationEditor'
 
 type Drawing = { id: string; name: string | null; image_url: string | null; project_id: string }
 type Point = { x: number; y: number }
@@ -20,6 +21,18 @@ type Measurement = {
   label: string | null
   created_by: string | null
   created_at: string
+}
+type Opening = {
+  id: string
+  type: 'door' | 'window'
+  x: number
+  y: number
+  rotation: number
+  width_mm: number
+  height_mm: number
+  sill_height_mm: number | null
+  label: string | null
+  created_by: string | null
 }
 
 
@@ -72,6 +85,20 @@ export default function DrawingPinPage() {
   const [dimensionError, setDimensionError] = useState<string | null>(null)
   const [deletingMeasurementId, setDeletingMeasurementId] = useState<string | null>(null)
 
+  const [openings, setOpenings] = useState<Opening[]>([])
+  const [insertMode, setInsertMode] = useState(false)
+  const [pendingOpeningType, setPendingOpeningType] = useState<'door' | 'window' | null>(null)
+  const [pendingOpeningPoint, setPendingOpeningPoint] = useState<Point | null>(null)
+  const [selectedOpeningId, setSelectedOpeningId] = useState<string | null>(null)
+  const [openingWidth, setOpeningWidth] = useState(900)
+  const [openingHeight, setOpeningHeight] = useState(2100)
+  const [openingSill, setOpeningSill] = useState(900)
+  const [openingRotation, setOpeningRotation] = useState(0)
+  const [openingLabel, setOpeningLabel] = useState('')
+  const [savingOpening, setSavingOpening] = useState(false)
+  const [openingError, setOpeningError] = useState<string | null>(null)
+  const [deletingOpeningId, setDeletingOpeningId] = useState<string | null>(null)
+
   const [markingMode, setMarkingMode] = useState(false)
   const [manualMode, setManualMode] = useState(false)
   const [freehandMode, setFreehandMode] = useState(false)
@@ -117,6 +144,13 @@ export default function DrawingPinPage() {
       .eq('drawing_id', drawingId)
       .order('created_at', { ascending: true })
     setMeasurements(measurementData || [])
+
+    const { data: openingData } = await supabase
+      .from('drawing_openings')
+      .select('id, type, x, y, rotation, width_mm, height_mm, sill_height_mm, label, created_by')
+      .eq('drawing_id', drawingId)
+      .order('created_at', { ascending: true })
+    setOpenings(openingData || [])
 
     const {
       data: { user },
@@ -290,6 +324,13 @@ export default function DrawingPinPage() {
       return
     }
 
+    if (insertMode) {
+      if (!pendingOpeningType || pendingOpeningPoint) return
+      setSelectedOpeningId(null)
+      setPendingOpeningPoint({ x, y })
+      return
+    }
+
     if (markingMode && !isAdmin) return
 
     if (markingMode && manualMode && freehandMode) return
@@ -328,6 +369,8 @@ export default function DrawingPinPage() {
     setDimensionUnit('mm')
     setDimensionLabel('')
     setDimensionError(null)
+    setInsertMode(false)
+    resetOpeningForm()
   }
 
   function cancelDimension() {
@@ -335,6 +378,130 @@ export default function DrawingPinPage() {
     setDimensionValue('')
     setDimensionLabel('')
     setDimensionError(null)
+  }
+
+  function toggleInsertMode() {
+    setInsertMode((m) => !m)
+    setDimensionMode(false)
+    setDimensionPoints([])
+    setMarkingMode(false)
+    setManualMode(false)
+    setFreehandMode(false)
+    setIsFreehandDrawing(false)
+    setFreehandRawPoints([])
+    setPin(null)
+    setDrawPoints([])
+    setRoomName('')
+    setSelectedRoomId(null)
+    resetOpeningForm()
+  }
+
+  function resetOpeningForm() {
+    setPendingOpeningType(null)
+    setPendingOpeningPoint(null)
+    setSelectedOpeningId(null)
+    setOpeningLabel('')
+    setOpeningRotation(0)
+    setOpeningError(null)
+  }
+
+  function handlePickOpeningType(type: 'door' | 'window') {
+    setPendingOpeningType(type)
+    setPendingOpeningPoint(null)
+    setSelectedOpeningId(null)
+    setOpeningRotation(0)
+    setOpeningLabel('')
+    setOpeningError(null)
+    if (type === 'door') {
+      setOpeningWidth(900)
+      setOpeningHeight(2100)
+      setOpeningSill(0)
+    } else {
+      setOpeningWidth(1200)
+      setOpeningHeight(1200)
+      setOpeningSill(900)
+    }
+  }
+
+  function handleSelectExistingOpening(o: Opening) {
+    setSelectedOpeningId(o.id)
+    setPendingOpeningType(null)
+    setPendingOpeningPoint(null)
+    setOpeningWidth(o.width_mm)
+    setOpeningHeight(o.height_mm)
+    setOpeningSill(o.sill_height_mm || 0)
+    setOpeningRotation(o.rotation)
+    setOpeningLabel(o.label || '')
+    setOpeningError(null)
+  }
+
+  async function handleSaveOpening() {
+    if (!openingWidth || !openingHeight) {
+      setOpeningError('Enter a width and height first.')
+      return
+    }
+    setSavingOpening(true)
+    setOpeningError(null)
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (selectedOpeningId) {
+      const { error } = await supabase
+        .from('drawing_openings')
+        .update({
+          width_mm: openingWidth,
+          height_mm: openingHeight,
+          sill_height_mm: openingSill || null,
+          rotation: openingRotation,
+          label: openingLabel.trim() || null,
+        })
+        .eq('id', selectedOpeningId)
+
+      if (error) {
+        setOpeningError(`Could not save: ${error.message}`)
+        setSavingOpening(false)
+        return
+      }
+    } else {
+      if (!pendingOpeningType || !pendingOpeningPoint) {
+        setSavingOpening(false)
+        return
+      }
+      const { error } = await supabase.from('drawing_openings').insert({
+        drawing_id: drawingId,
+        type: pendingOpeningType,
+        x: pendingOpeningPoint.x,
+        y: pendingOpeningPoint.y,
+        rotation: openingRotation,
+        width_mm: openingWidth,
+        height_mm: openingHeight,
+        sill_height_mm: pendingOpeningType === 'window' ? openingSill || null : null,
+        label: openingLabel.trim() || null,
+        created_by: user?.id,
+      })
+
+      if (error) {
+        setOpeningError(`Could not save: ${error.message}`)
+        setSavingOpening(false)
+        return
+      }
+    }
+
+    resetOpeningForm()
+    setSavingOpening(false)
+    load()
+  }
+
+  async function handleDeleteOpening(id: string) {
+    setDeletingOpeningId(id)
+    const { error } = await supabase.from('drawing_openings').delete().eq('id', id)
+    if (!error) {
+      resetOpeningForm()
+      load()
+    }
+    setDeletingOpeningId(null)
   }
 
   async function handleSaveDimension() {
@@ -620,6 +787,12 @@ export default function DrawingPinPage() {
             >
               {dimensionMode ? 'Cancel dimension' : 'Record as-built dimension'}
             </button>
+            <button
+              onClick={toggleInsertMode}
+              className="whitespace-nowrap text-xs font-medium text-deck-text underline"
+            >
+              {insertMode ? 'Cancel shape' : 'Insert door / window'}
+            </button>
             {isAdmin && (
               <button
                 onClick={() => {
@@ -640,6 +813,8 @@ export default function DrawingPinPage() {
                   setBoundaryError(null)
                   setDimensionMode(false)
                   setDimensionPoints([])
+                  setInsertMode(false)
+                  resetOpeningForm()
                 }}
                 className="whitespace-nowrap text-xs font-medium text-deck-text underline"
               >
@@ -662,8 +837,11 @@ export default function DrawingPinPage() {
           {!dimensionMode && markingMode && !manualMode && 'Tap once inside a room - AI will trace its walls automatically.'}
           {!dimensionMode && markingMode && manualMode && freehandMode && 'Press and drag to draw the outline free-hand - wobbly lines are straightened or smoothed into curves automatically when you lift up.'}
           {!dimensionMode && markingMode && manualMode && !freehandMode && `Tap each corner of the room in order (${drawPoints.length} point${drawPoints.length === 1 ? '' : 's'} so far). Need at least 3.`}
-          {!dimensionMode && !markingMode && hasImage && 'Tap the drawing to drop a pin at your location. Tap a highlighted room to see its name and options.'}
-          {!dimensionMode && !markingMode && !hasImage && 'This is a blank plan - use "Draw room outline" to sketch a room, then "Record as-built dimension" to add its measured wall lengths.'}
+          {insertMode && !pendingOpeningType && 'Pick Door or Window below, then tap where it sits on the plan.'}
+          {insertMode && pendingOpeningType && !pendingOpeningPoint && `Tap where this ${pendingOpeningType} sits on the plan.`}
+          {insertMode && pendingOpeningPoint && 'Set its dimensions below and save.'}
+          {!dimensionMode && !markingMode && !insertMode && hasImage && 'Tap the drawing to drop a pin at your location. Tap a highlighted room to see its name and options.'}
+          {!dimensionMode && !markingMode && !insertMode && !hasImage && 'This is a blank plan - use "Draw room outline" to sketch a room, then "Record as-built dimension" to add its measured wall lengths.'}
         </p>
 
         <div
@@ -864,6 +1042,60 @@ export default function DrawingPinPage() {
               <div className="h-4 w-4 rounded-full border-2 border-white bg-red-600 shadow" />
             </div>
           )}
+
+          {openings.map((o) => {
+            // Same idea as roomsClickable - block taps on the icon while a
+            // new opening's point is about to be placed, so the tap lands on
+            // the drawing (handleImageClick) instead of diverting to edit.
+            const openingsClickable = !dimensionMode && !markingMode && !(pendingOpeningType && !pendingOpeningPoint)
+            return (
+              <div
+                key={o.id}
+                onClick={
+                  openingsClickable
+                    ? (e) => {
+                        e.stopPropagation()
+                        handleSelectExistingOpening(o)
+                      }
+                    : undefined
+                }
+                style={{
+                  position: 'absolute',
+                  left: `${o.x}%`,
+                  top: `${o.y}%`,
+                  transform: `translate(-50%, -50%) rotate(${o.rotation}deg)`,
+                }}
+                className={openingsClickable ? 'cursor-pointer' : 'pointer-events-none'}
+              >
+                <svg width="26" height="26" viewBox="0 0 26 26">
+                  {o.type === 'door' ? (
+                    <>
+                      <line x1="3" y1="23" x2="3" y2="3" stroke="#8A5A2B" strokeWidth="2" />
+                      <path d="M 3 23 A 20 20 0 0 1 23 3" fill="none" stroke="#8A5A2B" strokeWidth="1" strokeDasharray="2,2" />
+                    </>
+                  ) : (
+                    <>
+                      <line x1="1" y1="13" x2="25" y2="13" stroke="#1F565C" strokeWidth="3" />
+                      <line x1="1" y1="9" x2="25" y2="9" stroke="#1F565C" strokeWidth="1" />
+                      <line x1="1" y1="17" x2="25" y2="17" stroke="#1F565C" strokeWidth="1" />
+                    </>
+                  )}
+                </svg>
+              </div>
+            )
+          })}
+
+          {pendingOpeningPoint && (
+            <div
+              style={{
+                position: 'absolute',
+                left: `${pendingOpeningPoint.x}%`,
+                top: `${pendingOpeningPoint.y}%`,
+                transform: 'translate(-50%, -50%)',
+              }}
+              className="h-4 w-4 rounded-full border-2 border-white bg-teal-600 shadow"
+            />
+          )}
         </div>
 
         {dimensionMode && (
@@ -929,6 +1161,136 @@ export default function DrawingPinPage() {
                 </div>
               </>
             )}
+          </div>
+        )}
+
+        {insertMode && !pendingOpeningType && !selectedOpeningId && (
+          <div className="mt-3 rounded-lg border border-teal-200 bg-teal-50 p-3">
+            <p className="text-sm font-medium text-deck-text">Insert a door or window</p>
+            <div className="mt-2 flex gap-2">
+              <button
+                onClick={() => handlePickOpeningType('door')}
+                className="flex-1 rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm font-medium text-deck-text"
+              >
+                Door
+              </button>
+              <button
+                onClick={() => handlePickOpeningType('window')}
+                className="flex-1 rounded-md border border-deck-border bg-deck-surface px-3 py-2 text-sm font-medium text-deck-text"
+              >
+                Window
+              </button>
+            </div>
+          </div>
+        )}
+
+        {((insertMode && pendingOpeningType && pendingOpeningPoint) || selectedOpeningId) && (
+          <div className="mt-3 rounded-lg border border-teal-200 bg-teal-50 p-3">
+            <p className="text-sm font-medium text-deck-text">
+              {selectedOpeningId
+                ? `Edit ${openings.find((o) => o.id === selectedOpeningId)?.type || 'opening'}`
+                : `New ${pendingOpeningType}`}
+            </p>
+
+            <div className="mt-2">
+              <OpeningElevationEditor
+                type={
+                  (selectedOpeningId
+                    ? openings.find((o) => o.id === selectedOpeningId)?.type
+                    : pendingOpeningType) || 'door'
+                }
+                widthMm={openingWidth}
+                heightMm={openingHeight}
+                sillMm={openingSill}
+                onWidthChange={setOpeningWidth}
+                onHeightChange={setOpeningHeight}
+                onSillChange={setOpeningSill}
+              />
+            </div>
+
+            <label className="mt-3 block text-sm font-medium text-deck-body">Rotation</label>
+            <div className="mt-1 flex gap-2">
+              {[0, 90, 180, 270].map((deg) => (
+                <button
+                  key={deg}
+                  onClick={() => setOpeningRotation(deg)}
+                  className={`flex-1 rounded-md border px-2 py-1.5 text-xs font-medium ${
+                    openingRotation === deg
+                      ? 'border-deck-accent bg-deck-accent text-deck-bg'
+                      : 'border-deck-border bg-deck-surface text-deck-body'
+                  }`}
+                >
+                  {deg}°
+                </button>
+              ))}
+            </div>
+
+            <label className="mt-3 block text-sm font-medium text-deck-body">Label (optional)</label>
+            <input
+              type="text"
+              spellCheck="true"
+              value={openingLabel}
+              onChange={(e) => setOpeningLabel(e.target.value)}
+              placeholder="e.g. Front door"
+              className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
+            />
+
+            {openingError && <p className="mt-2 text-xs text-red-600">{openingError}</p>}
+
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={handleSaveOpening}
+                disabled={savingOpening}
+                className="flex-1 rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
+              >
+                {savingOpening ? 'Saving...' : 'Save'}
+              </button>
+              <button
+                onClick={resetOpeningForm}
+                disabled={savingOpening}
+                className="flex-1 rounded-md border border-deck-border px-3 py-2 text-sm font-medium text-deck-body disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              {selectedOpeningId && (
+                <button
+                  onClick={() => handleDeleteOpening(selectedOpeningId)}
+                  disabled={deletingOpeningId === selectedOpeningId}
+                  className="flex-1 rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-600 disabled:opacity-50"
+                >
+                  {deletingOpeningId === selectedOpeningId ? 'Removing...' : 'Delete'}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {openings.length > 0 && (
+          <div className="mt-3 rounded-lg border border-deck-border bg-deck-surface p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-deck-dim">Doors &amp; windows</p>
+            <div className="mt-2 space-y-2">
+              {openings.map((o) => (
+                <div key={o.id} className="flex items-center justify-between gap-2 text-sm">
+                  <button onClick={() => handleSelectExistingOpening(o)} className="min-w-0 text-left">
+                    <span className="font-medium capitalize text-deck-text">{o.type}</span>
+                    <span className="text-deck-dim">
+                      {' '}
+                      — {formatMm(o.width_mm)} × {formatMm(o.height_mm)}
+                      {o.label ? ` — ${o.label}` : ''}
+                    </span>
+                  </button>
+                  {(isAdmin || o.created_by === userId) && (
+                    <button
+                      onClick={() => handleDeleteOpening(o.id)}
+                      disabled={deletingOpeningId === o.id}
+                      className="shrink-0 text-xs font-medium text-red-600 disabled:opacity-50"
+                    >
+                      {deletingOpeningId === o.id ? 'Removing...' : 'Remove'}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
