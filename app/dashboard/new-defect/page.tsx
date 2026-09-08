@@ -13,6 +13,7 @@ import { useOfflineSync } from '@/components/OfflineSyncContext'
 import FileDropZone from '@/components/FileDropZone'
 import PolygonBoxEditor, { Point } from '@/components/PolygonBoxEditor'
 import { imageToBase64 } from '@/lib/imageToBase64'
+import { useAccessTier } from '@/components/AccessTierContext'
 
 type Project = { id: string; name: string }
 type Partner = { id: string; full_name: string | null; company_name: string | null }
@@ -84,6 +85,7 @@ function NewDefectPageInner() {
   const searchParams = useSearchParams()
   const { activeInspection, getCurrentPositionForPhoto } = useActiveInspection()
   const { queueOfflineDefect, isOnline } = useOfflineSync()
+  const { restricted } = useAccessTier()
 
   const initialProjectId = searchParams.get('projectId') || ''
   const initialLocation = searchParams.get('location') || ''
@@ -530,13 +532,49 @@ function NewDefectPageInner() {
         photo_level_label: activeInspection?.projectId === projectId ? activeInspection.levelLabel || null : null,
       }))
 
-      const { error: insertError } = await supabase.from('defects').insert(rows)
+      const { data: insertedDefects, error: insertError } = await supabase.from('defects').insert(rows).select('id')
       if (insertError) {
         if (isOffline()) {
           await saveOffline(included)
           return
         }
         throw new Error(`Save failed: ${insertError.message}`)
+      }
+
+      // A restricted-access company has no review/confirm step in its plan,
+      // so every defect it raises feeds the knowledge base immediately
+      // rather than waiting on a confirm that will never happen - mirrors
+      // addConfirmedDefectToKnowledgeBase() in app/dashboard/review/page.tsx.
+      if (restricted && insertedDefects) {
+        try {
+          const { data: myProfile } = await supabase.from('profiles').select('company_name').eq('id', user.id).single()
+          const kbRows = insertedDefects
+            .map((row, i) => {
+              const item = included[i]
+              if (!item?.description?.trim()) return null
+              return {
+                title: item.description.slice(0, 100),
+                element_type: item.element_type || null,
+                country: null,
+                applicable_standards: null,
+                defect_description: item.description,
+                correct_reference: null,
+                severity_default: item.classification,
+                active: true,
+                photo_url: publicUrl,
+                created_by: user.id,
+                source: 'project' as const,
+                source_defect_id: row.id,
+                company_name: myProfile?.company_name || null,
+              }
+            })
+            .filter((r): r is NonNullable<typeof r> => r !== null)
+          if (kbRows.length > 0) {
+            await supabase.from('defect_knowledge_base').insert(kbRows)
+          }
+        } catch {
+          // Non-critical - the defect is already saved either way.
+        }
       }
 
       setSaved(true)

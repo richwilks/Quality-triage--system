@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
 import FileDropZone from '@/components/FileDropZone'
 import { imageToBase64 } from '@/lib/imageToBase64'
+import { RESTRICTED_USER_LIMIT } from '@/lib/accessTierConstants'
 
 type UserRow = {
   id: string
@@ -47,6 +48,7 @@ type CompanyBranding = {
   feature_private_knowledge_base: boolean
   feature_custom_email_sender: boolean
   feature_reg38_custom_template: boolean
+  feature_restricted_access: boolean
 }
 
 type FeatureKey =
@@ -56,6 +58,7 @@ type FeatureKey =
   | 'feature_private_knowledge_base'
   | 'feature_custom_email_sender'
   | 'feature_reg38_custom_template'
+  | 'feature_restricted_access'
 
 type InfraNote = {
   id: string
@@ -149,7 +152,7 @@ export default function PlatformAdminPage() {
 
     const { data: brandingData } = await supabase
       .from('company_settings')
-      .select('company_name, white_label_enabled, logo_url, accent_color, feature_branded_reports, feature_hide_inspectiq_brand, feature_custom_terminology, feature_private_knowledge_base, feature_custom_email_sender, feature_reg38_custom_template')
+      .select('company_name, white_label_enabled, logo_url, accent_color, feature_branded_reports, feature_hide_inspectiq_brand, feature_custom_terminology, feature_private_knowledge_base, feature_custom_email_sender, feature_reg38_custom_template, feature_restricted_access')
     const brandingMap: Record<string, CompanyBranding> = {}
     ;(brandingData || []).forEach((b: any) => {
       brandingMap[b.company_name] = b
@@ -307,6 +310,7 @@ export default function PlatformAdminPage() {
             feature_private_knowledge_base: false,
             feature_custom_email_sender: false,
             feature_reg38_custom_template: false,
+            feature_restricted_access: false,
           }),
           [featureKey]: !currentlyEnabled,
         } as CompanyBranding,
@@ -717,6 +721,7 @@ export default function PlatformAdminPage() {
                 { key: 'feature_private_knowledge_base', label: 'Private defect knowledge base' },
                 { key: 'feature_custom_email_sender', label: 'Custom email sender name' },
                 { key: 'feature_reg38_custom_template', label: 'Custom Regulation 38 / Golden Thread report template' },
+                { key: 'feature_restricted_access', label: `Restricted access plan (max ${RESTRICTED_USER_LIMIT} users, limited feature set)` },
               ]
               return (
                 <div key={companyName} className="rounded-lg border border-deck-border bg-deck-surface p-3">

@@ -8,6 +8,7 @@ import FileDropZone from '@/components/FileDropZone'
 import { REPORT_LAYOUTS } from '@/lib/reg38ReportLayouts'
 import { REPORT_TEMPLATE_TOKENS } from '@/lib/reg38ReportTemplate'
 import InstallAppButton from '@/components/InstallAppButton'
+import { RESTRICTED_USER_LIMIT } from '@/lib/accessTierConstants'
 
 type ProjectRow = { id: string; name: string; status: string }
 type UserRow = { id: string; full_name: string | null; email: string | null; account_type: string | null }
@@ -21,6 +22,7 @@ type BrandingRow = {
   reg38_report_layout: string | null
   feature_reg38_custom_layout: boolean
   reg38_custom_html_template: string | null
+  feature_restricted_access: boolean
 }
 
 const ACCOUNT_TYPES = ['employee', 'contractor', 'client_agent', 'client']
@@ -93,7 +95,7 @@ export default function CompanyAdminPage() {
     const { data: brandingData } = await supabase
       .from('company_settings')
       .select(
-        'white_label_enabled, logo_url, accent_color, feature_branded_reports, feature_reg38_custom_template, reg38_template_name, reg38_report_layout, feature_reg38_custom_layout, reg38_custom_html_template'
+        'white_label_enabled, logo_url, accent_color, feature_branded_reports, feature_reg38_custom_template, reg38_template_name, reg38_report_layout, feature_reg38_custom_layout, reg38_custom_html_template, feature_restricted_access'
       )
       .ilike('company_name', profile.company_name)
       .maybeSingle()
@@ -211,6 +213,7 @@ export default function CompanyAdminPage() {
         reg38_report_layout: prev?.reg38_report_layout || null,
         feature_reg38_custom_layout: prev?.feature_reg38_custom_layout || false,
         reg38_custom_html_template: prev?.reg38_custom_html_template || null,
+        feature_restricted_access: prev?.feature_restricted_access || false,
         logo_url: logoUrl,
         accent_color: accentColor,
       }))
@@ -321,6 +324,15 @@ export default function CompanyAdminPage() {
       <div className="mx-auto max-w-md">
         <PageHeader title="Company Admin" />
         <p className="mt-1 text-sm text-deck-dim">{companyName} - projects and users.</p>
+
+        {branding?.feature_restricted_access && (
+          <p className="mt-2 text-xs font-medium text-deck-dim">
+            Restricted access plan - {users.length} of {RESTRICTED_USER_LIMIT} users
+            {users.length >= RESTRICTED_USER_LIMIT && (
+              <span className="text-amber-700"> (full - a new signup under this company will be blocked)</span>
+            )}
+          </p>
+        )}
 
         <div className="mt-6">
           <InstallAppButton />

@@ -35,6 +35,23 @@ export default function SignupPage() {
     setError(null)
     setLoading(true)
 
+    try {
+      const limitRes = await fetch('/api/check-user-limit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyName }),
+      })
+      const limitResult = await limitRes.json()
+      if (!limitResult.allowed) {
+        setError(limitResult.reason || 'This company has reached its user limit.')
+        setLoading(false)
+        return
+      }
+    } catch {
+      // Non-fatal - if the check itself fails, fall through to signup rather
+      // than blocking every signup in the app over a transient error here.
+    }
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,

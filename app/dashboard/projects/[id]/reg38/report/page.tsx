@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import ReportDocument from '@/components/reg38Report/ReportDocument'
 import { reportLayoutByKey } from '@/lib/reg38ReportLayouts'
 import { renderCustomReportHtml, Reg38ReportSection } from '@/lib/reg38ReportTemplate'
+import { buildReportMailto } from '@/lib/emailReport'
 
 type ReportRow = { id: string; kind: 'status' | 'handover'; content: string; revision: number; generated_at: string }
 type Project = {
@@ -137,7 +138,14 @@ export default function Reg38ReportPage() {
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 print:bg-white print:px-0 print:py-0">
       <div className="mx-auto max-w-3xl">
-        <div className="mb-4 flex items-center justify-end print:hidden">
+        <div className="mb-4 flex items-center justify-end gap-2 print:hidden">
+          <a
+            href={buildReportMailto(`${project.name} - ${report.kind === 'handover' ? 'Handover Pack' : 'Status Report'}`, window.location.href)}
+            className="rounded-md border px-4 py-2 text-sm font-medium"
+            style={{ borderColor: accentColor, color: accentColor }}
+          >
+            Email report
+          </a>
           <button
             onClick={() => window.print()}
             className="rounded-md px-4 py-2 text-sm font-medium text-white"
