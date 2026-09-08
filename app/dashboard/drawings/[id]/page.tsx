@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
 import DistoConnect from '@/components/DistoConnect'
+import { cleanFreehandStroke } from '@/lib/freehandCleanup'
 
 type Drawing = { id: string; name: string | null; image_url: string | null; project_id: string }
 type Point = { x: number; y: number }
@@ -73,6 +74,9 @@ export default function DrawingPinPage() {
 
   const [markingMode, setMarkingMode] = useState(false)
   const [manualMode, setManualMode] = useState(false)
+  const [freehandMode, setFreehandMode] = useState(false)
+  const [isFreehandDrawing, setIsFreehandDrawing] = useState(false)
+  const [freehandRawPoints, setFreehandRawPoints] = useState<Point[]>([])
   const [drawPoints, setDrawPoints] = useState<Point[]>([])
   const [roomName, setRoomName] = useState('')
   const [detecting, setDetecting] = useState(false)
@@ -288,6 +292,8 @@ export default function DrawingPinPage() {
 
     if (markingMode && !isAdmin) return
 
+    if (markingMode && manualMode && freehandMode) return
+
     if (markingMode && manualMode) {
       setDrawPoints((prev) => [...prev, { x, y }])
       return
@@ -310,6 +316,9 @@ export default function DrawingPinPage() {
     setDimensionMode((m) => !m)
     setMarkingMode(false)
     setManualMode(false)
+    setFreehandMode(false)
+    setIsFreehandDrawing(false)
+    setFreehandRawPoints([])
     setPin(null)
     setDrawPoints([])
     setRoomName('')
@@ -421,6 +430,7 @@ export default function DrawingPinPage() {
     setDrawPoints([])
     setMarkingMode(false)
     setManualMode(false)
+    setFreehandMode(false)
     setSavingRoom(false)
     load()
   }
@@ -470,7 +480,22 @@ export default function DrawingPinPage() {
     setDraggingPointIndex(index)
   }
 
+  function handleFreehandStart(e: React.MouseEvent | React.TouchEvent) {
+    if (!(markingMode && manualMode && freehandMode)) return
+    e.preventDefault()
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
+    setIsFreehandDrawing(true)
+    setFreehandRawPoints([pointFromClientCoords(clientX, clientY)])
+  }
+
   function handleContainerPointerMove(e: React.MouseEvent | React.TouchEvent) {
+    if (isFreehandDrawing) {
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
+      setFreehandRawPoints((prev) => [...prev, pointFromClientCoords(clientX, clientY)])
+      return
+    }
     if (draggingPointIndex === null) return
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
@@ -483,6 +508,16 @@ export default function DrawingPinPage() {
   }
 
   function handleContainerPointerUp() {
+    if (isFreehandDrawing) {
+      setIsFreehandDrawing(false)
+      // Snaps near-straight runs flat and smooths genuine curves, rather
+      // than saving every hand-tremor wobble in the raw stroke.
+      if (freehandRawPoints.length >= 3) {
+        setDrawPoints(cleanFreehandStroke(freehandRawPoints))
+      }
+      setFreehandRawPoints([])
+      return
+    }
     setDraggingPointIndex(null)
   }
 
@@ -593,6 +628,9 @@ export default function DrawingPinPage() {
                   // No photo to auto-detect walls from on a blank plan - manual
                   // corner-tapping is the only option there.
                   setManualMode(!hasImage)
+                  setFreehandMode(false)
+                  setIsFreehandDrawing(false)
+                  setFreehandRawPoints([])
                   setPin(null)
                   setDrawPoints([])
                   setRoomName('')
@@ -620,7 +658,8 @@ export default function DrawingPinPage() {
           {dimensionMode && dimensionPoints.length === 1 && 'Now tap the second point.'}
           {dimensionMode && dimensionPoints.length === 2 && 'Enter the measured value below and save.'}
           {!dimensionMode && markingMode && !manualMode && 'Tap once inside a room - AI will trace its walls automatically.'}
-          {!dimensionMode && markingMode && manualMode && `Tap each corner of the room in order (${drawPoints.length} point${drawPoints.length === 1 ? '' : 's'} so far). Need at least 3.`}
+          {!dimensionMode && markingMode && manualMode && freehandMode && 'Press and drag to draw the outline free-hand - wobbly lines are straightened or smoothed into curves automatically when you lift up.'}
+          {!dimensionMode && markingMode && manualMode && !freehandMode && `Tap each corner of the room in order (${drawPoints.length} point${drawPoints.length === 1 ? '' : 's'} so far). Need at least 3.`}
           {!dimensionMode && !markingMode && hasImage && 'Tap the drawing to drop a pin at your location. Tap a highlighted room to see its name and options.'}
           {!dimensionMode && !markingMode && !hasImage && 'This is a blank plan - use "Draw room outline" to sketch a room, then "Record as-built dimension" to add its measured wall lengths.'}
         </p>
@@ -629,10 +668,13 @@ export default function DrawingPinPage() {
           ref={containerRef}
           className="relative mt-4 w-full cursor-crosshair overflow-hidden rounded-lg border border-deck-border"
           onClick={handleImageClick}
+          onMouseDown={handleFreehandStart}
+          onTouchStart={handleFreehandStart}
           onMouseMove={handleContainerPointerMove}
           onMouseUp={handleContainerPointerUp}
           onTouchMove={handleContainerPointerMove}
           onTouchEnd={handleContainerPointerUp}
+          style={{ touchAction: markingMode && manualMode && freehandMode ? 'none' : undefined }}
         >
           {hasImage ? (
             <img
@@ -682,6 +724,17 @@ export default function DrawingPinPage() {
                 fill="rgba(220,38,38,0.2)"
                 stroke="rgba(220,38,38,0.8)"
                 strokeWidth={0.3}
+              />
+            )}
+
+            {isFreehandDrawing && freehandRawPoints.length > 1 && (
+              <polyline
+                points={freehandRawPoints.map((p) => `${p.x},${p.y}`).join(' ')}
+                fill="none"
+                stroke="rgba(217,119,6,0.85)"
+                strokeWidth={0.4}
+                strokeLinecap="round"
+                strokeLinejoin="round"
               />
             )}
 
@@ -985,22 +1038,49 @@ export default function DrawingPinPage() {
             )}
 
             {manualMode && (
-              <div className="flex gap-2">
-                <button
-                  onClick={undoLastPoint}
-                  disabled={drawPoints.length === 0}
-                  className="flex-1 rounded-md border border-deck-border px-3 py-2 text-sm font-medium text-deck-body disabled:opacity-50"
-                >
-                  Undo last point
-                </button>
-                <button
-                  onClick={clearDrawing}
-                  disabled={drawPoints.length === 0}
-                  className="flex-1 rounded-md border border-deck-border px-3 py-2 text-sm font-medium text-deck-body disabled:opacity-50"
-                >
-                  Clear
-                </button>
-              </div>
+              <>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setFreehandMode(false)}
+                    className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium ${
+                      !freehandMode ? 'border-deck-accent bg-deck-raised text-deck-accent' : 'border-deck-border text-deck-body'
+                    }`}
+                  >
+                    Tap corners
+                  </button>
+                  <button
+                    onClick={() => setFreehandMode(true)}
+                    className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium ${
+                      freehandMode ? 'border-deck-accent bg-deck-raised text-deck-accent' : 'border-deck-border text-deck-body'
+                    }`}
+                  >
+                    Freehand
+                  </button>
+                </div>
+                <div className="mt-2 flex gap-2">
+                  {!freehandMode && (
+                    <button
+                      onClick={undoLastPoint}
+                      disabled={drawPoints.length === 0}
+                      className="flex-1 rounded-md border border-deck-border px-3 py-2 text-sm font-medium text-deck-body disabled:opacity-50"
+                    >
+                      Undo last point
+                    </button>
+                  )}
+                  <button
+                    onClick={clearDrawing}
+                    disabled={drawPoints.length === 0}
+                    className="flex-1 rounded-md border border-deck-border px-3 py-2 text-sm font-medium text-deck-body disabled:opacity-50"
+                  >
+                    Clear
+                  </button>
+                </div>
+                {freehandMode && drawPoints.length > 0 && (
+                  <p className="mt-2 text-xs text-deck-dim">
+                    Not quite right? Just draw over it again - a new stroke replaces the last one.
+                  </p>
+                )}
+              </>
             )}
 
             {!manualMode && boundaryError && (
