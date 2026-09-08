@@ -633,7 +633,10 @@ export default function DrawingPinPage() {
                   setFreehandRawPoints([])
                   setPin(null)
                   setDrawPoints([])
-                  setRoomName('')
+                  // A blank plan's first room is usually the one location the
+                  // plan was named for - prefill it so the name isn't typed
+                  // twice, but still editable for a plan with several rooms.
+                  setRoomName(!hasImage && rooms.length === 0 ? drawing?.name || '' : '')
                   setSelectedRoomId(null)
                   setBoundaryError(null)
                   setDimensionMode(false)
