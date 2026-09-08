@@ -232,6 +232,12 @@ export default function ProjectDetailPage() {
             View report
           </Link>
           <Link
+            href={`/dashboard/drawings?projectId=${projectId}`}
+            className="inline-block rounded-md border border-deck-border px-4 py-2 text-sm font-medium text-deck-body"
+          >
+            Drawings
+          </Link>
+          <Link
             href={`/dashboard/projects/${projectId}/plan`}
             className="inline-block rounded-md border border-deck-border px-4 py-2 text-sm font-medium text-deck-body"
           >
