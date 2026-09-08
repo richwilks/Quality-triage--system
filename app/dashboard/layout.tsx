@@ -1,11 +1,13 @@
 import BottomNav from '@/components/BottomNav'
 import Sidebar from '@/components/Sidebar'
 import { BrandingProvider } from '@/components/BrandingContext'
+import { AccessTierProvider } from '@/components/AccessTierContext'
 import { ActiveInspectionProvider } from '@/components/ActiveInspectionContext'
 import ActiveInspectionBanner from '@/components/ActiveInspectionBanner'
 import { OfflineSyncProvider } from '@/components/OfflineSyncContext'
 import OfflineSyncBanner from '@/components/OfflineSyncBanner'
 import { loadBranding } from '@/lib/branding'
+import { loadAccessTier } from '@/lib/accessTier'
 import { syncCompanyAccess } from '@/lib/companySync'
 import { createClient } from '@/lib/supabase/server'
 
@@ -24,21 +26,24 @@ export default async function DashboardLayout({
   await syncCompanyAccess(supabase)
 
   const { branding, accentColor } = await loadBranding('inspectiq')
+  const accessTier = await loadAccessTier()
 
   return (
     <div className="dashboard-shell pb-20 lg:pb-0 lg:pl-56 print:pb-0 print:pl-0">
       {accentColor && <style>{`:root { --deck-accent-color: ${accentColor}; }`}</style>}
-      <BrandingProvider value={branding}>
-        <OfflineSyncProvider>
-          <ActiveInspectionProvider>
-            <Sidebar />
-            <OfflineSyncBanner />
-            <ActiveInspectionBanner />
-            {children}
-            <BottomNav />
-          </ActiveInspectionProvider>
-        </OfflineSyncProvider>
-      </BrandingProvider>
+      <AccessTierProvider value={accessTier}>
+        <BrandingProvider value={branding}>
+          <OfflineSyncProvider>
+            <ActiveInspectionProvider>
+              <Sidebar />
+              <OfflineSyncBanner />
+              <ActiveInspectionBanner />
+              {children}
+              <BottomNav />
+            </ActiveInspectionProvider>
+          </OfflineSyncProvider>
+        </BrandingProvider>
+      </AccessTierProvider>
     </div>
   )
 }

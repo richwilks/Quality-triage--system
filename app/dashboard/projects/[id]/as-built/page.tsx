@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { reportLayoutByKey } from '@/lib/reg38ReportLayouts'
 import ReportCover from '@/components/reportLayouts/ReportCover'
+import { buildReportMailto } from '@/lib/emailReport'
 
 type Project = {
   id: string
@@ -134,13 +135,22 @@ export default function AsBuiltRecordPage() {
             {measurements.length} as-built dimension{measurements.length === 1 ? '' : 's'} across {drawingsWithMeasurements.length} drawing
             {drawingsWithMeasurements.length === 1 ? '' : 's'}
           </p>
-          <button
-            onClick={() => window.print()}
-            className="rounded-md px-4 py-2 text-sm font-medium text-white"
-            style={{ backgroundColor: accentColor }}
-          >
-            Print / Save as PDF
-          </button>
+          <div className="flex gap-2">
+            <a
+              href={buildReportMailto(`${project.name} - As-Built Dimension Record`, window.location.href)}
+              className="rounded-md border px-4 py-2 text-sm font-medium"
+              style={{ borderColor: accentColor, color: accentColor }}
+            >
+              Email report
+            </a>
+            <button
+              onClick={() => window.print()}
+              className="rounded-md px-4 py-2 text-sm font-medium text-white"
+              style={{ backgroundColor: accentColor }}
+            >
+              Print / Save as PDF
+            </button>
+          </div>
         </div>
 
         <div

@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useBranding } from '@/components/BrandingContext'
+import { useAccessTier } from '@/components/AccessTierContext'
 
 const ITEMS = [
   {
@@ -58,6 +59,7 @@ const ITEMS = [
   {
     href: '/dashboard/golden-thread',
     label: 'Golden Thread',
+    restrictedTier: false,
     icon: (active: boolean) => (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={active ? 'var(--deck-accent-color, #2A6F77)' : 'currentColor'} strokeWidth="2">
         <path d="M4 18c0-3 2.5-3 5-3s5 0 5-3-2.5-3-5-3 5 0 5-3 2.5-3 5-3" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="1 3.2" />
@@ -80,6 +82,8 @@ const ITEMS = [
 export default function Sidebar() {
   const pathname = usePathname()
   const branding = useBranding()
+  const { restricted } = useAccessTier()
+  const items = restricted ? ITEMS.filter((item) => item.restrictedTier !== false) : ITEMS
 
   return (
     <aside className="fixed left-0 top-0 z-40 hidden h-screen w-56 flex-col border-r border-deck-border bg-deck-surface px-3 py-6 lg:flex print:hidden">
@@ -95,7 +99,7 @@ export default function Sidebar() {
       </div>
 
       <nav className="mt-8 flex flex-1 flex-col gap-1">
-        {ITEMS.map((item) => {
+        {items.map((item) => {
           const active = pathname === item.href
           return (
             <Link

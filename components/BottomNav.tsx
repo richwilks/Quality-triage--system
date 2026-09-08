@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { QUICK_LINKS } from '@/lib/quickLinks'
+import { useAccessTier } from '@/components/AccessTierContext'
 
 const TABS = [
   {
@@ -61,6 +62,8 @@ const TABS = [
 export default function BottomNav() {
   const pathname = usePathname()
   const [quickAccessOpen, setQuickAccessOpen] = useState(false)
+  const { restricted } = useAccessTier()
+  const quickLinks = restricted ? QUICK_LINKS.filter((l) => l.restrictedTier) : QUICK_LINKS
 
   return (
     <>
@@ -78,14 +81,14 @@ export default function BottomNav() {
             style={{ maxHeight: quickAccessOpen ? '60vh' : '0px' }}
           >
             <div className="max-h-[60vh] overflow-y-auto border-b border-deck-border">
-              {QUICK_LINKS.map((link, i) => (
+              {quickLinks.map((link, i) => (
                 <Link
                   key={link.href}
                   href={link.href}
                   onClick={() => setQuickAccessOpen(false)}
                   className={`flex items-center justify-between px-4 py-3 text-[13.5px] font-medium ${
                     link.primary ? 'bg-deck-raised text-deck-accent' : 'bg-deck-surface text-deck-text'
-                  } ${i < QUICK_LINKS.length - 1 ? 'border-b border-deck-border' : ''}`}
+                  } ${i < quickLinks.length - 1 ? 'border-b border-deck-border' : ''}`}
                 >
                   <span>{link.label}</span>
                   <span className="font-mono text-deck-mute">→</span>

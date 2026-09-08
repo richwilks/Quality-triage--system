@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
 import { useActiveInspection } from '@/components/ActiveInspectionContext'
 import FileDropZone from '@/components/FileDropZone'
+import { useAccessTier } from '@/components/AccessTierContext'
 
 type Project = { id: string; name: string }
 type Partner = { id: string; full_name: string | null; company_name: string | null }
@@ -98,6 +99,7 @@ function extractFrames(file: File, frameCount: number): Promise<Frame[]> {
 export default function NewDefectVideoPage() {
   const supabase = createClient()
   const { activeInspection, getCurrentPositionForPhoto } = useActiveInspection()
+  const { restricted } = useAccessTier()
 
   const [projects, setProjects] = useState<Project[]>([])
   const [projectId, setProjectId] = useState('')
@@ -290,7 +292,7 @@ export default function NewDefectVideoPage() {
       const geoTag =
         activeInspection?.projectId === projectId ? await getCurrentPositionForPhoto() : null
 
-      const rows = []
+      const rows: any[] = []
       for (const it of included) {
         const frame = frames[it.frameIndex]
         const framePath = `${projectId}/${Date.now()}-frame-${it.localId}.jpg`
@@ -335,11 +337,46 @@ export default function NewDefectVideoPage() {
         })
       }
 
-      const { error: insertError } = await supabase.from('defects').insert(rows)
+      const { data: insertedDefects, error: insertError } = await supabase.from('defects').insert(rows).select('id')
       if (insertError) {
         setError(`Save failed: ${insertError.message}`)
         setSaving(false)
         return
+      }
+
+      // A restricted-access company has no review/confirm step in its plan,
+      // so every defect it raises feeds the knowledge base immediately -
+      // mirrors addConfirmedDefectToKnowledgeBase() in app/dashboard/review/page.tsx.
+      if (restricted && insertedDefects) {
+        try {
+          const { data: myProfile } = await supabase.from('profiles').select('company_name').eq('id', user.id).single()
+          const kbRows = insertedDefects
+            .map((row, i) => {
+              const r = rows[i]
+              if (!r?.description?.trim()) return null
+              return {
+                title: r.description.slice(0, 100),
+                element_type: r.element_type,
+                country: null,
+                applicable_standards: null,
+                defect_description: r.description,
+                correct_reference: null,
+                severity_default: r.classification,
+                active: true,
+                photo_url: r.photo_url,
+                created_by: user.id,
+                source: 'project' as const,
+                source_defect_id: row.id,
+                company_name: myProfile?.company_name || null,
+              }
+            })
+            .filter((r): r is NonNullable<typeof r> => r !== null)
+          if (kbRows.length > 0) {
+            await supabase.from('defect_knowledge_base').insert(kbRows)
+          }
+        } catch {
+          // Non-critical - the defects are already saved either way.
+        }
       }
 
       setSaved(true)
