@@ -8,12 +8,18 @@ import StatusBadge from '@/components/StatusBadge'
 import { useBranding } from '@/components/BrandingContext'
 import StackedBar from '@/components/charts/StackedBar'
 import BarList from '@/components/charts/BarList'
+import MonthlyOpenClosedBar, { MonthlyCount } from '@/components/charts/MonthlyOpenClosedBar'
 
 type Project = { id: string; name: string }
 type StatusCounts = Record<string, number>
 
 const STATUS_ORDER = ['draft', 'confirmed', 'assigned', 'closed', 'rejected']
 const BACKLOG_STATUSES = ['draft', 'confirmed', 'assigned', 'pending_approval']
+const MY_TASKS_MONTHS = 6
+
+function monthKey(d: Date) {
+  return `${d.getFullYear()}-${d.getMonth()}`
+}
 
 export default function DashboardPage() {
   const supabase = createClient()
@@ -22,6 +28,8 @@ export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [counts, setCounts] = useState<Record<string, StatusCounts>>({})
   const [classificationCounts, setClassificationCounts] = useState<Record<string, { snag: number; ncr: number }>>({})
+  const [closedDaysByProject, setClosedDaysByProject] = useState<Record<string, { sum: number; count: number }>>({})
+  const [myTasksMonthly, setMyTasksMonthly] = useState<MonthlyCount[]>([])
   const [loading, setLoading] = useState(true)
   const [activeProjectId, setActiveProjectId] = useState<string | 'all'>('all')
 
@@ -65,14 +73,16 @@ export default function DashboardPage() {
       const projectIds = projectList.map((p: Project) => p.id)
       const { data: defectData } = await supabase
         .from('defects')
-        .select('project_id, status, classification')
+        .select('project_id, status, classification, created_at, closed_at')
         .in('project_id', projectIds)
 
       const grouped: Record<string, StatusCounts> = {}
       const classGrouped: Record<string, { snag: number; ncr: number }> = {}
+      const closedDays: Record<string, { sum: number; count: number }> = {}
       projectList.forEach((p: Project) => {
         grouped[p.id] = {}
         classGrouped[p.id] = { snag: 0, ncr: 0 }
+        closedDays[p.id] = { sum: 0, count: 0 }
       })
       ;(defectData || []).forEach((d: any) => {
         if (!grouped[d.project_id]) grouped[d.project_id] = {}
@@ -80,10 +90,52 @@ export default function DashboardPage() {
         if (!classGrouped[d.project_id]) classGrouped[d.project_id] = { snag: 0, ncr: 0 }
         if (d.classification === 'snag') classGrouped[d.project_id].snag++
         if (d.classification === 'ncr') classGrouped[d.project_id].ncr++
+        if (d.status === 'closed' && d.closed_at && d.created_at) {
+          if (!closedDays[d.project_id]) closedDays[d.project_id] = { sum: 0, count: 0 }
+          const days = (new Date(d.closed_at).getTime() - new Date(d.created_at).getTime()) / 86400000
+          closedDays[d.project_id].sum += days
+          closedDays[d.project_id].count++
+        }
       })
       setCounts(grouped)
       setClassificationCounts(classGrouped)
+      setClosedDaysByProject(closedDays)
     }
+
+    // "Assigned to you" - individual assignment (assigned_partner_id), distinct
+    // from My Companies Details' company-wide view - so this chart reflects
+    // your own workload specifically.
+    const sinceMonths: Date[] = []
+    const now = new Date()
+    for (let i = MY_TASKS_MONTHS - 1; i >= 0; i--) {
+      sinceMonths.push(new Date(now.getFullYear(), now.getMonth() - i, 1))
+    }
+    const rangeStart = sinceMonths[0]
+
+    const { data: myTasks } = await supabase
+      .from('defects')
+      .select('status, created_at, closed_at')
+      .eq('assigned_partner_id', user.id)
+
+    const monthly: Record<string, MonthlyCount> = {}
+    sinceMonths.forEach((d) => {
+      monthly[monthKey(d)] = { monthLabel: d.toLocaleDateString('en-GB', { month: 'short' }), open: 0, closed: 0 }
+    })
+    ;(myTasks || []).forEach((t: any) => {
+      const createdAt = t.created_at ? new Date(t.created_at) : null
+      if (createdAt && createdAt >= rangeStart) {
+        const key = monthKey(createdAt)
+        if (monthly[key]) monthly[key].open++
+      }
+      if (t.status === 'closed' && t.closed_at) {
+        const closedAt = new Date(t.closed_at)
+        if (closedAt >= rangeStart) {
+          const key = monthKey(closedAt)
+          if (monthly[key]) monthly[key].closed++
+        }
+      }
+    })
+    setMyTasksMonthly(sinceMonths.map((d) => monthly[monthKey(d)]))
 
     setLoading(false)
   }
@@ -100,10 +152,14 @@ export default function DashboardPage() {
   const scopedProjects = activeProjectId === 'all' ? projects : projects.filter((p) => p.id === activeProjectId)
   const scopedCounts = scopedProjects.map((p) => counts[p.id] || {})
   const scopedClassCounts = scopedProjects.map((p) => classificationCounts[p.id] || { snag: 0, ncr: 0 })
+  const scopedClosedDays = scopedProjects.map((p) => closedDaysByProject[p.id] || { sum: 0, count: 0 })
 
   const scopedBacklog = scopedCounts.reduce((sum, c) => sum + backlogOf(c), 0)
   const scopedClosed = scopedCounts.reduce((sum, c) => sum + (c.closed || 0), 0)
   const scopedTotal = scopedCounts.reduce((sum, c) => sum + Object.values(c).reduce((a, b) => a + b, 0), 0)
+  const scopedClosedDaysSum = scopedClosedDays.reduce((sum, c) => sum + c.sum, 0)
+  const scopedClosedDaysCount = scopedClosedDays.reduce((sum, c) => sum + c.count, 0)
+  const scopedAvgDaysToClose = scopedClosedDaysCount > 0 ? scopedClosedDaysSum / scopedClosedDaysCount : null
 
   const statusSegments = [
     { label: 'Draft', value: scopedCounts.reduce((s, c) => s + (c.draft || 0), 0), colorClass: 'bg-status-draft' },
@@ -165,34 +221,56 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 border-b border-deck-border">
-          <div className="border-r border-deck-border p-4">
-            <div className="flex items-center justify-between">
-              <span className="font-mono text-[10px] uppercase tracking-wide text-deck-mute">
-                Projects
-              </span>
-              <span className="h-1.5 w-1.5 rounded-full bg-deck-mute" />
+        {!loading && projects.length > 1 && (
+          <div className="border-b border-deck-border px-4 py-3">
+            <div className="flex gap-1 overflow-x-auto">
+              <button
+                onClick={() => setActiveProjectId('all')}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${
+                  activeProjectId === 'all'
+                    ? 'bg-deck-accent text-deck-bg'
+                    : 'border border-deck-border bg-deck-surface text-deck-body'
+                }`}
+              >
+                All projects
+              </button>
+              {projects.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setActiveProjectId(p.id)}
+                  className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${
+                    activeProjectId === p.id
+                      ? 'bg-deck-accent text-deck-bg'
+                      : 'border border-deck-border bg-deck-surface text-deck-body'
+                  }`}
+                >
+                  {p.name}
+                </button>
+              ))}
             </div>
-            <p className="mt-1.5 font-mono text-3xl font-bold leading-none">
-              {String(projects.length).padStart(2, '0')}
-            </p>
           </div>
-          <div className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="font-mono text-[10px] uppercase tracking-wide text-deck-mute">
-                Defects
-              </span>
-              <span
-                className="h-1.5 w-1.5 rounded-full"
-                style={{
-                  background: totalAcrossAll > 0 ? '#1E7A46' : '#9C9686',
-                  boxShadow: totalAcrossAll > 0 ? '0 0 6px #1E7A46' : 'none',
-                }}
-              />
-            </div>
-            <p className="mt-1.5 font-mono text-3xl font-bold leading-none">
-              {String(totalAcrossAll).padStart(2, '0')}
+        )}
+
+        <div className="grid grid-cols-2 gap-3 border-b border-deck-border p-4 lg:grid-cols-4">
+          <div className="rounded-xl bg-brand-ink p-4 text-white">
+            <p className="text-2xl font-semibold">{scopedTotal}</p>
+            <p className="mt-0.5 text-xs text-white/70">Total defects logged</p>
+          </div>
+          <div className="rounded-xl border border-deck-border bg-deck-surface p-4">
+            <p className="text-2xl font-semibold text-deck-text">{scopedBacklog}</p>
+            <p className="mt-0.5 text-xs text-deck-dim">Open backlog</p>
+          </div>
+          <div className="rounded-xl border border-deck-border bg-deck-surface p-4">
+            <p className="text-2xl font-semibold text-deck-text">
+              {scopedAvgDaysToClose !== null ? scopedAvgDaysToClose.toFixed(1) : '-'}
             </p>
+            <p className="mt-0.5 text-xs text-deck-dim">Avg days to close</p>
+          </div>
+          <div className="rounded-xl border border-deck-border bg-deck-surface p-4">
+            <p className="text-2xl font-semibold text-deck-text">
+              {scopedTotal > 0 ? Math.round((scopedClosed / scopedTotal) * 100) : 0}%
+            </p>
+            <p className="mt-0.5 text-xs text-deck-dim">Closed out</p>
           </div>
         </div>
 
@@ -208,36 +286,24 @@ export default function DashboardPage() {
           </Link>
         </div>
 
+        {!loading && (
+          <div className="px-4 pt-5">
+            <Link
+              href="/dashboard/my-defects"
+              className="block rounded-md border border-deck-border bg-deck-surface p-4 hover:bg-deck-raised"
+            >
+              <h2 className="font-mono text-[10px] uppercase tracking-wide text-deck-mute">
+                Assigned to you - last {MY_TASKS_MONTHS} months
+              </h2>
+              <div className="mt-3">
+                <MonthlyOpenClosedBar data={myTasksMonthly} />
+              </div>
+            </Link>
+          </div>
+        )}
+
         {!loading && projects.length > 0 && totalAcrossAll > 0 && (
           <div className="px-4 pt-5">
-            {projects.length > 1 && (
-              <div className="mb-3 flex gap-1 overflow-x-auto">
-                <button
-                  onClick={() => setActiveProjectId('all')}
-                  className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${
-                    activeProjectId === 'all'
-                      ? 'bg-deck-accent text-deck-bg'
-                      : 'border border-deck-border bg-deck-surface text-deck-body'
-                  }`}
-                >
-                  Combined
-                </button>
-                {projects.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => setActiveProjectId(p.id)}
-                    className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${
-                      activeProjectId === p.id
-                        ? 'bg-deck-accent text-deck-bg'
-                        : 'border border-deck-border bg-deck-surface text-deck-body'
-                    }`}
-                  >
-                    {p.name}
-                  </button>
-                ))}
-              </div>
-            )}
-
             {scopedTotal === 0 ? (
               <p className="rounded-md border border-deck-border bg-deck-surface p-4 text-xs text-deck-dim">
                 No defects logged yet on this project.
