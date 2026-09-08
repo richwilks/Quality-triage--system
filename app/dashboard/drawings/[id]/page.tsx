@@ -4,10 +4,22 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
+import DistoConnect from '@/components/DistoConnect'
 
 type Drawing = { id: string; name: string | null; image_url: string | null; project_id: string }
 type Point = { x: number; y: number }
 type Room = { id: string; name: string; pin_x: number; pin_y: number; boundary: Point[] | null }
+type Measurement = {
+  id: string
+  x1: number
+  y1: number
+  x2: number
+  y2: number
+  value_mm: number
+  label: string | null
+  created_by: string | null
+  created_at: string
+}
 
 
 
@@ -15,6 +27,10 @@ function centroid(points: Point[]): Point {
   const n = points.length
   const sum = points.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 })
   return { x: sum.x / n, y: sum.y / n }
+}
+
+function formatMm(valueMm: number): string {
+  return valueMm >= 1000 ? `${(valueMm / 1000).toFixed(valueMm % 1000 === 0 ? 0 : 2)} m` : `${valueMm} mm`
 }
 
 function pointInPolygon(x: number, y: number, poly: Point[]): boolean {
@@ -43,6 +59,17 @@ export default function DrawingPinPage() {
   const [loading, setLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
   const [adminDebug, setAdminDebug] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
+
+  const [measurements, setMeasurements] = useState<Measurement[]>([])
+  const [dimensionMode, setDimensionMode] = useState(false)
+  const [dimensionPoints, setDimensionPoints] = useState<Point[]>([])
+  const [dimensionValue, setDimensionValue] = useState('')
+  const [dimensionUnit, setDimensionUnit] = useState<'mm' | 'm'>('mm')
+  const [dimensionLabel, setDimensionLabel] = useState('')
+  const [savingDimension, setSavingDimension] = useState(false)
+  const [dimensionError, setDimensionError] = useState<string | null>(null)
+  const [deletingMeasurementId, setDeletingMeasurementId] = useState<string | null>(null)
 
   const [markingMode, setMarkingMode] = useState(false)
   const [manualMode, setManualMode] = useState(false)
@@ -80,9 +107,17 @@ export default function DrawingPinPage() {
       .eq('drawing_id', drawingId)
     setRooms(roomData || [])
 
+    const { data: measurementData } = await supabase
+      .from('as_built_measurements')
+      .select('id, x1, y1, x2, y2, value_mm, label, created_by, created_at')
+      .eq('drawing_id', drawingId)
+      .order('created_at', { ascending: true })
+    setMeasurements(measurementData || [])
+
     const {
       data: { user },
     } = await supabase.auth.getUser()
+    setUserId(user?.id || null)
 
     if (user) {
       const { data: profile, error: profileError } = await supabase
@@ -245,6 +280,12 @@ export default function DrawingPinPage() {
     const x = ((e.clientX - rect.left) / rect.width) * 100
     const y = ((e.clientY - rect.top) / rect.height) * 100
 
+    if (dimensionMode) {
+      if (dimensionPoints.length >= 2) return
+      setDimensionPoints((prev) => [...prev, { x, y }])
+      return
+    }
+
     if (markingMode && !isAdmin) return
 
     if (markingMode && manualMode) {
@@ -263,6 +304,75 @@ export default function DrawingPinPage() {
     setNearestRoom(findContainingOrNearestRoom(x, y))
     setRoomName('')
     setSelectedRoomId(null)
+  }
+
+  function toggleDimensionMode() {
+    setDimensionMode((m) => !m)
+    setMarkingMode(false)
+    setManualMode(false)
+    setPin(null)
+    setDrawPoints([])
+    setRoomName('')
+    setSelectedRoomId(null)
+    setDimensionPoints([])
+    setDimensionValue('')
+    setDimensionUnit('mm')
+    setDimensionLabel('')
+    setDimensionError(null)
+  }
+
+  function cancelDimension() {
+    setDimensionPoints([])
+    setDimensionValue('')
+    setDimensionLabel('')
+    setDimensionError(null)
+  }
+
+  async function handleSaveDimension() {
+    if (dimensionPoints.length < 2) return
+    const numeric = parseFloat(dimensionValue)
+    if (!numeric || numeric <= 0) {
+      setDimensionError('Enter the measured value first.')
+      return
+    }
+    setSavingDimension(true)
+    setDimensionError(null)
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    const valueMm = dimensionUnit === 'm' ? numeric * 1000 : numeric
+
+    const { error } = await supabase.from('as_built_measurements').insert({
+      drawing_id: drawingId,
+      x1: dimensionPoints[0].x,
+      y1: dimensionPoints[0].y,
+      x2: dimensionPoints[1].x,
+      y2: dimensionPoints[1].y,
+      value_mm: valueMm,
+      label: dimensionLabel.trim() || null,
+      created_by: user?.id,
+    })
+
+    if (error) {
+      setDimensionError(`Could not save: ${error.message}`)
+      setSavingDimension(false)
+      return
+    }
+
+    setDimensionPoints([])
+    setDimensionValue('')
+    setDimensionLabel('')
+    setSavingDimension(false)
+    load()
+  }
+
+  async function handleDeleteMeasurement(id: string) {
+    setDeletingMeasurementId(id)
+    const { error } = await supabase.from('as_built_measurements').delete().eq('id', id)
+    if (!error) load()
+    setDeletingMeasurementId(null)
   }
 
   function handleRoomClick(e: React.MouseEvent, roomId: string) {
@@ -462,28 +572,41 @@ export default function DrawingPinPage() {
 
   const drawPointsStr = drawPoints.map((p) => `${p.x}%,${p.y}%`).join(' ')
   const selectedRoom = selectedRoomId ? rooms.find((r) => r.id === selectedRoomId) : null
+  const hasImage = !!drawing.image_url
 
   return (
     <div className="min-h-screen px-4 py-8">
       <div className="mx-auto max-w-md">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <PageHeader title={drawing.name || 'Drawing'} />
-          {isAdmin && (
+          <div className="flex shrink-0 flex-col items-end gap-1">
             <button
-              onClick={() => {
-                setMarkingMode((m) => !m)
-                setManualMode(false)
-                setPin(null)
-                setDrawPoints([])
-                setRoomName('')
-                setSelectedRoomId(null)
-                setBoundaryError(null)
-              }}
-              className="text-xs font-medium text-deck-text underline"
+              onClick={toggleDimensionMode}
+              className="whitespace-nowrap text-xs font-medium text-deck-text underline"
             >
-              {markingMode ? 'Cancel marking' : 'Mark rooms'}
+              {dimensionMode ? 'Cancel dimension' : 'Record as-built dimension'}
             </button>
-          )}
+            {isAdmin && (
+              <button
+                onClick={() => {
+                  setMarkingMode((m) => !m)
+                  // No photo to auto-detect walls from on a blank plan - manual
+                  // corner-tapping is the only option there.
+                  setManualMode(!hasImage)
+                  setPin(null)
+                  setDrawPoints([])
+                  setRoomName('')
+                  setSelectedRoomId(null)
+                  setBoundaryError(null)
+                  setDimensionMode(false)
+                  setDimensionPoints([])
+                }}
+                className="whitespace-nowrap text-xs font-medium text-deck-text underline"
+              >
+                {markingMode ? 'Cancel marking' : hasImage ? 'Mark rooms' : 'Draw room outline'}
+              </button>
+            )}
+          </div>
         </div>
         {/* TEMPORARY DEBUG - remove once admin gating is confirmed working */}
         {adminDebug && (
@@ -493,9 +616,13 @@ export default function DrawingPinPage() {
         )}
 
         <p className="mt-1 text-sm text-deck-dim">
-          {markingMode && !manualMode && 'Tap once inside a room - AI will trace its walls automatically.'}
-          {markingMode && manualMode && `Tap each corner of the room in order (${drawPoints.length} point${drawPoints.length === 1 ? '' : 's'} so far). Need at least 3.`}
-          {!markingMode && 'Tap the drawing to drop a pin at your location. Tap a highlighted room to see its name and options.'}
+          {dimensionMode && dimensionPoints.length === 0 && 'Tap the first point of the dimension on the drawing.'}
+          {dimensionMode && dimensionPoints.length === 1 && 'Now tap the second point.'}
+          {dimensionMode && dimensionPoints.length === 2 && 'Enter the measured value below and save.'}
+          {!dimensionMode && markingMode && !manualMode && 'Tap once inside a room - AI will trace its walls automatically.'}
+          {!dimensionMode && markingMode && manualMode && `Tap each corner of the room in order (${drawPoints.length} point${drawPoints.length === 1 ? '' : 's'} so far). Need at least 3.`}
+          {!dimensionMode && !markingMode && hasImage && 'Tap the drawing to drop a pin at your location. Tap a highlighted room to see its name and options.'}
+          {!dimensionMode && !markingMode && !hasImage && 'This is a blank plan - use "Draw room outline" to sketch a room, then "Record as-built dimension" to add its measured wall lengths.'}
         </p>
 
         <div
@@ -507,13 +634,23 @@ export default function DrawingPinPage() {
           onTouchMove={handleContainerPointerMove}
           onTouchEnd={handleContainerPointerUp}
         >
-          {drawing.image_url && (
+          {hasImage ? (
             <img
               ref={imgRef}
-              src={drawing.image_url}
+              src={drawing.image_url!}
               alt={drawing.name || 'Drawing'}
               className="w-full"
               crossOrigin="anonymous"
+            />
+          ) : (
+            <div
+              className="aspect-square w-full"
+              style={{
+                backgroundColor: '#F5F3EE',
+                backgroundImage:
+                  'linear-gradient(to right, rgba(36,34,29,0.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(36,34,29,0.08) 1px, transparent 1px)',
+                backgroundSize: '10% 10%',
+              }}
             />
           )}
 
@@ -556,7 +693,63 @@ export default function DrawingPinPage() {
                 strokeWidth={0.3}
               />
             )}
+
+            {measurements.map((m) => {
+              const dx = m.x2 - m.x1
+              const dy = m.y2 - m.y1
+              const len = Math.hypot(dx, dy) || 1
+              const perpX = (-dy / len) * 1.4
+              const perpY = (dx / len) * 1.4
+              return (
+                <g key={m.id}>
+                  <line x1={m.x1} y1={m.y1} x2={m.x2} y2={m.y2} stroke="#1F565C" strokeWidth={0.35} />
+                  <line x1={m.x1 - perpX} y1={m.y1 - perpY} x2={m.x1 + perpX} y2={m.y1 + perpY} stroke="#1F565C" strokeWidth={0.35} />
+                  <line x1={m.x2 - perpX} y1={m.y2 - perpY} x2={m.x2 + perpX} y2={m.y2 + perpY} stroke="#1F565C" strokeWidth={0.35} />
+                </g>
+              )
+            })}
+
+            {dimensionPoints.length === 2 && (
+              <line
+                x1={dimensionPoints[0].x}
+                y1={dimensionPoints[0].y}
+                x2={dimensionPoints[1].x}
+                y2={dimensionPoints[1].y}
+                stroke="#D97706"
+                strokeWidth={0.4}
+                strokeDasharray="1.5,1"
+              />
+            )}
           </svg>
+
+          {measurements.map((m) => (
+            <div
+              key={m.id}
+              style={{
+                position: 'absolute',
+                left: `${(m.x1 + m.x2) / 2}%`,
+                top: `${(m.y1 + m.y2) / 2}%`,
+                transform: 'translate(-50%, -50%)',
+              }}
+              className="pointer-events-none whitespace-nowrap rounded bg-deck-raised/95 px-1.5 py-0.5 text-[10px] font-medium text-deck-text shadow"
+            >
+              {formatMm(m.value_mm)}
+              {m.label ? ` — ${m.label}` : ''}
+            </div>
+          ))}
+
+          {dimensionPoints.map((p, i) => (
+            <div
+              key={i}
+              style={{
+                position: 'absolute',
+                left: `${p.x}%`,
+                top: `${p.y}%`,
+                transform: 'translate(-50%, -50%)',
+              }}
+              className="h-3 w-3 rounded-full border-2 border-white bg-amber-600 shadow"
+            />
+          ))}
 
           {markingMode &&
             manualMode &&
@@ -612,6 +805,107 @@ export default function DrawingPinPage() {
             </div>
           )}
         </div>
+
+        {dimensionMode && (
+          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+            {dimensionPoints.length < 2 ? (
+              <p className="text-sm text-amber-800">
+                {dimensionPoints.length === 0 ? 'Tap the first point on the drawing.' : 'Tap the second point on the drawing.'}
+              </p>
+            ) : (
+              <>
+                <label className="block text-sm font-medium text-deck-body">Measured value</label>
+                <div className="mt-1 flex gap-2">
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={dimensionValue}
+                    onChange={(e) => setDimensionValue(e.target.value)}
+                    placeholder="e.g. 3050"
+                    className="w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
+                  />
+                  <select
+                    value={dimensionUnit}
+                    onChange={(e) => setDimensionUnit(e.target.value as 'mm' | 'm')}
+                    className="rounded-md border border-deck-border bg-deck-surface px-2 py-2 text-sm text-deck-text"
+                  >
+                    <option value="mm">mm</option>
+                    <option value="m">m</option>
+                  </select>
+                </div>
+
+                <DistoConnect
+                  onUseReading={(mm) => {
+                    setDimensionValue(String(mm))
+                    setDimensionUnit('mm')
+                  }}
+                />
+
+                <label className="mt-3 block text-sm font-medium text-deck-body">Label (optional)</label>
+                <input
+                  type="text"
+                  spellCheck="true"
+                  value={dimensionLabel}
+                  onChange={(e) => setDimensionLabel(e.target.value)}
+                  placeholder="e.g. Corridor clear width"
+                  className="mt-1 w-full rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
+                />
+                {dimensionError && <p className="mt-2 text-xs text-red-600">{dimensionError}</p>}
+                <div className="mt-3 flex gap-2">
+                  <button
+                    onClick={handleSaveDimension}
+                    disabled={savingDimension || !dimensionValue}
+                    className="flex-1 rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-deck-bg disabled:opacity-50"
+                  >
+                    {savingDimension ? 'Saving...' : 'Save dimension'}
+                  </button>
+                  <button
+                    onClick={cancelDimension}
+                    disabled={savingDimension}
+                    className="flex-1 rounded-md border border-deck-border px-3 py-2 text-sm font-medium text-deck-body disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {measurements.length > 0 && (
+          <div className="mt-3 rounded-lg border border-deck-border bg-deck-surface p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-deck-dim">As-built dimensions</p>
+            <div className="mt-2 space-y-2">
+              {measurements.map((m) => (
+                <div key={m.id} className="flex items-center justify-between gap-2 text-sm">
+                  <div className="min-w-0">
+                    <span className="font-medium text-deck-text">{formatMm(m.value_mm)}</span>
+                    {m.label && <span className="text-deck-dim"> — {m.label}</span>}
+                  </div>
+                  {(isAdmin || m.created_by === userId) && (
+                    <button
+                      onClick={() => handleDeleteMeasurement(m.id)}
+                      disabled={deletingMeasurementId === m.id}
+                      className="shrink-0 text-xs font-medium text-red-600 disabled:opacity-50"
+                    >
+                      {deletingMeasurementId === m.id ? 'Removing...' : 'Remove'}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-deck-dim">
+              This drawing's full as-built record (all dimensions, printable to share with the design team) is on the{' '}
+              <button
+                onClick={() => router.push(`/dashboard/projects/${drawing.project_id}/as-built`)}
+                className="font-medium text-deck-accent underline"
+              >
+                project's as-built page
+              </button>
+              .
+            </p>
+          </div>
+        )}
 
         {selectedRoom && !markingMode && isAdmin && !editingBoundary && (
           <div className="mt-3 rounded-lg border border-deck-border bg-deck-surface p-3">
@@ -721,7 +1015,7 @@ export default function DrawingPinPage() {
             {drawPoints.length >= 3 && (
               <>
                 <label className="mt-4 block text-sm font-medium text-deck-body">Room name</label>
-                <input
+                <input spellCheck="true"
                   type="text"
                   value={roomName}
                   onChange={(e) => setRoomName(e.target.value)}

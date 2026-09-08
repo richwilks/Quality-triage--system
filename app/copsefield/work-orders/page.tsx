@@ -106,7 +106,7 @@ export default function WorkOrdersPage() {
       <div className="mx-auto max-w-6xl">
         <PageHeader title="Work Orders" />
 
-        <input
+        <input spellCheck="true"
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}

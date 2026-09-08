@@ -3,8 +3,18 @@
 import { Suspense, useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { reportLayoutByKey } from '@/lib/reg38ReportLayouts'
+import ReportCover from '@/components/reportLayouts/ReportCover'
 
-type Project = { id: string; name: string; description: string | null; company_name: string | null }
+type Project = {
+  id: string
+  name: string
+  description: string | null
+  company_name: string | null
+  principal_contractor: string | null
+  project_address: string | null
+  cover_photo_url: string | null
+}
 type Defect = {
   id: string
   title: string | null
@@ -24,6 +34,7 @@ type Branding = {
   feature_hide_inspectiq_brand: boolean
   logo_url: string | null
   accent_color: string | null
+  reg38_report_layout: string | null
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -55,7 +66,7 @@ function ProjectReportPageInner() {
   async function load() {
     const { data: projectData } = await supabase
       .from('projects')
-      .select('id, name, description, company_name')
+      .select('id, name, description, company_name, principal_contractor, project_address, cover_photo_url')
       .eq('id', projectId)
       .single()
     setProject(projectData)
@@ -73,7 +84,7 @@ function ProjectReportPageInner() {
     if (projectData?.company_name) {
       const { data: brandingData } = await supabase
         .from('company_settings')
-        .select('feature_branded_reports, feature_hide_inspectiq_brand, logo_url, accent_color')
+        .select('feature_branded_reports, feature_hide_inspectiq_brand, logo_url, accent_color, reg38_report_layout')
         .eq('company_name', projectData.company_name)
         .maybeSingle()
       setBranding(brandingData)
@@ -90,9 +101,10 @@ function ProjectReportPageInner() {
 
   const generatedOn = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 
+  const layout = reportLayoutByKey(branding?.reg38_report_layout)
   const useBrandedReport = branding?.feature_branded_reports || false
   const hideInspectIQ = branding?.feature_hide_inspectiq_brand || false
-  const accentColor = useBrandedReport && branding?.accent_color ? branding.accent_color : null
+  const accentColor = (useBrandedReport && branding?.accent_color) || layout.defaultAccent
   const logoUrl = useBrandedReport && branding?.logo_url ? branding.logo_url : null
 
   if (loading) {
@@ -141,28 +153,30 @@ function ProjectReportPageInner() {
           </button>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm print:rounded-none print:border-0 print:shadow-none">
-          <div
-            className="flex items-start justify-between border-b pb-4"
-            style={{ borderColor: accentColor || undefined }}
-          >
-            <div>
-              <h1 className="text-2xl font-semibold" style={{ color: accentColor || undefined }}>
-                {project.name}
-              </h1>
-              {project.company_name && <p className="mt-1 text-sm text-slate-500">{project.company_name}</p>}
-              {project.description && <p className="mt-2 text-sm text-slate-600">{project.description}</p>}
-            </div>
-            {logoUrl ? (
-              <img src={logoUrl} alt={project.company_name || 'Company logo'} className="h-12 w-auto object-contain" />
-            ) : !hideInspectIQ ? (
-              <img src="/icon-192.png" alt="InspectIQ" className="h-12 w-12 rounded-lg" />
-            ) : null}
-          </div>
+        <div
+          className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm print:rounded-none print:border-0 print:shadow-none"
+          style={{ fontFamily: layout.bodyFont }}
+        >
+          <ReportCover
+            layout={layout}
+            kicker="Defect &amp; NCR Report"
+            title={project.name}
+            meta={[
+              ...(project.company_name ? [{ label: 'Company', value: project.company_name }] : []),
+              ...(project.project_address ? [{ label: 'Address', value: project.project_address }] : []),
+              { label: 'Date', value: generatedOn },
+              { label: 'Items', value: `${defects.length}${selectedIds ? ' selected' : ''}` },
+            ]}
+            coverPhotoUrl={project.cover_photo_url}
+            logoUrl={logoUrl || (!hideInspectIQ ? '/icon-192.png' : null)}
+            logoAlt={logoUrl ? project.company_name || 'Company logo' : 'InspectIQ'}
+            accentColor={accentColor}
+          />
 
-          <p className="mt-3 text-xs text-slate-400">Report generated {generatedOn}</p>
+          <div className="p-8">
+          {project.description && <p className="text-sm text-slate-600">{project.description}</p>}
 
-          <div className="mt-4 flex flex-wrap gap-3">
+          <div className={project.description ? 'mt-4 flex flex-wrap gap-3' : 'flex flex-wrap gap-3'}>
             {Object.entries(counts).map(([status, count]) => (
               <div key={status} className="rounded-md bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700 print:bg-white print:border print:border-slate-300">
                 {STATUS_LABEL[status] || status}: {count}
@@ -187,7 +201,9 @@ function ProjectReportPageInner() {
                         Item {i + 1}
                         {d.ncr_number && ` · ${d.ncr_number}`}
                       </p>
-                      <p className="text-base font-semibold text-slate-900">{d.title || 'Untitled'}</p>
+                      <p className="text-base font-semibold" style={{ fontFamily: layout.headingFont, color: layout.ink }}>
+                        {d.title || 'Untitled'}
+                      </p>
                       {d.location && <p className="text-sm text-slate-500">{d.location}</p>}
                     </div>
                     <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 print:border print:border-slate-400">
@@ -227,6 +243,7 @@ function ProjectReportPageInner() {
               Generated with InspectIQ
             </p>
           )}
+          </div>
         </div>
       </div>
 

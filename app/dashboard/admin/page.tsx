@@ -392,7 +392,7 @@ export default function PlatformAdminPage() {
         </div>
 
         {(tab === 'Users' || tab === 'Projects') && (
-          <input
+          <input spellCheck="true"
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -412,7 +412,7 @@ export default function PlatformAdminPage() {
               >
                 {editingUser === u.id ? (
                   <div className="space-y-2">
-                    <input
+                    <input spellCheck="true"
                       value={u.full_name || ''}
                       onChange={(e) =>
                         setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, full_name: e.target.value } : x)))
@@ -420,7 +420,7 @@ export default function PlatformAdminPage() {
                       placeholder="Full name"
                       className="w-full rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                     />
-                    <input
+                    <input spellCheck="true"
                       value={u.company_name || ''}
                       onChange={(e) =>
                         setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, company_name: e.target.value } : x)))
@@ -582,7 +582,7 @@ export default function PlatformAdminPage() {
               <div key={p.id} className="rounded-lg border border-deck-border bg-deck-surface p-3">
                 {editingProject === p.id ? (
                   <div className="space-y-2">
-                    <input
+                    <input spellCheck="true"
                       value={p.name}
                       onChange={(e) =>
                         setProjects((prev) => prev.map((x) => (x.id === p.id ? { ...x, name: e.target.value } : x)))
@@ -590,7 +590,7 @@ export default function PlatformAdminPage() {
                       placeholder="Project name"
                       className="w-full rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                     />
-                    <textarea
+                    <textarea spellCheck="true"
                       value={p.description || ''}
                       onChange={(e) =>
                         setProjects((prev) => prev.map((x) => (x.id === p.id ? { ...x, description: e.target.value } : x)))
@@ -599,7 +599,7 @@ export default function PlatformAdminPage() {
                       rows={2}
                       className="w-full rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                     />
-                    <textarea
+                    <textarea spellCheck="true"
                       value={p.standards || ''}
                       onChange={(e) =>
                         setProjects((prev) => prev.map((x) => (x.id === p.id ? { ...x, standards: e.target.value } : x)))
@@ -608,7 +608,7 @@ export default function PlatformAdminPage() {
                       rows={2}
                       className="w-full rounded-md border border-deck-border px-2 py-1 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                     />
-                    <input
+                    <input spellCheck="true"
                       value={p.company_name || ''}
                       onChange={(e) =>
                         setProjects((prev) => prev.map((x) => (x.id === p.id ? { ...x, company_name: e.target.value } : x)))

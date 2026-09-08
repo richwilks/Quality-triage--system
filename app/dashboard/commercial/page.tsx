@@ -744,7 +744,7 @@ export default function CommercialPage() {
 
           <div className="mt-3 border-t border-deck-border pt-3">
             <label className="block text-xs font-medium text-deck-body">Label</label>
-            <input
+            <input spellCheck="true"
               type="text"
               value={overheadLabel}
               onChange={(e) => setOverheadLabel(e.target.value)}
@@ -1101,7 +1101,7 @@ export default function CommercialPage() {
           </select>
 
           <label className="mt-2 block text-xs font-medium text-deck-body">Label</label>
-          <input
+          <input spellCheck="true"
             type="text"
             value={entryLabel}
             onChange={(e) => setEntryLabel(e.target.value)}
@@ -1140,7 +1140,7 @@ export default function CommercialPage() {
           </p>
 
           <label className="mt-2 block text-xs font-medium text-deck-body">Category (optional)</label>
-          <input
+          <input spellCheck="true"
             type="text"
             value={entryCategory}
             onChange={(e) => setEntryCategory(e.target.value)}

@@ -318,7 +318,7 @@ function NewInspectionInner() {
                   </select>
                 )}
 
-                <input
+                <input spellCheck="true"
                   type="text"
                   value={row.location}
                   onChange={(e) => updateRow(row.key, { location: e.target.value })}
@@ -338,7 +338,7 @@ function NewInspectionInner() {
                   ))}
                 </select>
 
-                <textarea
+                <textarea spellCheck="true"
                   value={row.observation}
                   onChange={(e) => updateRow(row.key, { observation: e.target.value })}
                   placeholder="Observation"
@@ -346,7 +346,7 @@ function NewInspectionInner() {
                   className="mt-2 w-full rounded-md border border-deck-border bg-deck-surface px-2.5 py-1.5 text-sm text-deck-text placeholder:text-deck-mute"
                 />
 
-                <textarea
+                <textarea spellCheck="true"
                   value={row.recommendation}
                   onChange={(e) => updateRow(row.key, { recommendation: e.target.value })}
                   placeholder="Recommendation (optional)"

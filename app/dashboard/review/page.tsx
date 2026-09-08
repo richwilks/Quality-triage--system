@@ -485,7 +485,7 @@ export default function ReviewDefectsPage() {
                 <label className="mt-2 block text-sm font-medium text-deck-body">
                   Description
                 </label>
-                <textarea
+                <textarea spellCheck="true"
                   value={editedText[defect.id] || ''}
                   onChange={(e) =>
                     setEditedText((prev) => ({ ...prev, [defect.id]: e.target.value }))
@@ -568,7 +568,7 @@ export default function ReviewDefectsPage() {
                       Non-conformance - root cause and corrective action required for closure
                     </p>
                     <label className="mt-2 block text-xs font-medium text-deck-body">Root cause</label>
-                    <textarea
+                    <textarea spellCheck="true"
                       value={rootCause[defect.id] || ''}
                       onChange={(e) => setRootCause((prev) => ({ ...prev, [defect.id]: e.target.value }))}
                       rows={2}
@@ -576,7 +576,7 @@ export default function ReviewDefectsPage() {
                       className="mt-1 w-full rounded-md border border-deck-border px-2 py-1.5 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
                     />
                     <label className="mt-2 block text-xs font-medium text-deck-body">Corrective action</label>
-                    <textarea
+                    <textarea spellCheck="true"
                       value={correctiveAction[defect.id] || ''}
                       onChange={(e) => setCorrectiveAction((prev) => ({ ...prev, [defect.id]: e.target.value }))}
                       rows={2}
@@ -632,7 +632,7 @@ export default function ReviewDefectsPage() {
                     <label className="block text-sm font-medium text-deck-body">
                       Why is this not a defect?
                     </label>
-                    <textarea
+                    <textarea spellCheck="true"
                       value={rejectReason}
                       onChange={(e) => setRejectReason(e.target.value)}
                       rows={2}

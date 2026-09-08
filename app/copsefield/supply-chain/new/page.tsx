@@ -74,7 +74,7 @@ export default function NewContractorPage() {
         </select>
 
         <label className="mt-3 block text-sm font-medium text-deck-body">Name</label>
-        <input
+        <input spellCheck="true"
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -83,7 +83,7 @@ export default function NewContractorPage() {
         />
 
         <label className="mt-3 block text-sm font-medium text-deck-body">Trade</label>
-        <input
+        <input spellCheck="true"
           type="text"
           value={trade}
           onChange={(e) => setTrade(e.target.value)}
@@ -92,7 +92,7 @@ export default function NewContractorPage() {
         />
 
         <label className="mt-3 block text-sm font-medium text-deck-body">Contact name</label>
-        <input
+        <input spellCheck="true"
           type="text"
           value={contactName}
           onChange={(e) => setContactName(e.target.value)}
@@ -121,7 +121,7 @@ export default function NewContractorPage() {
         </div>
 
         <label className="mt-3 block text-sm font-medium text-deck-body">Address</label>
-        <input
+        <input spellCheck="true"
           type="text"
           value={address}
           onChange={(e) => setAddress(e.target.value)}
@@ -129,7 +129,7 @@ export default function NewContractorPage() {
         />
 
         <label className="mt-3 block text-sm font-medium text-deck-body">Notes (optional)</label>
-        <textarea
+        <textarea spellCheck="true"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={3}

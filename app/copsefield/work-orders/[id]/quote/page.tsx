@@ -322,7 +322,7 @@ export default function WorkOrderQuotePage() {
               {rows.map((r) => (
                 <tr key={r.key} className="border-b border-deck-border bg-deck-surface last:border-b-0">
                   <td className="px-3 py-1.5">
-                    <input
+                    <input spellCheck="true"
                       type="text"
                       value={r.description}
                       onChange={(e) => updateRow(r.key, { description: e.target.value })}
@@ -387,7 +387,7 @@ export default function WorkOrderQuotePage() {
         </div>
 
         <label className="mt-4 block text-sm font-medium text-deck-body">Notes / terms (optional)</label>
-        <textarea
+        <textarea spellCheck="true"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={3}

@@ -7,6 +7,7 @@ import PageHeader from '@/components/PageHeader'
 import FileDropZone from '@/components/FileDropZone'
 import { REPORT_LAYOUTS } from '@/lib/reg38ReportLayouts'
 import { REPORT_TEMPLATE_TOKENS } from '@/lib/reg38ReportTemplate'
+import InstallAppButton from '@/components/InstallAppButton'
 
 type ProjectRow = { id: string; name: string; status: string }
 type UserRow = { id: string; full_name: string | null; email: string | null; account_type: string | null }
@@ -321,6 +322,10 @@ export default function CompanyAdminPage() {
         <PageHeader title="Company Admin" />
         <p className="mt-1 text-sm text-deck-dim">{companyName} - projects and users.</p>
 
+        <div className="mt-6">
+          <InstallAppButton />
+        </div>
+
         <div className="mt-6 flex gap-3">
           <Link
             href="/dashboard/projects/new"
@@ -438,7 +443,7 @@ export default function CompanyAdminPage() {
                 onChange={(e) => setAccentColor(e.target.value)}
                 className="h-9 w-9 rounded-md border border-deck-border"
               />
-              <input
+              <input spellCheck="true"
                 type="text"
                 value={accentColor}
                 onChange={(e) => setAccentColor(e.target.value)}
@@ -491,8 +496,9 @@ export default function CompanyAdminPage() {
         <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
           <p className="text-sm font-medium text-deck-body">Report layout &amp; design</p>
           <p className="mt-1 text-xs text-deck-dim">
-            Controls the cover page, contents page, and visual style of generated Regulation 38 / Golden Thread
-            reports (separate from the content structure above). Pick one of our layouts, or upload your own.
+            Controls the cover page and visual style of every PDF report your company generates - the defect/NCR
+            report, the as-built dimension record, and Regulation 38 / Golden Thread reports (separate from the
+            content structure above). Pick one of our layouts, or upload your own.
           </p>
 
           <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
+import InstallAppButton from '@/components/InstallAppButton'
 
 export default function AccountPage() {
   const supabase = createClient()
@@ -88,7 +89,7 @@ const [isCompanyAdmin, setIsCompanyAdmin] = useState(false)
           <p className="mt-1 rounded-md bg-deck-raised px-3 py-2 text-sm text-deck-dim">{email}</p>
 
           <label className="mt-4 block text-sm font-medium text-deck-body">Full name</label>
-          <input
+          <input spellCheck="true"
             type="text"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
@@ -96,7 +97,7 @@ const [isCompanyAdmin, setIsCompanyAdmin] = useState(false)
           />
 
           <label className="mt-4 block text-sm font-medium text-deck-body">Company</label>
-          <input
+          <input spellCheck="true"
             type="text"
             value={companyName}
             onChange={(e) => setCompanyName(e.target.value)}
@@ -118,6 +119,11 @@ const [isCompanyAdmin, setIsCompanyAdmin] = useState(false)
           </button>
           {saved && <p className="mt-2 text-sm text-emerald-700">Saved.</p>}
         </div>
+
+        <div className="mt-4">
+          <InstallAppButton />
+        </div>
+
         {isCompanyAdmin && (
           <a
             href="/dashboard/admin/company"

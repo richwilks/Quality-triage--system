@@ -1,7 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { QUICK_LINKS } from '@/lib/quickLinks'
 
 const TABS = [
   {
@@ -58,28 +60,80 @@ const TABS = [
 
 export default function BottomNav() {
   const pathname = usePathname()
+  const [quickAccessOpen, setQuickAccessOpen] = useState(false)
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-deck-border bg-deck-bg pb-[env(safe-area-inset-bottom)] lg:hidden print:hidden">
-      <div className="mx-auto flex max-w-md items-stretch justify-between px-2">
-        {TABS.map((tab) => {
-          const active = pathname === tab.href
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              className="flex flex-1 flex-col items-center gap-0.5 py-2"
+    <>
+      {quickAccessOpen && (
+        <div
+          onClick={() => setQuickAccessOpen(false)}
+          className="fixed inset-0 z-40 bg-black/30 lg:hidden print:hidden"
+        />
+      )}
+
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-deck-border bg-deck-bg pb-[env(safe-area-inset-bottom)] lg:hidden print:hidden">
+        <div className="mx-auto max-w-md">
+          <div
+            className="overflow-hidden transition-[max-height] duration-300 ease-out"
+            style={{ maxHeight: quickAccessOpen ? '60vh' : '0px' }}
+          >
+            <div className="max-h-[60vh] overflow-y-auto border-b border-deck-border">
+              {QUICK_LINKS.map((link, i) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setQuickAccessOpen(false)}
+                  className={`flex items-center justify-between px-4 py-3 text-[13.5px] font-medium ${
+                    link.primary ? 'bg-deck-raised text-deck-accent' : 'bg-deck-surface text-deck-text'
+                  } ${i < QUICK_LINKS.length - 1 ? 'border-b border-deck-border' : ''}`}
+                >
+                  <span>{link.label}</span>
+                  <span className="font-mono text-deck-mute">→</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <button
+            onClick={() => setQuickAccessOpen((prev) => !prev)}
+            className="flex w-full items-center justify-center gap-1.5 border-b border-deck-border py-1.5"
+          >
+            <span className="font-mono text-[10px] uppercase tracking-wide text-deck-mute">Quick Access</span>
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              className={`text-deck-mute transition-transform ${quickAccessOpen ? 'rotate-180' : ''}`}
             >
-              {tab.icon(active)}
-              <span
-                className={`text-[10px] font-medium ${active ? 'text-deck-accent' : 'text-deck-dim'}`}
-              >
-                {tab.label}
-              </span>
-            </Link>
-          )
-        })}
-      </div>
-    </nav>
+              <path d="M6 15l6-6 6 6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+
+          <div className="flex items-stretch justify-between px-2">
+            {TABS.map((tab) => {
+              const active = pathname === tab.href
+              return (
+                <Link
+                  key={tab.href}
+                  href={tab.href}
+                  onClick={() => setQuickAccessOpen(false)}
+                  className="flex flex-1 flex-col items-center gap-0.5 py-2"
+                >
+                  {tab.icon(active)}
+                  <span
+                    className={`text-[10px] font-medium ${active ? 'text-deck-accent' : 'text-deck-dim'}`}
+                  >
+                    {tab.label}
+                  </span>
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      </nav>
+    </>
   )
 }

@@ -128,7 +128,7 @@ export default function SignupPage() {
 
             <div>
               <label className="block text-sm font-medium text-slate-700">Full name</label>
-              <input
+              <input spellCheck="true"
                 type="text"
                 required
                 value={fullName}
@@ -139,7 +139,7 @@ export default function SignupPage() {
 
             <div>
               <label className="block text-sm font-medium text-slate-700">Employer</label>
-              <input
+              <input spellCheck="true"
                 type="text"
                 required
                 value={companyName}

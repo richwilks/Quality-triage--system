@@ -71,7 +71,7 @@ export default function NewProjectPage() {
         <div className="mt-6 space-y-4 rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
           <div>
             <label className="block text-sm font-medium text-deck-body">Project name</label>
-            <input
+            <input spellCheck="true"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -82,7 +82,7 @@ export default function NewProjectPage() {
 
           <div>
             <label className="block text-sm font-medium text-deck-body">Description</label>
-            <textarea
+            <textarea spellCheck="true"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
@@ -93,7 +93,7 @@ export default function NewProjectPage() {
 
           <div>
             <label className="block text-sm font-medium text-deck-body">Applicable standards</label>
-            <textarea
+            <textarea spellCheck="true"
               value={standards}
               onChange={(e) => setStandards(e.target.value)}
               rows={3}
