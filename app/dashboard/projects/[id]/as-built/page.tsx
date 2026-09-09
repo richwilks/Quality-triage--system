@@ -25,6 +25,7 @@ type Drawing = { id: string; name: string | null; image_url: string | null }
 type Measurement = {
   id: string
   drawing_id: string
+  room_id: string | null
   x1: number
   y1: number
   x2: number
@@ -34,9 +35,41 @@ type Measurement = {
   created_by: string | null
   created_at: string
 }
+type Room = { id: string; name: string; drawing_id: string; record_image_url: string | null }
 
 function formatMm(valueMm: number): string {
   return valueMm >= 1000 ? `${(valueMm / 1000).toFixed(valueMm % 1000 === 0 ? 0 : 2)} m` : `${valueMm} mm`
+}
+
+function MeasurementTable({
+  measurements,
+  recordedByName,
+}: {
+  measurements: Measurement[]
+  recordedByName: Record<string, string>
+}) {
+  return (
+    <table className="mt-2 w-full border-collapse text-left text-sm">
+      <thead>
+        <tr className="border-b border-slate-200 text-xs text-slate-500">
+          <th className="py-1.5 pr-3 font-medium">Value</th>
+          <th className="py-1.5 pr-3 font-medium">Label</th>
+          <th className="py-1.5 pr-3 font-medium">Recorded by</th>
+          <th className="py-1.5 font-medium">Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        {measurements.map((m) => (
+          <tr key={m.id} className="border-b border-slate-100 last:border-b-0">
+            <td className="py-1.5 pr-3 font-medium text-slate-900">{formatMm(m.value_mm)}</td>
+            <td className="py-1.5 pr-3 text-slate-600">{m.label || '—'}</td>
+            <td className="py-1.5 pr-3 text-slate-600">{m.created_by ? recordedByName[m.created_by] || '—' : '—'}</td>
+            <td className="py-1.5 text-slate-600">{new Date(m.created_at).toLocaleDateString('en-GB')}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
 }
 
 export default function AsBuiltRecordPage() {
@@ -48,6 +81,7 @@ export default function AsBuiltRecordPage() {
   const [branding, setBranding] = useState<Branding | null>(null)
   const [drawings, setDrawings] = useState<Drawing[]>([])
   const [measurements, setMeasurements] = useState<Measurement[]>([])
+  const [rooms, setRooms] = useState<Room[]>([])
   const [recordedByName, setRecordedByName] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
 
@@ -83,10 +117,16 @@ export default function AsBuiltRecordPage() {
     if (drawingIds.length > 0) {
       const { data: measurementData } = await supabase
         .from('as_built_measurements')
-        .select('id, drawing_id, x1, y1, x2, y2, value_mm, label, created_by, created_at')
+        .select('id, drawing_id, room_id, x1, y1, x2, y2, value_mm, label, created_by, created_at')
         .in('drawing_id', drawingIds)
         .order('created_at', { ascending: true })
       setMeasurements(measurementData || [])
+
+      const { data: roomData } = await supabase
+        .from('rooms')
+        .select('id, name, drawing_id, record_image_url')
+        .in('drawing_id', drawingIds)
+      setRooms(roomData || [])
 
       const userIds = Array.from(new Set((measurementData || []).map((m) => m.created_by).filter(Boolean))) as string[]
       if (userIds.length > 0) {
@@ -184,100 +224,102 @@ export default function AsBuiltRecordPage() {
           <div className="mt-8 space-y-10">
             {drawingsWithMeasurements.map((d) => {
               const drawingMeasurements = measurements.filter((m) => m.drawing_id === d.id)
+              const drawingRooms = rooms.filter((r) => r.drawing_id === d.id && r.record_image_url)
+              const roomIdsWithRecord = new Set(drawingRooms.map((r) => r.id))
+              const unassignedMeasurements = drawingMeasurements.filter(
+                (m) => !m.room_id || !roomIdsWithRecord.has(m.room_id)
+              )
+
               return (
                 <div key={d.id} className="break-inside-avoid">
                   <h2 className="text-base font-semibold" style={{ fontFamily: layout.headingFont, color: accentColor }}>
                     {d.name || 'Untitled drawing'}
                   </h2>
 
-                  <div className="relative mt-2 w-full overflow-hidden rounded-md border border-slate-200">
-                    {d.image_url ? (
-                      <img src={d.image_url} alt={d.name || 'Drawing'} className="w-full" />
-                    ) : (
-                      <div
-                        className="aspect-square w-full"
-                        style={{
-                          backgroundColor: '#F5F3EE',
-                          backgroundImage:
-                            'linear-gradient(to right, rgba(36,34,29,0.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(36,34,29,0.08) 1px, transparent 1px)',
-                          backgroundSize: '10% 10%',
-                        }}
-                      />
-                    )}
-                      <svg
-                        className="pointer-events-none absolute inset-0 h-full w-full"
-                        preserveAspectRatio="none"
-                        viewBox="0 0 100 100"
-                      >
-                        {drawingMeasurements.map((m) => {
-                          const dx = m.x2 - m.x1
-                          const dy = m.y2 - m.y1
-                          const len = Math.hypot(dx, dy) || 1
-                          const perpX = (-dy / len) * 1.4
-                          const perpY = (dx / len) * 1.4
-                          return (
-                            <g key={m.id}>
-                              <line x1={m.x1} y1={m.y1} x2={m.x2} y2={m.y2} stroke="#1F565C" strokeWidth={0.35} />
-                              <line
-                                x1={m.x1 - perpX}
-                                y1={m.y1 - perpY}
-                                x2={m.x1 + perpX}
-                                y2={m.y1 + perpY}
-                                stroke="#1F565C"
-                                strokeWidth={0.35}
-                              />
-                              <line
-                                x1={m.x2 - perpX}
-                                y1={m.y2 - perpY}
-                                x2={m.x2 + perpX}
-                                y2={m.y2 + perpY}
-                                stroke="#1F565C"
-                                strokeWidth={0.35}
-                              />
-                            </g>
-                          )
-                        })}
-                      </svg>
-                      {drawingMeasurements.map((m) => (
-                        <div
-                          key={m.id}
-                          style={{
-                            position: 'absolute',
-                            left: `${(m.x1 + m.x2) / 2}%`,
-                            top: `${(m.y1 + m.y2) / 2}%`,
-                            transform: 'translate(-50%, -50%)',
-                          }}
-                          className="whitespace-nowrap rounded bg-white/90 px-1.5 py-0.5 text-[10px] font-medium text-slate-900 shadow print:border print:border-slate-300"
-                        >
-                          {formatMm(m.value_mm)}
+                  {drawingRooms.map((r) => {
+                    const roomMeasurements = drawingMeasurements.filter((m) => m.room_id === r.id)
+                    return (
+                      <div key={r.id} className="mt-4 break-inside-avoid">
+                        <h3 className="text-sm font-semibold text-slate-700">{r.name}</h3>
+                        <div className="mt-1 overflow-hidden rounded-md border border-slate-200">
+                          <img src={r.record_image_url!} alt={r.name} className="w-full" />
                         </div>
-                      ))}
-                    </div>
+                        <MeasurementTable measurements={roomMeasurements} recordedByName={recordedByName} />
+                      </div>
+                    )
+                  })}
 
-                  <table className="mt-3 w-full border-collapse text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-slate-200 text-xs text-slate-500">
-                        <th className="py-1.5 pr-3 font-medium">Value</th>
-                        <th className="py-1.5 pr-3 font-medium">Label</th>
-                        <th className="py-1.5 pr-3 font-medium">Recorded by</th>
-                        <th className="py-1.5 font-medium">Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {drawingMeasurements.map((m) => (
-                        <tr key={m.id} className="border-b border-slate-100 last:border-b-0">
-                          <td className="py-1.5 pr-3 font-medium text-slate-900">{formatMm(m.value_mm)}</td>
-                          <td className="py-1.5 pr-3 text-slate-600">{m.label || '—'}</td>
-                          <td className="py-1.5 pr-3 text-slate-600">
-                            {m.created_by ? recordedByName[m.created_by] || '—' : '—'}
-                          </td>
-                          <td className="py-1.5 text-slate-600">
-                            {new Date(m.created_at).toLocaleDateString('en-GB')}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  {unassignedMeasurements.length > 0 && (
+                    <div className="mt-4 break-inside-avoid">
+                      {drawingRooms.length > 0 && (
+                        <h3 className="text-sm font-semibold text-slate-700">Other dimensions on this drawing</h3>
+                      )}
+                      <div className="relative mt-1 w-full overflow-hidden rounded-md border border-slate-200">
+                        {d.image_url ? (
+                          <img src={d.image_url} alt={d.name || 'Drawing'} className="w-full" />
+                        ) : (
+                          <div
+                            className="aspect-square w-full"
+                            style={{
+                              backgroundColor: '#F5F3EE',
+                              backgroundImage:
+                                'linear-gradient(to right, rgba(36,34,29,0.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(36,34,29,0.08) 1px, transparent 1px)',
+                              backgroundSize: '10% 10%',
+                            }}
+                          />
+                        )}
+                        <svg
+                          className="pointer-events-none absolute inset-0 h-full w-full"
+                          preserveAspectRatio="none"
+                          viewBox="0 0 100 100"
+                        >
+                          {unassignedMeasurements.map((m) => {
+                            const dx = m.x2 - m.x1
+                            const dy = m.y2 - m.y1
+                            const len = Math.hypot(dx, dy) || 1
+                            const perpX = (-dy / len) * 1.4
+                            const perpY = (dx / len) * 1.4
+                            return (
+                              <g key={m.id}>
+                                <line x1={m.x1} y1={m.y1} x2={m.x2} y2={m.y2} stroke="#1F565C" strokeWidth={0.35} />
+                                <line
+                                  x1={m.x1 - perpX}
+                                  y1={m.y1 - perpY}
+                                  x2={m.x1 + perpX}
+                                  y2={m.y1 + perpY}
+                                  stroke="#1F565C"
+                                  strokeWidth={0.35}
+                                />
+                                <line
+                                  x1={m.x2 - perpX}
+                                  y1={m.y2 - perpY}
+                                  x2={m.x2 + perpX}
+                                  y2={m.y2 + perpY}
+                                  stroke="#1F565C"
+                                  strokeWidth={0.35}
+                                />
+                              </g>
+                            )
+                          })}
+                        </svg>
+                        {unassignedMeasurements.map((m) => (
+                          <div
+                            key={m.id}
+                            style={{
+                              position: 'absolute',
+                              left: `${(m.x1 + m.x2) / 2}%`,
+                              top: `${(m.y1 + m.y2) / 2}%`,
+                              transform: 'translate(-50%, -50%)',
+                            }}
+                            className="whitespace-nowrap rounded bg-white/90 px-1.5 py-0.5 text-[10px] font-medium text-slate-900 shadow print:border print:border-slate-300"
+                          >
+                            {formatMm(m.value_mm)}
+                          </div>
+                        ))}
+                      </div>
+                      <MeasurementTable measurements={unassignedMeasurements} recordedByName={recordedByName} />
+                    </div>
+                  )}
                 </div>
               )
             })}

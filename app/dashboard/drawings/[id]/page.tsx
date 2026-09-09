@@ -10,7 +10,14 @@ import OpeningElevationEditor from '@/components/OpeningElevationEditor'
 
 type Drawing = { id: string; name: string | null; image_url: string | null; project_id: string }
 type Point = { x: number; y: number }
-type Room = { id: string; name: string; pin_x: number; pin_y: number; boundary: Point[] | null }
+type Room = {
+  id: string
+  name: string
+  pin_x: number
+  pin_y: number
+  boundary: Point[] | null
+  record_image_url: string | null
+}
 type Measurement = {
   id: string
   x1: number
@@ -19,6 +26,7 @@ type Measurement = {
   y2: number
   value_mm: number
   label: string | null
+  room_id: string | null
   created_by: string | null
   created_at: string
 }
@@ -41,6 +49,25 @@ function centroid(points: Point[]): Point {
   const n = points.length
   const sum = points.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 })
   return { x: sum.x / n, y: sum.y / n }
+}
+
+// A room's boundary padded out into a crop rectangle (all in 0-100 percent
+// of the full drawing), shared by the live zoomed room view and the stored
+// record-image generator so both frame a room the same way.
+function roomCropBox(boundary: Point[]) {
+  const xs = boundary.map((p) => p.x)
+  const ys = boundary.map((p) => p.y)
+  const minX = Math.min(...xs)
+  const maxX = Math.max(...xs)
+  const minY = Math.min(...ys)
+  const maxY = Math.max(...ys)
+  const padX = Math.max(6, (maxX - minX) * 0.25)
+  const padY = Math.max(6, (maxY - minY) * 0.25)
+  const x0 = Math.max(0, minX - padX)
+  const x1 = Math.max(Math.min(100, maxX + padX), x0 + 8)
+  const y0 = Math.max(0, minY - padY)
+  const y1 = Math.max(Math.min(100, maxY + padY), y0 + 8)
+  return { x0, y0, x1, y1 }
 }
 
 function formatMm(valueMm: number): string {
@@ -137,13 +164,13 @@ export default function DrawingPinPage() {
 
     const { data: roomData } = await supabase
       .from('rooms')
-      .select('id, name, pin_x, pin_y, boundary')
+      .select('id, name, pin_x, pin_y, boundary, record_image_url')
       .eq('drawing_id', drawingId)
     setRooms(roomData || [])
 
     const { data: measurementData } = await supabase
       .from('as_built_measurements')
-      .select('id, x1, y1, x2, y2, value_mm, label, created_by, created_at')
+      .select('id, x1, y1, x2, y2, value_mm, label, room_id, created_by, created_at')
       .eq('drawing_id', drawingId)
       .order('created_at', { ascending: true })
     setMeasurements(measurementData || [])
@@ -408,20 +435,126 @@ export default function DrawingPinPage() {
   // unlike the abstract overlay lines elsewhere in this file which can take
   // that shortcut because they're not photographic content.
   function roomSnapshotCrop(boundary: Point[]) {
-    const xs = boundary.map((p) => p.x)
-    const ys = boundary.map((p) => p.y)
-    const minX = Math.min(...xs)
-    const maxX = Math.max(...xs)
-    const minY = Math.min(...ys)
-    const maxY = Math.max(...ys)
-    const padX = Math.max(6, (maxX - minX) * 0.25)
-    const padY = Math.max(6, (maxY - minY) * 0.25)
-    const boxW = Math.max(Math.min(100, maxX + padX) - Math.max(0, minX - padX), 8)
-    const boxH = Math.max(Math.min(100, maxY + padY) - Math.max(0, minY - padY), 8)
-    const cx = Math.max(0, minX - padX) + boxW / 2
-    const cy = Math.max(0, minY - padY) + boxH / 2
+    const { x0, y0, x1, y1 } = roomCropBox(boundary)
+    const boxW = x1 - x0
+    const boxH = y1 - y0
+    const cx = x0 + boxW / 2
+    const cy = y0 + boxH / 2
     const scale = 100 / Math.max(boxW, boxH)
     return { left: 50 - cx * scale, top: 50 - cy * scale, width: scale * 100, height: scale * 100 }
+  }
+
+  // Renders a room's crop (boundary + as-built measurement lines/labels,
+  // matching the on-screen style) to a PNG and stores it as that room's
+  // as-built record image - an immutable-looking snapshot for the report,
+  // regenerated on every save so it always reflects the latest dimensions.
+  async function generateRoomRecordImage(room: Room, roomMeasurements: Measurement[]) {
+    if (!room.boundary || room.boundary.length < 3) return
+
+    const { x0, y0, x1, y1 } = roomCropBox(room.boundary)
+    const boxW = x1 - x0
+    const boxH = y1 - y0
+
+    const naturalW = hasImage && imgRef.current ? imgRef.current.naturalWidth : 1000
+    const naturalH = hasImage && imgRef.current ? imgRef.current.naturalHeight : 1000
+    if (!naturalW || !naturalH) return
+
+    const srcX = (x0 / 100) * naturalW
+    const srcY = (y0 / 100) * naturalH
+    const srcW = (boxW / 100) * naturalW
+    const srcH = (boxH / 100) * naturalH
+
+    const OUT_W = 900
+    const OUT_H = Math.max(1, Math.round(OUT_W * (srcH / srcW)))
+    const canvas = document.createElement('canvas')
+    canvas.width = OUT_W
+    canvas.height = OUT_H
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    if (hasImage && imgRef.current) {
+      ctx.drawImage(imgRef.current, srcX, srcY, srcW, srcH, 0, 0, OUT_W, OUT_H)
+    } else {
+      ctx.fillStyle = '#F5F3EE'
+      ctx.fillRect(0, 0, OUT_W, OUT_H)
+    }
+
+    const toX = (pct: number) => (((pct / 100) * naturalW - srcX) / srcW) * OUT_W
+    const toY = (pct: number) => (((pct / 100) * naturalH - srcY) / srcH) * OUT_H
+
+    ctx.beginPath()
+    room.boundary.forEach((p, i) => {
+      const cx = toX(p.x)
+      const cy = toY(p.y)
+      if (i === 0) ctx.moveTo(cx, cy)
+      else ctx.lineTo(cx, cy)
+    })
+    ctx.closePath()
+    ctx.fillStyle = 'rgba(20,184,166,0.15)'
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(13,148,136,0.9)'
+    ctx.lineWidth = 2
+    ctx.stroke()
+
+    ctx.font = '600 20px sans-serif'
+    ctx.textBaseline = 'middle'
+    ctx.textAlign = 'center'
+    for (const m of roomMeasurements) {
+      const x1c = toX(m.x1)
+      const y1c = toY(m.y1)
+      const x2c = toX(m.x2)
+      const y2c = toY(m.y2)
+      const dx = x2c - x1c
+      const dy = y2c - y1c
+      const len = Math.hypot(dx, dy) || 1
+      const perpX = (-dy / len) * 10
+      const perpY = (dx / len) * 10
+
+      ctx.strokeStyle = '#1F565C'
+      ctx.lineWidth = 2.5
+      ctx.beginPath()
+      ctx.moveTo(x1c, y1c)
+      ctx.lineTo(x2c, y2c)
+      ctx.stroke()
+      ctx.beginPath()
+      ctx.moveTo(x1c - perpX, y1c - perpY)
+      ctx.lineTo(x1c + perpX, y1c + perpY)
+      ctx.stroke()
+      ctx.beginPath()
+      ctx.moveTo(x2c - perpX, y2c - perpY)
+      ctx.lineTo(x2c + perpX, y2c + perpY)
+      ctx.stroke()
+
+      const label = `${formatMm(m.value_mm)}${m.label ? ' — ' + m.label : ''}`
+      const midX = (x1c + x2c) / 2
+      const midY = (y1c + y2c) / 2
+      const textWidth = ctx.measureText(label).width
+      ctx.fillStyle = 'rgba(255,255,255,0.92)'
+      ctx.fillRect(midX - textWidth / 2 - 6, midY - 14, textWidth + 12, 28)
+      ctx.fillStyle = '#24221D'
+      ctx.fillText(label, midX, midY)
+    }
+
+    const blob: Blob | null = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png', 0.92))
+    if (!blob) return
+
+    const path = `${drawingId}/${room.id}.png`
+    const { error: uploadError } = await supabase.storage
+      .from('room-as-built-records')
+      .upload(path, blob, { upsert: true, contentType: 'image/png' })
+    if (uploadError) return
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from('room-as-built-records').getPublicUrl(path)
+
+    await supabase
+      .from('rooms')
+      .update({
+        record_image_url: `${publicUrl}?t=${Date.now()}`,
+        record_image_updated_at: new Date().toISOString(),
+      })
+      .eq('id', room.id)
   }
 
   function openRoomSnapshot(roomId: string) {
@@ -573,6 +706,11 @@ export default function DrawingPinPage() {
     } = await supabase.auth.getUser()
 
     const valueMm = dimensionUnit === 'm' ? numeric * 1000 : numeric
+    const midX = (dimensionPoints[0].x + dimensionPoints[1].x) / 2
+    const midY = (dimensionPoints[0].y + dimensionPoints[1].y) / 2
+    const targetRoom = snapshotRoomId
+      ? rooms.find((r) => r.id === snapshotRoomId) || null
+      : findContainingOrNearestRoom(midX, midY)
 
     const { error } = await supabase.from('as_built_measurements').insert({
       drawing_id: drawingId,
@@ -582,6 +720,7 @@ export default function DrawingPinPage() {
       y2: dimensionPoints[1].y,
       value_mm: valueMm,
       label: dimensionLabel.trim() || null,
+      room_id: targetRoom?.id || null,
       created_by: user?.id,
     })
 
@@ -589,6 +728,14 @@ export default function DrawingPinPage() {
       setDimensionError(`Could not save: ${error.message}`)
       setSavingDimension(false)
       return
+    }
+
+    if (targetRoom) {
+      const { data: roomMeasurements } = await supabase
+        .from('as_built_measurements')
+        .select('id, x1, y1, x2, y2, value_mm, label, room_id, created_by, created_at')
+        .eq('room_id', targetRoom.id)
+      await generateRoomRecordImage(targetRoom, roomMeasurements || [])
     }
 
     setDimensionPoints([])
@@ -600,7 +747,24 @@ export default function DrawingPinPage() {
 
   async function handleDeleteMeasurement(id: string) {
     setDeletingMeasurementId(id)
+    const deleted = measurements.find((m) => m.id === id)
     const { error } = await supabase.from('as_built_measurements').delete().eq('id', id)
+
+    if (!error && deleted?.room_id) {
+      const room = rooms.find((r) => r.id === deleted.room_id)
+      if (room) {
+        const { data: remaining } = await supabase
+          .from('as_built_measurements')
+          .select('id, x1, y1, x2, y2, value_mm, label, room_id, created_by, created_at')
+          .eq('room_id', room.id)
+        if (remaining && remaining.length > 0) {
+          await generateRoomRecordImage(room, remaining)
+        } else {
+          await supabase.from('rooms').update({ record_image_url: null }).eq('id', room.id)
+        }
+      }
+    }
+
     if (!error) load()
     setDeletingMeasurementId(null)
   }
@@ -919,9 +1083,14 @@ export default function DrawingPinPage() {
                       key={r.id}
                       onClick={() => openRoomSnapshot(r.id)}
                       disabled={!r.boundary || r.boundary.length < 3}
-                      className="block w-full rounded-md px-2 py-1.5 text-left text-sm font-medium text-deck-text hover:bg-deck-raised disabled:opacity-40"
+                      className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm font-medium text-deck-text hover:bg-deck-raised disabled:opacity-40"
                     >
-                      {r.name}
+                      <span className="min-w-0 truncate">{r.name}</span>
+                      {r.record_image_url && (
+                        <span className="shrink-0 rounded-full bg-deck-success/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-deck-success">
+                          Measured
+                        </span>
+                      )}
                     </button>
                   ))}
                   {filteredRooms.length === 0 && (
