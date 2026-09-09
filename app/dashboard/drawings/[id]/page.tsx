@@ -112,6 +112,7 @@ export default function DrawingPinPage() {
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null)
   const [snapshotRoomId, setSnapshotRoomId] = useState<string | null>(null)
   const [imgAspect, setImgAspect] = useState(1)
+  const [roomFilter, setRoomFilter] = useState('')
   const [boundaryError, setBoundaryError] = useState<string | null>(null)
   const [deletingRoom, setDeletingRoom] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -437,6 +438,7 @@ export default function DrawingPinPage() {
     setDrawPoints([])
     setSelectedRoomId(roomId)
     setSnapshotRoomId(roomId)
+    setRoomFilter('')
   }
 
   function closeRoomSnapshot() {
@@ -829,6 +831,9 @@ export default function DrawingPinPage() {
   const snapshotRoom = snapshotRoomId ? rooms.find((r) => r.id === snapshotRoomId) : null
   const snapshotCrop =
     snapshotRoom?.boundary && snapshotRoom.boundary.length >= 3 ? roomSnapshotCrop(snapshotRoom.boundary) : null
+  const filteredRooms = roomFilter.trim()
+    ? rooms.filter((r) => r.name.toLowerCase().includes(roomFilter.trim().toLowerCase()))
+    : rooms
 
   return (
     <div className="min-h-screen px-4 py-8">
@@ -894,21 +899,36 @@ export default function DrawingPinPage() {
                 </button>
               </div>
             ) : (
-              <>
-                <p className="text-xs font-semibold uppercase tracking-wide text-deck-dim">Rooms</p>
-                <div className="mt-1 flex flex-wrap gap-2">
-                  {rooms.map((r) => (
+              <div className="rounded-lg border border-deck-border bg-deck-surface p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-deck-dim">
+                  Rooms {rooms.length > 1 ? `(${rooms.length})` : ''}
+                </p>
+                {rooms.length > 6 && (
+                  <input
+                    type="text"
+                    spellCheck="false"
+                    value={roomFilter}
+                    onChange={(e) => setRoomFilter(e.target.value)}
+                    placeholder="Search rooms..."
+                    className="mt-2 w-full rounded-md border border-deck-border px-3 py-1.5 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
+                  />
+                )}
+                <div className="mt-2 max-h-64 space-y-0.5 overflow-y-auto">
+                  {filteredRooms.map((r) => (
                     <button
                       key={r.id}
                       onClick={() => openRoomSnapshot(r.id)}
                       disabled={!r.boundary || r.boundary.length < 3}
-                      className="rounded-full border border-deck-border bg-deck-surface px-3 py-1 text-xs font-medium text-deck-text disabled:opacity-40"
+                      className="block w-full rounded-md px-2 py-1.5 text-left text-sm font-medium text-deck-text hover:bg-deck-raised disabled:opacity-40"
                     >
                       {r.name}
                     </button>
                   ))}
+                  {filteredRooms.length === 0 && (
+                    <p className="px-2 py-1.5 text-sm text-deck-dim">No rooms match "{roomFilter}".</p>
+                  )}
                 </div>
-              </>
+              </div>
             )}
           </div>
         )}
