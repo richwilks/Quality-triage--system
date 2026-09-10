@@ -833,51 +833,61 @@ export default function DrawingPinPage() {
   return (
     <div className="min-h-screen px-4 py-8">
       <div className="mx-auto max-w-md">
-        <div className="flex items-center justify-between gap-3">
-          <PageHeader title={drawing.name || 'Drawing'} />
-          <div className="flex shrink-0 flex-col items-end gap-1">
+        <PageHeader title={drawing.name || 'Drawing'} />
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={toggleDimensionMode}
+            className={`whitespace-nowrap rounded-md border px-3 py-1.5 text-xs font-medium ${
+              dimensionMode
+                ? 'border-deck-accent bg-deck-accent text-white'
+                : 'border-deck-border bg-deck-surface text-deck-text hover:bg-deck-raised'
+            }`}
+          >
+            {dimensionMode ? 'Cancel dimension' : 'Record as-built dimension'}
+          </button>
+          <button
+            onClick={toggleInsertMode}
+            className={`whitespace-nowrap rounded-md border px-3 py-1.5 text-xs font-medium ${
+              insertMode
+                ? 'border-deck-accent bg-deck-accent text-white'
+                : 'border-deck-border bg-deck-surface text-deck-text hover:bg-deck-raised'
+            }`}
+          >
+            {insertMode ? 'Cancel shape' : 'Insert door / window'}
+          </button>
+          {isAdmin && (
             <button
-              onClick={toggleDimensionMode}
-              className="whitespace-nowrap text-xs font-medium text-deck-text underline"
+              onClick={() => {
+                setMarkingMode((m) => !m)
+                // No photo to auto-detect walls from on a blank plan - manual
+                // corner-tapping is the only option there.
+                setManualMode(!hasImage)
+                setFreehandMode(false)
+                setIsFreehandDrawing(false)
+                setFreehandRawPoints([])
+                setPin(null)
+                setDrawPoints([])
+                // A blank plan's first room is usually the one location the
+                // plan was named for - prefill it so the name isn't typed
+                // twice, but still editable for a plan with several rooms.
+                setRoomName(!hasImage && rooms.length === 0 ? drawing?.name || '' : '')
+                setSelectedRoomId(null)
+                setSnapshotRoomId(null)
+                setBoundaryError(null)
+                setDimensionMode(false)
+                setDimensionPoints([])
+                setInsertMode(false)
+                resetOpeningForm()
+              }}
+              className={`whitespace-nowrap rounded-md border px-3 py-1.5 text-xs font-medium ${
+                markingMode
+                  ? 'border-deck-accent bg-deck-accent text-white'
+                  : 'border-deck-border bg-deck-surface text-deck-text hover:bg-deck-raised'
+              }`}
             >
-              {dimensionMode ? 'Cancel dimension' : 'Record as-built dimension'}
+              {markingMode ? 'Cancel marking' : hasImage ? 'Mark rooms' : 'Draw room outline'}
             </button>
-            <button
-              onClick={toggleInsertMode}
-              className="whitespace-nowrap text-xs font-medium text-deck-text underline"
-            >
-              {insertMode ? 'Cancel shape' : 'Insert door / window'}
-            </button>
-            {isAdmin && (
-              <button
-                onClick={() => {
-                  setMarkingMode((m) => !m)
-                  // No photo to auto-detect walls from on a blank plan - manual
-                  // corner-tapping is the only option there.
-                  setManualMode(!hasImage)
-                  setFreehandMode(false)
-                  setIsFreehandDrawing(false)
-                  setFreehandRawPoints([])
-                  setPin(null)
-                  setDrawPoints([])
-                  // A blank plan's first room is usually the one location the
-                  // plan was named for - prefill it so the name isn't typed
-                  // twice, but still editable for a plan with several rooms.
-                  setRoomName(!hasImage && rooms.length === 0 ? drawing?.name || '' : '')
-                  setSelectedRoomId(null)
-                  setSnapshotRoomId(null)
-                  setBoundaryError(null)
-                  setDimensionMode(false)
-                  setDimensionPoints([])
-                  setInsertMode(false)
-                  resetOpeningForm()
-                }}
-                className="whitespace-nowrap text-xs font-medium text-deck-text underline"
-              >
-                {markingMode ? 'Cancel marking' : hasImage ? 'Mark rooms' : 'Draw room outline'}
-              </button>
-            )}
-          </div>
+          )}
         </div>
         {rooms.length > 0 && (
           <div className="mt-3">
