@@ -910,3 +910,90 @@ Respond with ONLY a JSON array of ${articles.length} numbers, one per headline i
     return articles.map(() => 0)
   }
 }
+
+// --- Homeowner snagging report ---
+
+export type SnagInput = { id: string; description: string; location: string | null }
+export type SnagConclusion = { snagId: string; point: string }
+export type SnagReportResult = { summary: string; conclusions: SnagConclusion[] }
+
+// Homeowners log snags in their own words with no technical classification -
+// this reviews the whole list together (not one snag at a time) so it can
+// notice things a single-item view can't: the same issue recurring in
+// several rooms, several snags that point at one root cause, or a pattern
+// that suggests a wider quality-control problem rather than isolated
+// one-offs. It is deliberately framed as organising the homeowner's own
+// observations, not as an independent expert inspection - it has only the
+// homeowner's text to go on, no site visit, so it must never claim
+// certainty it doesn't have.
+export async function generateSnagReportConclusions(
+  propertyDescription: string | null,
+  snags: SnagInput[]
+): Promise<SnagReportResult & { usage: { input_tokens: number; output_tokens: number } | null }> {
+  const snagsText = snags
+    .map((s, i) => `${i + 1}. [id: ${s.id}]${s.location ? ` (${s.location})` : ''} ${s.description}`)
+    .join('\n')
+
+  const prompt = `A homeowner has logged a list of "snags" - things about their newly built or renovated home they are not happy with, in their own words. They are not a construction expert, so entries may be informal, vague about cause, or just describe a symptom ("the floor feels uneven here", "paint looks patchy", "door doesn't close properly"). Your job is to review the FULL list together and help them build a stronger case to raise with their builder/developer/warranty provider.
+
+${propertyDescription ? `Property: ${propertyDescription}\n\n` : ''}Logged snags:
+${snagsText || 'No snags logged.'}
+
+Look across all the snags together (not one at a time) for:
+- The same issue appearing in multiple locations, which suggests a systemic cause rather than an isolated defect
+- Several snags that plausibly share one root cause (e.g. multiple doors/windows not closing properly could point to structural settlement or frame installation)
+- Anything that, worded as logged, could be understated - describe plainly why it's worth taking seriously
+- Groupings worth presenting together in a case to a builder, rather than as a long unconnected list
+
+Be honest about the limits of what you can conclude: you only have the homeowner's written descriptions, not a site inspection, photos, or measurements. Never assert a specific technical cause as fact - phrase conclusions as "this pattern suggests..." or "worth having a [trade] check whether...", not as a diagnosis. Do not invent detail the homeowner didn't give you. If nothing meaningfully connects the snags, say so rather than manufacturing a pattern.
+
+Respond with ONLY this JSON, no markdown, no other text:
+{
+  "summary": "one plain-English paragraph summarising the overall picture across all snags, for a homeowner audience",
+  "conclusions": [
+    { "snagId": "the [id: ...] value from the snag list above that this point most relates to (or the first one, if it concerns a group)", "point": "one specific, evidence-grounded observation or recommendation that strengthens the case for this snag or group" }
+  ]
+}`
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': process.env.ANTHROPIC_API_KEY as string,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-5',
+      max_tokens: 2500,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  })
+
+  const data = await response.json()
+  const textBlock = data.content?.find((c: any) => c.type === 'text')
+  const raw = textBlock?.text || '{}'
+  const cleaned = raw.replace(/```json|```/g, '').trim()
+
+  const usage = data.usage
+    ? { input_tokens: data.usage.input_tokens || 0, output_tokens: data.usage.output_tokens || 0 }
+    : null
+
+  try {
+    const parsed = JSON.parse(cleaned)
+    const conclusions: SnagConclusion[] = Array.isArray(parsed.conclusions)
+      ? parsed.conclusions
+          .filter((c: any) => typeof c?.point === 'string' && c.point.trim())
+          .map((c: any) => ({
+            snagId: typeof c.snagId === 'string' ? c.snagId : '',
+            point: c.point.trim(),
+          }))
+      : []
+    return {
+      summary: typeof parsed.summary === 'string' ? parsed.summary : '',
+      conclusions,
+      usage,
+    }
+  } catch {
+    return { summary: '', conclusions: [], usage }
+  }
+}

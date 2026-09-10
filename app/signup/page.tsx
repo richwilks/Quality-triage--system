@@ -206,6 +206,12 @@ export default function SignupPage() {
               Sign in
             </Link>
           </p>
+          <p className="mt-2 text-center text-sm text-slate-500">
+            Homeowner snagging your own house?{' '}
+            <Link href="/signup/homeowner" className="font-medium text-brand-primary">
+              Sign up here instead
+            </Link>
+          </p>
         </div>
       </div>
     </div>
