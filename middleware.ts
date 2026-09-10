@@ -66,7 +66,12 @@ export async function middleware(request: NextRequest) {
   const isPublicMarketingPage =
     process.env.MARKETING_SITE_PUBLIC === 'true' && request.nextUrl.pathname.startsWith('/site')
 
-  if (!user && !isAuthPage && !isResetPage && !isPublicMarketingPage) {
+  // Snag My Home's own landing page is public unconditionally (unlike /site) -
+  // it's a separate, cut-down marketing page for homeowners, not part of the
+  // gated InspectIQ marketing site.
+  const isSnagLandingPage = request.nextUrl.pathname.startsWith('/snag-my-home')
+
+  if (!user && !isAuthPage && !isResetPage && !isPublicMarketingPage && !isSnagLandingPage) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     url.searchParams.set('redirect', request.nextUrl.pathname)
