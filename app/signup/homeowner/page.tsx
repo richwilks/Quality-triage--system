@@ -28,6 +28,22 @@ export default function HomeownerSignupPage() {
 
     setLoading(true)
 
+    const { data: taken, error: checkError } = await supabase.rpc('home_address_taken', {
+      check_address: homeAddress,
+    })
+    if (checkError) {
+      setLoading(false)
+      setError('Could not verify this address right now. Please try again.')
+      return
+    }
+    if (taken) {
+      setLoading(false)
+      setError(
+        'An account already exists for this address. Snag My Home allows one account per property - if this is your home, sign in instead.'
+      )
+      return
+    }
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -115,6 +131,9 @@ export default function HomeownerSignupPage() {
                 placeholder="The property you're snagging"
                 className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-primary focus:outline-none"
               />
+              <p className="mt-1 text-xs text-slate-400">
+                One account per property - this can't be changed later, and each address can only be used once.
+              </p>
             </div>
 
             <div>

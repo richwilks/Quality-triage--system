@@ -43,6 +43,11 @@ export default function SnagMyHomeTermsPage() {
               multiple properties or on behalf of clients. Professional users of the InspectIQ platform should use an
               InspectIQ company account instead.
             </p>
+            <p className="mt-2">
+              Each account is limited to one property: the address you register at sign-up cannot be changed
+              afterwards, and the same address cannot be used to register a second account. If you move home or need
+              to snag a different property, you'll need to contact us or create a separate account for that address.
+            </p>
           </section>
 
           <section>
