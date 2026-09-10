@@ -28,8 +28,14 @@ export async function POST() {
       return NextResponse.json({ error: 'No snags logged yet.' }, { status: 400 })
     }
 
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('home_address')
+      .eq('id', user.id)
+      .single()
+
     const { summary, conclusions, usage } = await generateSnagReportConclusions(
-      null,
+      profile?.home_address || null,
       snags.map((s) => ({ id: s.id, description: s.description, location: s.location }))
     )
 

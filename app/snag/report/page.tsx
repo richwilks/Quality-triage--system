@@ -19,6 +19,7 @@ export default function SnagReportPage() {
 
   const [snags, setSnags] = useState<Snag[]>([])
   const [report, setReport] = useState<Report | null>(null)
+  const [homeAddress, setHomeAddress] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -29,12 +30,19 @@ export default function SnagReportPage() {
 
   async function load() {
     setLoading(true)
-    const [{ data: snagData }, { data: reportData }] = await Promise.all([
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    const [{ data: snagData }, { data: reportData }, { data: profileData }] = await Promise.all([
       supabase.from('snags').select('id, description, location').order('created_at', { ascending: true }),
       supabase.from('snag_reports').select('*').order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      user
+        ? supabase.from('profiles').select('home_address').eq('id', user.id).single()
+        : Promise.resolve({ data: null }),
     ])
     setSnags(snagData || [])
     setReport(reportData || null)
+    setHomeAddress(profileData?.home_address || null)
     setLoading(false)
   }
 
@@ -75,6 +83,7 @@ export default function SnagReportPage() {
       </div>
 
       <h1 className="mt-4 text-2xl font-semibold text-brand-ink">Snag report</h1>
+      {homeAddress && <p className="mt-1 text-sm font-medium text-slate-700">{homeAddress}</p>}
       <p className="mt-1 text-sm text-slate-500">
         {snags.length} snag{snags.length === 1 ? '' : 's'} logged. This report is a summary of what you've recorded,
         with points to help you raise it with your builder, developer, or warranty provider.

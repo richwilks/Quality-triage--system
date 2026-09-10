@@ -8,8 +8,11 @@ export default function HomeownerSignupPage() {
   const supabase = createClient()
 
   const [fullName, setFullName] = useState('')
+  const [homeAddress, setHomeAddress] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmOwnHome, setConfirmOwnHome] = useState(false)
+  const [agreeTerms, setAgreeTerms] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -17,6 +20,12 @@ export default function HomeownerSignupPage() {
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+
+    if (!confirmOwnHome || !agreeTerms) {
+      setError('Please confirm both boxes below before creating your account.')
+      return
+    }
+
     setLoading(true)
 
     const { error } = await supabase.auth.signUp({
@@ -27,6 +36,7 @@ export default function HomeownerSignupPage() {
           full_name: fullName,
           role: 'partner',
           account_type: 'homeowner',
+          home_address: homeAddress,
         },
       },
     })
@@ -77,7 +87,9 @@ export default function HomeownerSignupPage() {
 
         <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
           <h2 className="text-xl font-semibold text-slate-900">Create your account</h2>
-          <p className="mt-1 text-sm text-slate-500">Just your name, email, and a password - that's it.</p>
+          <p className="mt-1 text-sm text-slate-500">
+            For homeowners only, snagging their own home - not for contractors, agents, or other professionals.
+          </p>
 
           <form onSubmit={handleSignup} className="mt-6 space-y-4">
             <div>
@@ -88,6 +100,19 @@ export default function HomeownerSignupPage() {
                 required
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
+                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-primary focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Your home address</label>
+              <input
+                spellCheck="true"
+                type="text"
+                required
+                value={homeAddress}
+                onChange={(e) => setHomeAddress(e.target.value)}
+                placeholder="The property you're snagging"
                 className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-primary focus:outline-none"
               />
             </div>
@@ -113,6 +138,38 @@ export default function HomeownerSignupPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-primary focus:outline-none"
               />
+            </div>
+
+            <div className="space-y-2 border-t border-slate-100 pt-4">
+              <label className="flex items-start gap-2 text-sm text-slate-600">
+                <input
+                  type="checkbox"
+                  required
+                  checked={confirmOwnHome}
+                  onChange={(e) => setConfirmOwnHome(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>
+                  I confirm this is my own home, and I'm not a builder, contractor, agent, surveyor, or other
+                  property professional signing up on behalf of a client.
+                </span>
+              </label>
+              <label className="flex items-start gap-2 text-sm text-slate-600">
+                <input
+                  type="checkbox"
+                  required
+                  checked={agreeTerms}
+                  onChange={(e) => setAgreeTerms(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>
+                  I agree to the{' '}
+                  <Link href="/snag-my-home/terms" target="_blank" className="font-medium text-brand-primary">
+                    Terms &amp; Conditions
+                  </Link>
+                  .
+                </span>
+              </label>
             </div>
 
             {error && <p className="text-sm text-red-600">{error}</p>}
