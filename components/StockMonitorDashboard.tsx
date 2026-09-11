@@ -33,6 +33,10 @@ export default function StockMonitorDashboard() {
   const [watchlistLoading, setWatchlistLoading] = useState(true)
   const [bulkAddLoading, setBulkAddLoading] = useState(false)
   const [bulkAddMessage, setBulkAddMessage] = useState<string | null>(null)
+  // Manually toggled by the "+" tab; also forced open once loaded with an
+  // empty watchlist, so a first-time visitor lands somewhere that can
+  // actually add a ticker rather than a chart with nothing to show.
+  const [showManageWatchlist, setShowManageWatchlist] = useState(false)
 
   const [history, setHistory] = useState<HistoryWithTuning | null>(null)
   const [historyError, setHistoryError] = useState<string | null>(null)
@@ -274,118 +278,136 @@ export default function StockMonitorDashboard() {
     }
   }
 
+  const manageWatchlistOpen = showManageWatchlist || (!watchlistLoading && tickers.length === 0)
+
   return (
     <div className="min-h-screen px-4 py-8">
-      <div className="mx-auto max-w-2xl">
-        <PageHeader title="Stock Signal Monitor" />
-
-        <span className="mt-2 inline-block rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
-          In development
-        </span>
-
-        <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-wide text-deck-dim">Watchlist</p>
-
-          {watchlistLoading ? (
-            <p className="mt-2 text-sm text-deck-dim">Loading...</p>
-          ) : (
-            <div className="mt-2 flex flex-wrap gap-2">
-              {tickers.map((ticker) => (
-                <button
-                  key={ticker}
-                  onClick={() => setActiveTicker(ticker)}
-                  className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-sm font-semibold ${
-                    activeTicker === ticker
-                      ? 'bg-deck-accent text-white'
-                      : 'bg-deck-raised text-deck-text hover:bg-deck-border'
-                  }`}
-                >
-                  {ticker}
-                  <span
-                    role="button"
-                    aria-label={
-                      confidenceModeByTicker[ticker]
-                        ? `Turn off combined confidence mode for ${ticker}`
-                        : `Turn on combined confidence mode for ${ticker}`
-                    }
-                    title="Combined confidence mode: alert once when multiple indicators agree, instead of on every single one"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleToggleConfidenceMode(ticker)
-                    }}
-                    className={`rounded-full px-1 text-xs ${confidenceModeByTicker[ticker] ? 'opacity-100' : 'opacity-40 hover:opacity-70'}`}
-                  >
-                    ★
-                  </span>
-                  <span
-                    role="button"
-                    aria-label={`Remove ${ticker}`}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleRemoveTicker(ticker)
-                    }}
-                    className="rounded-full px-1 text-xs opacity-70 hover:opacity-100"
-                  >
-                    ×
-                  </span>
-                </button>
-              ))}
-              {tickers.length === 0 && <p className="text-sm text-deck-dim">No tickers yet - add one below.</p>}
-            </div>
-          )}
-          {tickers.length > 0 && (
-            <p className="mt-2 text-xs text-deck-dim">
-              ★ toggles combined confidence mode for that ticker - see &ldquo;Which signal to trust&rdquo; below.
-            </p>
-          )}
-
-          <form onSubmit={handleAddTicker} className="mt-4 flex gap-2">
-            <input
-              value={newTicker}
-              onChange={(e) => setNewTicker(e.target.value)}
-              placeholder="Add ticker (e.g. AAPL)"
-              maxLength={10}
-              className="flex-1 rounded-md border border-deck-border px-3 py-2 text-sm uppercase bg-deck-surface text-deck-text placeholder:text-deck-mute placeholder:normal-case"
-            />
-            <button
-              type="submit"
-              className="rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-              disabled={!newTicker.trim()}
-            >
-              Add
-            </button>
-          </form>
-          {watchlistError && <p className="mt-2 text-sm text-red-600">{watchlistError}</p>}
-
-          <details className="mt-4 border-t border-deck-border pt-4">
-            <summary className="cursor-pointer text-xs font-medium text-deck-accent">Bulk-add a preset list</summary>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <button
-                onClick={() => handleBulkAdd(NASDAQ100_TOP20_PLUS_QQQ, 'Nasdaq-100 top 20 + QQQ')}
-                disabled={bulkAddLoading}
-                className="rounded-md bg-deck-raised px-3 py-2 text-sm font-medium text-deck-text hover:bg-deck-border disabled:opacity-50"
-              >
-                {bulkAddLoading ? 'Adding...' : 'Add Nasdaq-100 top 20 + QQQ'}
-              </button>
-              <button
-                onClick={() => handleBulkAdd(FTSE100_TOP20, 'FTSE 100 top 20')}
-                disabled={bulkAddLoading}
-                className="rounded-md bg-deck-raised px-3 py-2 text-sm font-medium text-deck-text hover:bg-deck-border disabled:opacity-50"
-              >
-                {bulkAddLoading ? 'Adding...' : 'Add FTSE 100 top 20'}
-              </button>
-            </div>
-            <p className="mt-1 text-xs text-deck-dim">
-              The 20 largest companies by market cap in each index (from general knowledge, not a live-verified
-              current ranking) - the Nasdaq-100 list also includes QQQ, the ETF that tracks it.
-            </p>
-            {bulkAddMessage && <p className="mt-1 text-xs text-deck-dim">{bulkAddMessage}</p>}
-          </details>
+      <div className="mx-auto max-w-6xl">
+        <div className="flex flex-wrap items-center gap-2">
+          <PageHeader title="Stock Signal Monitor" />
+          <span className="inline-block rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
+            In development
+          </span>
         </div>
 
-        <RecentTriggers />
+        {/* Ticker tabs - the primary way to switch what the chart below is
+            showing, so it lives right above it rather than buried in a
+            separate "Watchlist" card you'd have to scroll back up to. */}
+        <div className="mt-4 flex items-end gap-1 overflow-x-auto border-b border-deck-border">
+          {watchlistLoading ? (
+            <p className="pb-2 text-sm text-deck-dim">Loading...</p>
+          ) : (
+            tickers.map((ticker) => (
+              <button
+                key={ticker}
+                onClick={() => setActiveTicker(ticker)}
+                className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-sm font-semibold transition-colors ${
+                  activeTicker === ticker
+                    ? 'border-deck-accent text-deck-text'
+                    : 'border-transparent text-deck-dim hover:text-deck-text'
+                }`}
+              >
+                {ticker}
+                <span
+                  role="button"
+                  aria-label={
+                    confidenceModeByTicker[ticker]
+                      ? `Turn off combined confidence mode for ${ticker}`
+                      : `Turn on combined confidence mode for ${ticker}`
+                  }
+                  title="Combined confidence mode: alert once when multiple indicators agree, instead of on every single one"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleToggleConfidenceMode(ticker)
+                  }}
+                  className={`rounded-full px-1 text-xs ${confidenceModeByTicker[ticker] ? 'opacity-100' : 'opacity-40 hover:opacity-70'}`}
+                >
+                  ★
+                </span>
+                <span
+                  role="button"
+                  aria-label={`Remove ${ticker}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleRemoveTicker(ticker)
+                  }}
+                  className="rounded-full px-1 text-xs opacity-70 hover:opacity-100"
+                >
+                  ×
+                </span>
+              </button>
+            ))
+          )}
+          <button
+            type="button"
+            onClick={() => setShowManageWatchlist((v) => !v)}
+            aria-label="Add or manage tickers"
+            aria-pressed={manageWatchlistOpen}
+            className={`shrink-0 rounded-t-md px-3 py-2 text-sm font-semibold ${
+              manageWatchlistOpen ? 'text-deck-accent' : 'text-deck-dim hover:text-deck-text'
+            }`}
+          >
+            + Add
+          </button>
+        </div>
 
-        <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
+        {manageWatchlistOpen && (
+          <div className="mt-3 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
+            <form onSubmit={handleAddTicker} className="flex gap-2">
+              <input
+                value={newTicker}
+                onChange={(e) => setNewTicker(e.target.value)}
+                placeholder="Add ticker (e.g. AAPL)"
+                maxLength={10}
+                autoFocus={tickers.length === 0}
+                className="flex-1 rounded-md border border-deck-border px-3 py-2 text-sm uppercase bg-deck-surface text-deck-text placeholder:text-deck-mute placeholder:normal-case"
+              />
+              <button
+                type="submit"
+                className="rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                disabled={!newTicker.trim()}
+              >
+                Add
+              </button>
+            </form>
+            {watchlistError && <p className="mt-2 text-sm text-red-600">{watchlistError}</p>}
+            {tickers.length > 0 && (
+              <p className="mt-2 text-xs text-deck-dim">
+                ★ on a tab toggles combined confidence mode for that ticker - see &ldquo;Which signal to trust&rdquo;
+                below the chart.
+              </p>
+            )}
+
+            <details className="mt-4 border-t border-deck-border pt-4">
+              <summary className="cursor-pointer text-xs font-medium text-deck-accent">Bulk-add a preset list</summary>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  onClick={() => handleBulkAdd(NASDAQ100_TOP20_PLUS_QQQ, 'Nasdaq-100 top 20 + QQQ')}
+                  disabled={bulkAddLoading}
+                  className="rounded-md bg-deck-raised px-3 py-2 text-sm font-medium text-deck-text hover:bg-deck-border disabled:opacity-50"
+                >
+                  {bulkAddLoading ? 'Adding...' : 'Add Nasdaq-100 top 20 + QQQ'}
+                </button>
+                <button
+                  onClick={() => handleBulkAdd(FTSE100_TOP20, 'FTSE 100 top 20')}
+                  disabled={bulkAddLoading}
+                  className="rounded-md bg-deck-raised px-3 py-2 text-sm font-medium text-deck-text hover:bg-deck-border disabled:opacity-50"
+                >
+                  {bulkAddLoading ? 'Adding...' : 'Add FTSE 100 top 20'}
+                </button>
+              </div>
+              <p className="mt-1 text-xs text-deck-dim">
+                The 20 largest companies by market cap in each index (from general knowledge, not a live-verified
+                current ranking) - the Nasdaq-100 list also includes QQQ, the ETF that tracks it.
+              </p>
+              {bulkAddMessage && <p className="mt-1 text-xs text-deck-dim">{bulkAddMessage}</p>}
+            </details>
+          </div>
+        )}
+
+        {/* Chart is the centerpiece - full-width, directly under the tabs,
+            not competing with anything else for the first screenful. */}
+        <div className="mt-4 rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
           {!activeTicker && <p className="text-sm text-deck-dim">Add a ticker above to see its chart.</p>}
 
           {activeTicker && (
@@ -412,113 +434,134 @@ export default function StockMonitorDashboard() {
           )}
         </div>
 
-        <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-wide text-deck-dim">Which signal to trust</p>
-          <p className="mt-1 text-sm text-deck-text">
-            SMA crossover and MACD only fire when ADX confirms a real trend - RSI deliberately doesn&apos;t use that
-            filter, since it&apos;s a mean-reversion signal built for choppy, range-bound conditions instead.
-          </p>
-          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-deck-text">
-            <li>
-              <strong>Trending market</strong> (SMA/MACD have fired): trust MACD for early timing, SMA crossover for
-              slower but higher-conviction confirmation - and discount RSI, since it can stay &quot;overbought&quot;
-              or &quot;oversold&quot; for a long stretch during a strong trend.
-            </li>
-            <li>
-              <strong>Flat/ranging market</strong> (no SMA/MACD signal - ADX is low): RSI is the one actually built
-              for this condition, not irrelevant.
-            </li>
-            <li>News sentiment is the newest, least-proven signal here - weight it lowest in any conflict.</li>
-          </ul>
+        {/* Below the chart: alerts/recent activity get their own column on a
+            wide screen so they're visible alongside the chart instead of
+            requiring a scroll past it every time; reference material
+            (indicator trust guide, news) sits in the main column since it's
+            read less often than either. */}
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="space-y-6 lg:col-span-2">
+            <div className="rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
+              <details>
+                <summary className="cursor-pointer text-xs font-medium uppercase tracking-wide text-deck-accent">
+                  Which signal to trust
+                </summary>
+                <p className="mt-2 text-sm text-deck-text">
+                  SMA crossover and MACD only fire when ADX confirms a real trend - RSI deliberately doesn&apos;t use
+                  that filter, since it&apos;s a mean-reversion signal built for choppy, range-bound conditions
+                  instead.
+                </p>
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-deck-text">
+                  <li>
+                    <strong>Trending market</strong> (SMA/MACD have fired): trust MACD for early timing, SMA crossover
+                    for slower but higher-conviction confirmation - and discount RSI, since it can stay
+                    &quot;overbought&quot; or &quot;oversold&quot; for a long stretch during a strong trend.
+                  </li>
+                  <li>
+                    <strong>Flat/ranging market</strong> (no SMA/MACD signal - ADX is low): RSI is the one actually
+                    built for this condition, not irrelevant.
+                  </li>
+                  <li>News sentiment is the newest, least-proven signal here - weight it lowest in any conflict.</li>
+                </ul>
 
-          <p className="mt-4 text-xs font-medium uppercase tracking-wide text-deck-dim">Combined confidence mode</p>
-          <p className="mt-1 text-sm text-deck-text">
-            Toggle the ★ next to a ticker above to switch it into combined-confidence alerting instead of the
-            per-indicator alerts described above. In this mode you also get two more indicators: <strong>Bollinger
-            Bands</strong> (a 20-day price average ± 2 standard deviations - a close outside either band is a
-            mean-reversion signal, the same regime RSI is built for) and a <strong>volume spike</strong> check (daily
-            volume more than double its 20-day average) - volume alone never sets a direction, it only adds
-            confidence when it agrees with something that already has.
-          </p>
-          <p className="mt-1 text-sm text-deck-text">
-            Each of SMA crossover, RSI, MACD, and Bollinger Bands that agree on the same day and direction adds 1
-            point; a same-day volume spike adds 0.5. A ticker in this mode only alerts once that combined score
-            reaches 2 (fixed in code, not adjustable from this page) - replacing every per-indicator alert on that
-            ticker with a single notification listing exactly which indicators contributed, so you see the full
-            reasoning rather than just a verdict.
-          </p>
-          <p className="mt-2 text-xs text-deck-dim">
-            This is a decision-support tool based on historical price patterns - not a prediction system, and
-            shouldn&apos;t be the sole basis for investment decisions.
-          </p>
-        </div>
-
-        {activeTicker && <NewsFeed ticker={activeTicker} />}
-
-        <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
-          <details>
-            <summary className="cursor-pointer text-xs font-medium uppercase tracking-wide text-deck-accent">
-              Alerts
-            </summary>
-            <p className="mt-2 text-xs text-deck-dim">
-              Get emailed or pushed to this device the moment a BUY/SELL signal fires - based on an intraday,
-              still-forming price that can occasionally reverse by market close. That reversal still gets recorded
-              in the ledger below, not hidden - it's part of tracking how accurate the signals really are.
-            </p>
-            <p className="mt-1 text-xs text-deck-dim">
-              <strong>Confirmed</strong> alerts mean a signal actually fired and (for technical signals) opened or
-              closed a position in the ledger. <strong>Watch</strong> alerts are an earlier heads-up - RSI closing in
-              on its threshold, or the 50/200-day SMAs converging toward a cross - before anything is confirmed;
-              they never affect the ledger, and recent news headlines are attached when available for context.
-            </p>
-
-            {alertsLoading ? (
-              <p className="mt-3 text-sm text-deck-dim">Loading...</p>
-            ) : (
-              <>
-                <form onSubmit={handleSaveAlertSettings} className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <input
-                    type="email"
-                    value={alertEmail}
-                    onChange={(e) => setAlertEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    className="flex-1 rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
-                  />
-                  <label className="flex items-center gap-1.5 whitespace-nowrap text-sm text-deck-text">
-                    <input
-                      type="checkbox"
-                      checked={alertEmailEnabled}
-                      onChange={(e) => setAlertEmailEnabled(e.target.checked)}
-                    />
-                    Email me
-                  </label>
-                  <button
-                    type="submit"
-                    className="rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-white"
-                  >
-                    Save
-                  </button>
-                </form>
-
-                <div className="mt-3">
-                  <button
-                    onClick={pushEnabled ? handleDisablePush : handleEnablePush}
-                    className="rounded-md bg-deck-raised px-3 py-2 text-sm font-medium text-deck-text hover:bg-deck-border"
-                  >
-                    {pushEnabled ? 'Disable push on this device' : 'Enable push on this device'}
-                  </button>
-                </div>
-
+                <p className="mt-4 text-xs font-medium uppercase tracking-wide text-deck-dim">Combined confidence mode</p>
+                <p className="mt-1 text-sm text-deck-text">
+                  Toggle the ★ on a tab above to switch it into combined-confidence alerting instead of the
+                  per-indicator alerts described above. In this mode you also get two more indicators:{' '}
+                  <strong>Bollinger Bands</strong> (a 20-day price average ± 2 standard deviations - a close outside
+                  either band is a mean-reversion signal, the same regime RSI is built for) and a{' '}
+                  <strong>volume spike</strong> check (daily volume more than double its 20-day average) - volume
+                  alone never sets a direction, it only adds confidence when it agrees with something that already
+                  has.
+                </p>
+                <p className="mt-1 text-sm text-deck-text">
+                  Each of SMA crossover, RSI, MACD, and Bollinger Bands that agree on the same day and direction adds
+                  1 point; a same-day volume spike adds 0.5. A ticker in this mode only alerts once that combined
+                  score reaches 2 (fixed in code, not adjustable from this page) - replacing every per-indicator
+                  alert on that ticker with a single notification listing exactly which indicators contributed, so
+                  you see the full reasoning rather than just a verdict.
+                </p>
                 <p className="mt-2 text-xs text-deck-dim">
-                  On iPhone: add this page to your Home Screen first (Share → Add to Home Screen), then open it from
-                  there before tapping Enable - Safari tabs can't receive push notifications directly.
+                  This is a decision-support tool based on historical price patterns - not a prediction system, and
+                  shouldn&apos;t be the sole basis for investment decisions.
+                </p>
+              </details>
+            </div>
+
+            {activeTicker && <NewsFeed ticker={activeTicker} />}
+          </div>
+
+          <div className="space-y-6">
+            <RecentTriggers />
+
+            <div className="rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
+              <details>
+                <summary className="cursor-pointer text-xs font-medium uppercase tracking-wide text-deck-accent">
+                  Alerts
+                </summary>
+                <p className="mt-2 text-xs text-deck-dim">
+                  Get emailed or pushed to this device the moment a BUY/SELL signal fires - based on an intraday,
+                  still-forming price that can occasionally reverse by market close. That reversal still gets
+                  recorded in the ledger below, not hidden - it's part of tracking how accurate the signals really
+                  are.
+                </p>
+                <p className="mt-1 text-xs text-deck-dim">
+                  <strong>Confirmed</strong> alerts mean a signal actually fired and (for technical signals) opened
+                  or closed a position in the ledger. <strong>Watch</strong> alerts are an earlier heads-up - RSI
+                  closing in on its threshold, or the 50/200-day SMAs converging toward a cross - before anything is
+                  confirmed; they never affect the ledger, and recent news headlines are attached when available for
+                  context.
                 </p>
 
-                {alertsError && <p className="mt-2 text-sm text-red-600">{alertsError}</p>}
-                {alertsMessage && <p className="mt-2 text-sm text-emerald-700">{alertsMessage}</p>}
-              </>
-            )}
-          </details>
+                {alertsLoading ? (
+                  <p className="mt-3 text-sm text-deck-dim">Loading...</p>
+                ) : (
+                  <>
+                    <form onSubmit={handleSaveAlertSettings} className="mt-3 flex flex-col gap-2">
+                      <input
+                        type="email"
+                        value={alertEmail}
+                        onChange={(e) => setAlertEmail(e.target.value)}
+                        placeholder="you@example.com"
+                        className="rounded-md border border-deck-border px-3 py-2 text-sm bg-deck-surface text-deck-text placeholder:text-deck-mute"
+                      />
+                      <label className="flex items-center gap-1.5 whitespace-nowrap text-sm text-deck-text">
+                        <input
+                          type="checkbox"
+                          checked={alertEmailEnabled}
+                          onChange={(e) => setAlertEmailEnabled(e.target.checked)}
+                        />
+                        Email me
+                      </label>
+                      <button
+                        type="submit"
+                        className="rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-white"
+                      >
+                        Save
+                      </button>
+                    </form>
+
+                    <div className="mt-3">
+                      <button
+                        onClick={pushEnabled ? handleDisablePush : handleEnablePush}
+                        className="w-full rounded-md bg-deck-raised px-3 py-2 text-sm font-medium text-deck-text hover:bg-deck-border"
+                      >
+                        {pushEnabled ? 'Disable push on this device' : 'Enable push on this device'}
+                      </button>
+                    </div>
+
+                    <p className="mt-2 text-xs text-deck-dim">
+                      On iPhone: add this page to your Home Screen first (Share → Add to Home Screen), then open it
+                      from there before tapping Enable - Safari tabs can't receive push notifications directly.
+                    </p>
+
+                    {alertsError && <p className="mt-2 text-sm text-red-600">{alertsError}</p>}
+                    {alertsMessage && <p className="mt-2 text-sm text-emerald-700">{alertsMessage}</p>}
+                  </>
+                )}
+              </details>
+            </div>
+          </div>
         </div>
 
         <PaperTradingSummary />
