@@ -22,11 +22,22 @@ function niceDateTime(iso: string): string {
   })
 }
 
+function niceDate(isoDate: string): string {
+  // Parsed as a plain date (no time component), so it's not shifted a day
+  // by the viewer's timezone the way `new Date(isoDate)` alone can be.
+  return new Date(`${isoDate}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
 type ActionFilter = 'ALL' | 'BUY' | 'SELL'
 
 // Cross-ticker summary of the most recent signal_log rows for the whole
 // watchlist, so a fired signal is visible here without opening that
 // ticker's chart individually.
+// Matches how the crons compute `todayDate` server-side (UTC, not the
+// viewer's local date) - so "for Jul 30" only shows up when a signal
+// genuinely isn't about today, never as a timezone artifact.
+const todayIso = new Date().toISOString().slice(0, 10)
+
 export default function RecentTriggers() {
   const [triggers, setTriggers] = useState<Trigger[]>([])
   const [actionFilter, setActionFilter] = useState<ActionFilter>('ALL')
@@ -106,7 +117,14 @@ export default function RecentTriggers() {
             <tbody>
               {triggers.map((t, idx) => (
                 <tr key={idx} className="border-t border-deck-border">
-                  <td className="py-1.5 pr-3 text-deck-body">{niceDateTime(t.created_at)}</td>
+                  <td className="py-1.5 pr-3 text-deck-body">
+                    {niceDateTime(t.created_at)}
+                    {t.signal_date !== todayIso && (
+                      <span className="block text-deck-dim" title="The trading day this signal is actually about">
+                        for {niceDate(t.signal_date)}
+                      </span>
+                    )}
+                  </td>
                   <td className="py-1.5 pr-3 font-semibold text-deck-text">{t.ticker}</td>
                   <td className={`py-1.5 pr-3 font-semibold ${t.action === 'BUY' ? 'text-emerald-700' : 'text-red-700'}`}>
                     {t.action}
