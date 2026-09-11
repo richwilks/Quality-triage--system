@@ -75,8 +75,9 @@ export default function PaperTradingSummary() {
       <p className="text-xs font-medium uppercase tracking-wide text-deck-dim">Paper trading ledger</p>
       <p className="mt-1 text-sm text-deck-body">
         Simulates investing 100 units of each ticker's own trading currency at every BUY
-        signal and selling at the next SELL, per ticker. Hypothetical only - no real
-        money moves. Updated daily.
+        signal and selling at the next SELL, per ticker, from the moment a signal actually
+        fires - not a backdated backtest. Hypothetical only - no real money moves. Updated
+        daily.
       </p>
 
       {loading && <p className="mt-3 text-sm text-deck-dim">Loading...</p>}

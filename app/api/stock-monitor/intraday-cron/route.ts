@@ -27,9 +27,12 @@ export const maxDuration = 120
 // after the close. reconcileAndPersist's existing cutoffDate logic makes
 // running this every 15 minutes (and backtest-cron afterwards) safe for
 // the paper-trading ledger: a signal already recorded for a ticker is
-// never reprocessed. Watch-zone and confidence-score alerts have no such
-// ledger to derive a cutoff from, so they're explicitly restricted to
-// today's bar below, rather than the whole fetched history.
+// never reprocessed. Signals fed into it are also explicitly restricted
+// to today's bar (see `todaySignals` below) so the ledger only ever
+// grows one live day at a time, never replaying a ticker's whole fetched
+// history into it at once. Watch-zone and confidence-score alerts have no
+// ledger to derive a cutoff from at all, so they get the same today-only
+// restriction for their own sake, further down.
 export async function GET(req: NextRequest) {
   const authError = checkCronAuth(req)
   if (authError) return authError
@@ -83,25 +86,30 @@ export async function GET(req: NextRequest) {
     const { signals, watchSignals, bollingerSignals, volumeSpikes } = computeSignals(dates, close, high, low, params.params, volume)
     const newsSignals = await fetchNewsSignals(supabaseAdmin, ticker, dates)
     const allSignals = [...signals, ...newsSignals].sort((a, b) => a.index - b.index)
+    // Paper trading only ever opens/closes a position off a signal dated
+    // today - never the whole fetched year of history. Without this, a
+    // ticker with an empty ledger (brand new, or catching up after a
+    // stretch of cron failures) would replay every historical signal at
+    // once, same backlog-flood failure mode the alert restriction below
+    // guards against, just landing in the ledger instead of a
+    // notification.
+    const todaySignals = allSignals.filter((s) => s.date === todayDate)
     // Confidence scoring only ever draws on the confirmed technical
     // signals (not NEWS - the ask lists SMA/RSI/MACD/Bollinger) - paper
-    // trading above still reconciles off allSignals (news included)
+    // trading above still reconciles off todaySignals (news included)
     // exactly as it always has, regardless of anyone's confidence_mode.
     const confidenceScores = computeConfidenceScores([...signals, ...bollingerSignals], volumeSpikes)
 
-    // Both watchSignals and confidenceScores are computed by scanning the
+    // watchSignals and confidenceScores are computed by scanning the
     // *entire* fetched year of history (needed for the indicators' own
-    // warm-up), same as `signals` above - but unlike `signals`,
-    // reconcileAndPersist below never sees them, so there's no cutoffDate
-    // protecting against re-alerting on old history. On an established
-    // ticker signal_log's unique constraint already prevents that (an old
-    // watch-zone entry was inserted on some prior run and now just
-    // conflicts), but on a ticker's very first successful run - or after
-    // any stretch where the cron was silently failing, as happened here -
-    // signal_log has no record of any of it yet, so every historical
-    // watch-zone crossing across the whole fetched year would otherwise
-    // look "new" and fire at once. Restricting to today's bar is what
-    // actually keeps this "only alert on what's happening now."
+    // warm-up), same as `signals` above. signal_log's unique constraint
+    // already guards against re-alerting on an old, already-inserted
+    // watch-zone entry, but on a ticker's very first successful run - or
+    // after any stretch where the cron was silently failing, as happened
+    // here - signal_log has no record of any of it yet, so every
+    // historical watch-zone crossing across the whole fetched year would
+    // otherwise look "new" and fire at once. Restricting to today's bar is
+    // what actually keeps this "only alert on what's happening now."
     const todayWatchSignals = watchSignals.filter((s) => s.date === todayDate)
     const todayConfidenceScores = confidenceScores.filter((s) => s.date === todayDate)
 
@@ -124,7 +132,7 @@ export async function GET(req: NextRequest) {
     let closed = 0
     const confidenceModeUserIds: string[] = []
     for (const userId of userIds) {
-      const result = await reconcileAndPersist(supabaseAdmin, userId, ticker, currency, allSignals, close)
+      const result = await reconcileAndPersist(supabaseAdmin, userId, ticker, currency, todaySignals, close)
       opened += result.toInsert.length
       closed += result.toClose.length
       // Confidence mode replaces this user's per-indicator alerts on this

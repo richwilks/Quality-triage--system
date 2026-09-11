@@ -13,6 +13,11 @@ export const maxDuration = 120
 
 // Daily Vercel Cron job (see vercel.json) that keeps every user's paper-
 // trading ledger up to date, even if nobody opens the dashboard that day.
+// Only ever reconciles off the latest fetched trading day - not the whole
+// history - for the same reason intraday-cron restricts to `todayDate`:
+// a ticker with an empty ledger (brand new, or catching up after a
+// stretch of cron failures) would otherwise replay a full year of
+// historical signals into the ledger at once.
 export async function GET(req: NextRequest) {
   const authError = checkCronAuth(req)
   if (authError) return authError
@@ -50,6 +55,8 @@ export async function GET(req: NextRequest) {
     const { signals } = computeSignals(dates, close, high, low, params.params)
     const newsSignals = await fetchNewsSignals(supabaseAdmin, ticker, dates)
     const allSignals = [...signals, ...newsSignals].sort((a, b) => a.index - b.index)
+    const latestDate = dates[dates.length - 1]
+    const todaySignals = allSignals.filter((s) => s.date === latestDate)
 
     let opened = 0
     let closed = 0
@@ -59,7 +66,7 @@ export async function GET(req: NextRequest) {
         userId,
         ticker,
         currency,
-        allSignals,
+        todaySignals,
         close
       )
       opened += toInsert.length
