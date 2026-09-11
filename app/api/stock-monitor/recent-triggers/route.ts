@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createWatchlistAdminClient } from '@/lib/supabase/watchlistAdmin'
 
@@ -6,8 +6,11 @@ const RECENT_TRIGGERS_LIMIT = 10
 
 // Cross-ticker summary of the most recent signal_log rows for everything on
 // the user's watchlist, so they can see what's fired most recently without
-// opening each ticker's chart individually.
-export async function GET() {
+// opening each ticker's chart individually. Optional ?action=BUY|SELL
+// filters at the query level (before the limit), so "last 10 SELLs"
+// actually returns 10 SELLs rather than whatever SELLs happened to be
+// among the last 10 signals of any action.
+export async function GET(req: NextRequest) {
   const supabase = await createClient()
   const {
     data: { user },
@@ -15,6 +18,9 @@ export async function GET() {
   if (!user) {
     return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
   }
+
+  const actionParam = req.nextUrl.searchParams.get('action')
+  const action = actionParam === 'BUY' || actionParam === 'SELL' ? actionParam : null
 
   const watchlistDb = createWatchlistAdminClient()
 
@@ -24,12 +30,13 @@ export async function GET() {
     return NextResponse.json({ triggers: [] })
   }
 
-  const { data: triggers, error } = await watchlistDb
+  let query = watchlistDb
     .from('signal_log')
     .select('ticker, signal_date, strategy, action, signal_strength, detail, created_at')
     .in('ticker', tickers)
-    .order('created_at', { ascending: false })
-    .limit(RECENT_TRIGGERS_LIMIT)
+  if (action) query = query.eq('action', action)
+
+  const { data: triggers, error } = await query.order('created_at', { ascending: false }).limit(RECENT_TRIGGERS_LIMIT)
 
   if (error) {
     return NextResponse.json({ error: 'Could not load recent triggers' }, { status: 500 })

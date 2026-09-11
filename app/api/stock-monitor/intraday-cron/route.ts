@@ -25,8 +25,11 @@ export const maxDuration = 120
 // reconcileAndPersist used there - so a signal gets caught, recorded in
 // the paper-trading ledger, and alerted on as soon as it fires, not only
 // after the close. reconcileAndPersist's existing cutoffDate logic makes
-// running this every 15 minutes (and backtest-cron afterwards) safe: a
-// signal already recorded for today is never reprocessed.
+// running this every 15 minutes (and backtest-cron afterwards) safe for
+// the paper-trading ledger: a signal already recorded for a ticker is
+// never reprocessed. Watch-zone and confidence-score alerts have no such
+// ledger to derive a cutoff from, so they're explicitly restricted to
+// today's bar below, rather than the whole fetched history.
 export async function GET(req: NextRequest) {
   const authError = checkCronAuth(req)
   if (authError) return authError
@@ -86,6 +89,22 @@ export async function GET(req: NextRequest) {
     // exactly as it always has, regardless of anyone's confidence_mode.
     const confidenceScores = computeConfidenceScores([...signals, ...bollingerSignals], volumeSpikes)
 
+    // Both watchSignals and confidenceScores are computed by scanning the
+    // *entire* fetched year of history (needed for the indicators' own
+    // warm-up), same as `signals` above - but unlike `signals`,
+    // reconcileAndPersist below never sees them, so there's no cutoffDate
+    // protecting against re-alerting on old history. On an established
+    // ticker signal_log's unique constraint already prevents that (an old
+    // watch-zone entry was inserted on some prior run and now just
+    // conflicts), but on a ticker's very first successful run - or after
+    // any stretch where the cron was silently failing, as happened here -
+    // signal_log has no record of any of it yet, so every historical
+    // watch-zone crossing across the whole fetched year would otherwise
+    // look "new" and fire at once. Restricting to today's bar is what
+    // actually keeps this "only alert on what's happening now."
+    const todayWatchSignals = watchSignals.filter((s) => s.date === todayDate)
+    const todayConfidenceScores = confidenceScores.filter((s) => s.date === todayDate)
+
     // Fetched at most once per ticker per run, and only when there's
     // actually something to report - not on every run regardless, to keep
     // Finnhub usage bounded.
@@ -99,7 +118,7 @@ export async function GET(req: NextRequest) {
       }
       return newsSnippet
     }
-    if (watchSignals.length > 0 || confidenceScores.length > 0) await getNewsSnippet()
+    if (todayWatchSignals.length > 0 || todayConfidenceScores.length > 0) await getNewsSnippet()
 
     let opened = 0
     let closed = 0
@@ -120,8 +139,8 @@ export async function GET(req: NextRequest) {
       await notifyReconcileResult(supabaseAdmin, userId, ticker, currency, result, snippet)
     }
 
-    await notifyWatchSignals(supabaseAdmin, ticker, currency, watchSignals, close, userIds, newsSnippet)
-    await notifyConfidenceScores(supabaseAdmin, ticker, currency, confidenceScores, close, confidenceModeUserIds, newsSnippet)
+    await notifyWatchSignals(supabaseAdmin, ticker, currency, todayWatchSignals, close, userIds, newsSnippet)
+    await notifyConfidenceScores(supabaseAdmin, ticker, currency, todayConfidenceScores, close, confidenceModeUserIds, newsSnippet)
 
     summary.push({ ticker, usersReconciled: userIds.length, opened, closed })
   }
