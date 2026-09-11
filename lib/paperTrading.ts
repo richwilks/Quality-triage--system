@@ -1,8 +1,11 @@
 // Simulates a flat "invest INVESTED_AMOUNT at every BUY, sell at the next
 // SELL" strategy per ticker, so a user can see what following the signals
-// would have actually earned - without risking real money. One position per
-// ticker at a time: either strategy's BUY opens it if flat, either
-// strategy's SELL closes it if open (not tracked separately per strategy).
+// as they actually fire would earn - without risking real money. One
+// position per ticker at a time: either strategy's BUY opens it if flat,
+// either strategy's SELL closes it if open (not tracked separately per
+// strategy). Callers only ever pass in signals dated "today" (see the two
+// crons), never a ticker's whole fetched history - this is a live,
+// forward-only ledger, not a backtest.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { StockSignal } from './stockSignals'
