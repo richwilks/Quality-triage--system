@@ -52,45 +52,49 @@ export default function NewsFeed({ ticker }: { ticker: string }) {
 
   return (
     <div className="mt-6 rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
-      <p className="text-xs font-medium uppercase tracking-wide text-deck-dim">News - {ticker}</p>
-      <p className="mt-1 text-xs text-deck-dim">
-        Sentiment is scored by an LLM from the headline/summary, not a proven indicator like the technical
-        signals above - experimental.
-      </p>
+      <details>
+        <summary className="cursor-pointer text-xs font-medium uppercase tracking-wide text-deck-accent">
+          News - {ticker}
+        </summary>
+        <p className="mt-2 text-xs text-deck-dim">
+          Sentiment is scored by an LLM from the headline/summary, not a proven indicator like the technical
+          signals above - experimental.
+        </p>
 
-      {loading && <p className="mt-3 text-sm text-deck-dim">Loading...</p>}
-      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-      {!loading && !error && articles.length === 0 && (
-        <p className="mt-3 text-sm text-deck-dim">No recent news for {ticker} yet.</p>
-      )}
+        {loading && <p className="mt-3 text-sm text-deck-dim">Loading...</p>}
+        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+        {!loading && !error && articles.length === 0 && (
+          <p className="mt-3 text-sm text-deck-dim">No recent news for {ticker} yet.</p>
+        )}
 
-      {!loading && !error && articles.length > 0 && (
-        <ul className="mt-3 space-y-3">
-          {articles.map((a, idx) => {
-            const sentiment = sentimentLabel(a.sentiment_score)
-            return (
-              <li key={idx} className="border-t border-deck-border pt-3 first:border-t-0 first:pt-0">
-                <a
-                  href={a.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm font-medium text-deck-text hover:text-deck-accent"
-                >
-                  {a.headline}
-                </a>
-                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-deck-dim">
-                  <span>{a.source || 'Unknown source'}</span>
-                  <span>·</span>
-                  <span>{relativeTime(a.published_at)}</span>
-                  <span className={`rounded-full border px-2 py-0.5 font-medium ${sentiment.className}`}>
-                    {sentiment.text}
-                  </span>
-                </div>
-              </li>
-            )
-          })}
-        </ul>
-      )}
+        {!loading && !error && articles.length > 0 && (
+          <ul className="mt-3 space-y-3">
+            {articles.map((a, idx) => {
+              const sentiment = sentimentLabel(a.sentiment_score)
+              return (
+                <li key={idx} className="border-t border-deck-border pt-3 first:border-t-0 first:pt-0">
+                  <a
+                    href={a.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-medium text-deck-text hover:text-deck-accent"
+                  >
+                    {a.headline}
+                  </a>
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-deck-dim">
+                    <span>{a.source || 'Unknown source'}</span>
+                    <span>·</span>
+                    <span>{relativeTime(a.published_at)}</span>
+                    <span className={`rounded-full border px-2 py-0.5 font-medium ${sentiment.className}`}>
+                      {sentiment.text}
+                    </span>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </details>
     </div>
   )
 }
