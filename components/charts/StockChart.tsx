@@ -91,6 +91,13 @@ export default function StockChart({ history }: { history: StockHistory }) {
   const { dates, close, sma50, sma200, rsi, macd, signals, smaShortWindow, smaLongWindow } = history
   const fullN = dates.length
   const [hovered, setHovered] = useState<number | null>(null)
+  // Set by clicking/tapping a point on any panel - takes priority over
+  // `hovered` and, unlike it, survives the pointer leaving (or a touch
+  // ending), which is what actually makes a marker's detail readable on a
+  // touch device: hover alone never fires there. Clicking the same point
+  // again (or a different one) toggles/moves the pin; hover still gives
+  // desktop users a live preview without needing to click first.
+  const [pinnedIndex, setPinnedIndex] = useState<number | null>(null)
   const [rangeDays, setRangeDays] = useState<number | null>(63)
   const [showSma50, setShowSma50] = useState(true)
   const [showSma200, setShowSma200] = useState(true)
@@ -158,6 +165,11 @@ export default function StockChart({ history }: { history: StockHistory }) {
     return Math.min(n - 1, Math.max(0, Math.round(t * (n - 1))))
   }
 
+  function handlePointClick(svg: SVGSVGElement | null, clientX: number) {
+    const idx = indexFromClientX(svg, clientX)
+    setPinnedIndex((prev) => (prev === idx ? null : idx))
+  }
+
   const priceGridLines = useMemo(() => {
     const steps = 4
     return Array.from({ length: steps + 1 }, (_, s) => {
@@ -170,8 +182,10 @@ export default function StockChart({ history }: { history: StockHistory }) {
   const rsiSignals = vSignals.filter((s) => s.strategy === 'RSI')
   const macdSignals = vSignals.filter((s) => s.strategy === 'MACD')
 
-  const hoveredSignals = hovered != null ? vSignals.filter((s) => s.index === hovered) : []
-  const tooltipLeftPct = hovered != null ? (xScale(hovered) / VIEW_W) * 100 : null
+  // A click/tap pin always wins over a live hover - see pinnedIndex above.
+  const activeIndex = pinnedIndex ?? hovered
+  const activeSignals = activeIndex != null ? vSignals.filter((s) => s.index === activeIndex) : []
+  const tooltipLeftPct = activeIndex != null ? (xScale(activeIndex) / VIEW_W) * 100 : null
 
   return (
     <div className="space-y-2">
@@ -243,9 +257,10 @@ export default function StockChart({ history }: { history: StockHistory }) {
         <svg
           ref={priceRef}
           viewBox={`0 0 ${VIEW_W} ${PRICE_H}`}
-          className="w-full touch-none"
+          className="w-full touch-none cursor-pointer"
           onPointerMove={(e) => setHovered(indexFromClientX(priceRef.current, e.clientX))}
           onPointerLeave={() => setHovered(null)}
+          onClick={(e) => handlePointClick(priceRef.current, e.clientX)}
         >
           {priceGridLines.map((g, idx) => (
             <g key={idx}>
@@ -309,40 +324,58 @@ export default function StockChart({ history }: { history: StockHistory }) {
             )
           })}
 
-          {hovered != null && (
-            <line x1={xScale(hovered)} x2={xScale(hovered)} y1={MARGIN.top} y2={priceBottom} stroke={COLOR.axis} strokeWidth={1} />
+          {activeIndex != null && (
+            <line x1={xScale(activeIndex)} x2={xScale(activeIndex)} y1={MARGIN.top} y2={priceBottom} stroke={COLOR.axis} strokeWidth={1} />
           )}
         </svg>
 
-        {hovered != null && tooltipLeftPct != null && (
+        {activeIndex != null && tooltipLeftPct != null && (
           <div
-            className="pointer-events-none absolute top-2 z-10 w-44 -translate-x-1/2 rounded-md border border-deck-border bg-deck-surface p-2 text-xs shadow-md"
-            style={{ left: `${Math.min(Math.max(tooltipLeftPct, 12), 88)}%` }}
+            className={`absolute top-2 z-10 w-56 -translate-x-1/2 rounded-md border bg-deck-surface p-2 text-xs shadow-md ${
+              pinnedIndex != null ? 'border-deck-accent' : 'pointer-events-none border-deck-border'
+            }`}
+            style={{ left: `${Math.min(Math.max(tooltipLeftPct, 14), 86)}%` }}
           >
-            <p className="font-semibold text-deck-text">{niceDate(vDates[hovered])}</p>
+            {pinnedIndex != null && (
+              <button
+                type="button"
+                onClick={() => setPinnedIndex(null)}
+                aria-label="Close"
+                className="float-right -mr-1 -mt-1 rounded px-1.5 text-deck-dim hover:text-deck-text"
+              >
+                ×
+              </button>
+            )}
+            <p className="font-semibold text-deck-text">{niceDate(vDates[activeIndex])}</p>
             <p className="mt-1 text-deck-body">
-              Close <span className="font-semibold text-deck-text">{vClose[hovered].toFixed(2)}</span>
+              Close <span className="font-semibold text-deck-text">{vClose[activeIndex].toFixed(2)}</span>
             </p>
-            {showSma50 && vSma50[hovered] != null && (
+            {showSma50 && vSma50[activeIndex] != null && (
               <p className="text-deck-body">
-                {smaShortWindow}-day SMA <span className="font-semibold text-deck-text">{vSma50[hovered]!.toFixed(2)}</span>
+                {smaShortWindow}-day SMA <span className="font-semibold text-deck-text">{vSma50[activeIndex]!.toFixed(2)}</span>
               </p>
             )}
-            {showSma200 && vSma200[hovered] != null && (
+            {showSma200 && vSma200[activeIndex] != null && (
               <p className="text-deck-body">
-                {smaLongWindow}-day SMA <span className="font-semibold text-deck-text">{vSma200[hovered]!.toFixed(2)}</span>
+                {smaLongWindow}-day SMA <span className="font-semibold text-deck-text">{vSma200[activeIndex]!.toFixed(2)}</span>
               </p>
             )}
-            {showRsiPanel && vRsi[hovered] != null && (
+            {showRsiPanel && vRsi[activeIndex] != null && (
               <p className="text-deck-body">
-                RSI <span className="font-semibold text-deck-text">{vRsi[hovered]!.toFixed(1)}</span>
+                RSI <span className="font-semibold text-deck-text">{vRsi[activeIndex]!.toFixed(1)}</span>
               </p>
             )}
-            {hoveredSignals.map((s, idx) => (
-              <p key={idx} className={`mt-1 font-semibold ${s.action === 'BUY' ? 'text-emerald-700' : 'text-red-700'}`}>
-                {s.action} - {strategyLabel(s.strategy)}
-              </p>
+            {activeSignals.map((s, idx) => (
+              <div key={idx} className="mt-1.5 border-t border-deck-border pt-1.5 first:mt-1 first:border-t-0 first:pt-0">
+                <p className={`font-semibold ${s.action === 'BUY' ? 'text-emerald-700' : 'text-red-700'}`}>
+                  {s.action} - {strategyLabel(s.strategy)}
+                </p>
+                <p className="mt-0.5 text-deck-body">{s.detail}</p>
+              </div>
             ))}
+            {pinnedIndex == null && (
+              <p className="mt-1.5 text-deck-dim">Tap to pin</p>
+            )}
           </div>
         )}
       </div>
@@ -365,9 +398,10 @@ export default function StockChart({ history }: { history: StockHistory }) {
           <svg
             ref={rsiRef}
             viewBox={`0 0 ${VIEW_W} ${RSI_H}`}
-            className="w-full touch-none"
+            className="w-full touch-none cursor-pointer"
             onPointerMove={(e) => setHovered(indexFromClientX(rsiRef.current, e.clientX))}
             onPointerLeave={() => setHovered(null)}
+            onClick={(e) => handlePointClick(rsiRef.current, e.clientX)}
           >
             <line x1={MARGIN.left} x2={plotRight} y1={rsiYScale(70)} y2={rsiYScale(70)} stroke={COLOR.grid} strokeWidth={1} />
             <text x={plotRight + 2} y={rsiYScale(70) + 3} fontSize={9} fill={COLOR.ink}>
@@ -397,8 +431,8 @@ export default function StockChart({ history }: { history: StockHistory }) {
               )
             })}
 
-            {hovered != null && (
-              <line x1={xScale(hovered)} x2={xScale(hovered)} y1={MARGIN.top} y2={rsiBottom} stroke={COLOR.axis} strokeWidth={1} />
+            {activeIndex != null && (
+              <line x1={xScale(activeIndex)} x2={xScale(activeIndex)} y1={MARGIN.top} y2={rsiBottom} stroke={COLOR.axis} strokeWidth={1} />
             )}
           </svg>
         </div>
@@ -434,9 +468,10 @@ export default function StockChart({ history }: { history: StockHistory }) {
         <svg
           ref={macdRef}
           viewBox={`0 0 ${VIEW_W} ${MACD_H}`}
-          className="w-full touch-none"
+          className="w-full touch-none cursor-pointer"
           onPointerMove={(e) => setHovered(indexFromClientX(macdRef.current, e.clientX))}
           onPointerLeave={() => setHovered(null)}
+          onClick={(e) => handlePointClick(macdRef.current, e.clientX)}
         >
           <line x1={MARGIN.left} x2={plotRight} y1={macdYScale(0)} y2={macdYScale(0)} stroke={COLOR.grid} strokeWidth={1} />
 
@@ -478,8 +513,8 @@ export default function StockChart({ history }: { history: StockHistory }) {
             )
           })}
 
-          {hovered != null && (
-            <line x1={xScale(hovered)} x2={xScale(hovered)} y1={MARGIN.top} y2={macdBottom} stroke={COLOR.axis} strokeWidth={1} />
+          {activeIndex != null && (
+            <line x1={xScale(activeIndex)} x2={xScale(activeIndex)} y1={MARGIN.top} y2={macdBottom} stroke={COLOR.axis} strokeWidth={1} />
           )}
         </svg>
       </div>
