@@ -27,6 +27,10 @@ type HistoryWithTuning = StockHistory & {
 export default function StockMonitorDashboard() {
   const [tickers, setTickers] = useState<string[]>([])
   const [confidenceModeByTicker, setConfidenceModeByTicker] = useState<Record<string, boolean>>({})
+  // "I actually hold this" - purely informational, doesn't affect signal
+  // computation, alerting, or the paper-trading ledger. Lets the tabs show
+  // at a glance which tickers are real money vs just being watched.
+  const [investedByTicker, setInvestedByTicker] = useState<Record<string, boolean>>({})
   const [activeTicker, setActiveTicker] = useState<string | null>(null)
   const [newTicker, setNewTicker] = useState('')
   const [watchlistError, setWatchlistError] = useState<string | null>(null)
@@ -67,6 +71,7 @@ export default function StockMonitorDashboard() {
       if (!res.ok) throw new Error(body.error || 'Could not load watchlist')
       setTickers(body.tickers)
       setConfidenceModeByTicker(body.confidenceModeByTicker || {})
+      setInvestedByTicker(body.investedByTicker || {})
       setActiveTicker((prev) => prev && body.tickers.includes(prev) ? prev : body.tickers[0] ?? null)
     } catch (err: any) {
       setWatchlistError(err.message || 'Could not load watchlist')
@@ -278,6 +283,29 @@ export default function StockMonitorDashboard() {
     }
   }
 
+  // "I actually hold this" flag, per ticker on your own watchlist - see
+  // handleToggleConfidenceMode above for the update-optimistically-then-
+  // revert-on-failure pattern this mirrors.
+  async function handleToggleInvested(ticker: string) {
+    const next = !investedByTicker[ticker]
+    setInvestedByTicker((prev) => ({ ...prev, [ticker]: next }))
+    setWatchlistError(null)
+    try {
+      const res = await fetch('/api/stock-monitor/watchlist', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticker, invested: next }),
+      })
+      if (!res.ok) {
+        const body = await res.json()
+        throw new Error(body.error || 'Could not update ticker')
+      }
+    } catch (err: any) {
+      setInvestedByTicker((prev) => ({ ...prev, [ticker]: !next }))
+      setWatchlistError(err.message || 'Could not update ticker')
+    }
+  }
+
   const manageWatchlistOpen = showManageWatchlist || (!watchlistLoading && tickers.length === 0)
 
   return (
@@ -308,6 +336,22 @@ export default function StockMonitorDashboard() {
                 }`}
               >
                 {ticker}
+                <span
+                  role="button"
+                  aria-label={
+                    investedByTicker[ticker]
+                      ? `Mark ${ticker} as not actually held`
+                      : `Mark ${ticker} as an actual holding`
+                  }
+                  title="I actually hold this - just a personal marker, doesn't change signals or alerts"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleToggleInvested(ticker)
+                  }}
+                  className={`rounded-full px-1 text-xs ${investedByTicker[ticker] ? 'text-emerald-600 opacity-100' : 'opacity-40 hover:opacity-70'}`}
+                >
+                  ●
+                </span>
                 <span
                   role="button"
                   aria-label={
@@ -373,8 +417,9 @@ export default function StockMonitorDashboard() {
             {watchlistError && <p className="mt-2 text-sm text-red-600">{watchlistError}</p>}
             {tickers.length > 0 && (
               <p className="mt-2 text-xs text-deck-dim">
-                ★ on a tab toggles combined confidence mode for that ticker - see &ldquo;Which signal to trust&rdquo;
-                below the chart.
+                ● on a tab marks that ticker as one you actually hold - a personal note only, it
+                doesn&apos;t change signals or alerts. ★ toggles combined confidence mode for that ticker
+                - see &ldquo;Which signal to trust&rdquo; below the chart.
               </p>
             )}
 
