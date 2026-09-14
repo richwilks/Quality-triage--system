@@ -18,7 +18,7 @@ export async function GET() {
 
   let { data } = await watchlistDb
     .from('stock_watchlist')
-    .select('ticker, confidence_mode')
+    .select('ticker, confidence_mode, invested')
     .eq('user_id', user.id)
     .order('created_at', { ascending: true })
 
@@ -31,7 +31,7 @@ export async function GET() {
 
     const seeded = await watchlistDb
       .from('stock_watchlist')
-      .select('ticker, confidence_mode')
+      .select('ticker, confidence_mode, invested')
       .eq('user_id', user.id)
       .order('created_at', { ascending: true })
     data = seeded.data
@@ -40,17 +40,23 @@ export async function GET() {
   const rows = data || []
   return NextResponse.json({
     tickers: rows.map((row) => row.ticker),
-    // Kept as a separate map (rather than reshaping `tickers`) so every
+    // Kept as separate maps (rather than reshaping `tickers`) so every
     // existing consumer keyed on the plain ticker-string array is
-    // unaffected by this addition.
+    // unaffected by these additions.
     confidenceModeByTicker: Object.fromEntries(rows.map((row) => [row.ticker, !!row.confidence_mode])),
+    // Purely informational - "have I actually put real money into this
+    // one," separate from confidence_mode's alerting-style toggle. Doesn't
+    // feed signal computation, alerting, or the paper-trading ledger.
+    investedByTicker: Object.fromEntries(rows.map((row) => [row.ticker, !!row.invested])),
   })
 }
 
-// Toggles combined-confidence-score alerting mode for one ticker on this
-// user's own watchlist (see lib/stockSignals.ts's computeConfidenceScores)
-// - per (user, ticker), not global, since stock_watchlist is already one
-// row per pair.
+// Toggles either combined-confidence-score alerting mode (see
+// lib/stockSignals.ts's computeConfidenceScores) or the "I actually hold
+// this" flag for one ticker on this user's own watchlist - per (user,
+// ticker), not global, since stock_watchlist is already one row per pair.
+// Exactly one of confidenceMode/invested is expected per call, matching how
+// the UI's two separate toggle affordances each call this independently.
 export async function PATCH(req: NextRequest) {
   const supabase = await createClient()
   const {
@@ -60,15 +66,22 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
   }
 
-  const { ticker: rawTicker, confidenceMode } = await req.json()
+  const { ticker: rawTicker, confidenceMode, invested } = await req.json()
   const ticker = String(rawTicker || '').toUpperCase().trim()
-  if (!TICKER_PATTERN.test(ticker) || typeof confidenceMode !== 'boolean') {
-    return NextResponse.json({ error: 'Invalid ticker or confidenceMode' }, { status: 400 })
+  if (!TICKER_PATTERN.test(ticker)) {
+    return NextResponse.json({ error: 'Invalid ticker' }, { status: 400 })
+  }
+
+  const update: { confidence_mode?: boolean; invested?: boolean } = {}
+  if (typeof confidenceMode === 'boolean') update.confidence_mode = confidenceMode
+  if (typeof invested === 'boolean') update.invested = invested
+  if (Object.keys(update).length === 0) {
+    return NextResponse.json({ error: 'Provide confidenceMode or invested as a boolean' }, { status: 400 })
   }
 
   const { error } = await createWatchlistAdminClient()
     .from('stock_watchlist')
-    .update({ confidence_mode: confidenceMode })
+    .update(update)
     .eq('user_id', user.id)
     .eq('ticker', ticker)
 
