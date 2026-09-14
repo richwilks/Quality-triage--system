@@ -112,6 +112,17 @@ export default function StockMonitorDashboard() {
     chartCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
+  // Clicking a ticker's name in the "Your tickers" dropdown/checklist (in the
+  // "+ Add" panel): switches the chart the same way clicking its tab does,
+  // but also closes the panel and scrolls to the chart, since opening this
+  // list to pick a ticker implies you want to see it next - unlike toggling
+  // one of its checkboxes, which should leave the list open for more edits.
+  function handleSelectTickerFromList(ticker: string) {
+    setActiveTicker(ticker)
+    setShowManageWatchlist(false)
+    chartCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   async function handleAddTicker(e: React.FormEvent) {
     e.preventDefault()
     const ticker = newTicker.toUpperCase().trim()
@@ -419,9 +430,10 @@ export default function StockMonitorDashboard() {
               <div className="mt-4 border-t border-deck-border pt-4">
                 <p className="text-xs font-medium uppercase tracking-wide text-deck-dim">Your tickers</p>
                 <p className="mt-1 text-xs text-deck-dim">
-                  <strong>Invested</strong> is a personal note only - it doesn&apos;t change signals or
-                  alerts. <strong>Confidence mode</strong> switches that ticker to a combined-score alert
-                  instead of one per indicator - see &ldquo;Which signal to trust&rdquo; below the chart.
+                  Click a ticker to load its chart below. <strong>Invested</strong> is a personal note
+                  only - it doesn&apos;t change signals or alerts. <strong>Confidence mode</strong> switches
+                  that ticker to a combined-score alert instead of one per indicator - see &ldquo;Which
+                  signal to trust&rdquo; below the chart.
                 </p>
                 <div className="mt-2 max-h-72 overflow-y-auto rounded-md border border-deck-border">
                   <table className="w-full text-left text-xs">
@@ -435,8 +447,21 @@ export default function StockMonitorDashboard() {
                     </thead>
                     <tbody>
                       {tickers.map((ticker) => (
-                        <tr key={ticker} className="border-t border-deck-border">
-                          <td className="py-1.5 pl-2 pr-3 font-semibold text-deck-text">{ticker}</td>
+                        <tr
+                          key={ticker}
+                          className={`border-t border-deck-border ${ticker === activeTicker ? 'bg-deck-raised' : ''}`}
+                        >
+                          <td className="py-1.5 pl-2 pr-3">
+                            <button
+                              type="button"
+                              onClick={() => handleSelectTickerFromList(ticker)}
+                              className={`font-semibold hover:text-deck-accent ${
+                                ticker === activeTicker ? 'text-deck-accent' : 'text-deck-text'
+                              }`}
+                            >
+                              {ticker}
+                            </button>
+                          </td>
                           <td className="py-1.5 pr-3">
                             <input
                               type="checkbox"
