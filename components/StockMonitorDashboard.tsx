@@ -335,39 +335,21 @@ export default function StockMonitorDashboard() {
                     : 'border-transparent text-deck-dim hover:text-deck-text'
                 }`}
               >
-                {ticker}
-                <span
-                  role="button"
-                  aria-label={
-                    investedByTicker[ticker]
-                      ? `Mark ${ticker} as not actually held`
-                      : `Mark ${ticker} as an actual holding`
-                  }
-                  title="I actually hold this - just a personal marker, doesn't change signals or alerts"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleToggleInvested(ticker)
-                  }}
-                  className={`rounded-full px-1 text-xs ${investedByTicker[ticker] ? 'text-emerald-600 opacity-100' : 'opacity-40 hover:opacity-70'}`}
-                >
-                  ●
-                </span>
-                <span
-                  role="button"
-                  aria-label={
-                    confidenceModeByTicker[ticker]
-                      ? `Turn off combined confidence mode for ${ticker}`
-                      : `Turn on combined confidence mode for ${ticker}`
-                  }
-                  title="Combined confidence mode: alert once when multiple indicators agree, instead of on every single one"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleToggleConfidenceMode(ticker)
-                  }}
-                  className={`rounded-full px-1 text-xs ${confidenceModeByTicker[ticker] ? 'opacity-100' : 'opacity-40 hover:opacity-70'}`}
-                >
-                  ★
-                </span>
+                {(investedByTicker[ticker] || confidenceModeByTicker[ticker]) && (
+                  <span
+                    aria-hidden="true"
+                    title={[
+                      investedByTicker[ticker] ? 'You hold this' : null,
+                      confidenceModeByTicker[ticker] ? 'Combined confidence mode' : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                    className="flex items-center gap-0.5 text-xs"
+                  >
+                    {investedByTicker[ticker] && <span className="text-emerald-600">●</span>}
+                    {confidenceModeByTicker[ticker] && <span>★</span>}
+                  </span>
+                )}
                 <span
                   role="button"
                   aria-label={`Remove ${ticker}`}
@@ -415,12 +397,62 @@ export default function StockMonitorDashboard() {
               </button>
             </form>
             {watchlistError && <p className="mt-2 text-sm text-red-600">{watchlistError}</p>}
+
             {tickers.length > 0 && (
-              <p className="mt-2 text-xs text-deck-dim">
-                ● on a tab marks that ticker as one you actually hold - a personal note only, it
-                doesn&apos;t change signals or alerts. ★ toggles combined confidence mode for that ticker
-                - see &ldquo;Which signal to trust&rdquo; below the chart.
-              </p>
+              <div className="mt-4 border-t border-deck-border pt-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-deck-dim">Your tickers</p>
+                <p className="mt-1 text-xs text-deck-dim">
+                  <strong>Invested</strong> is a personal note only - it doesn&apos;t change signals or
+                  alerts. <strong>Confidence mode</strong> switches that ticker to a combined-score alert
+                  instead of one per indicator - see &ldquo;Which signal to trust&rdquo; below the chart.
+                </p>
+                <div className="mt-2 max-h-72 overflow-y-auto rounded-md border border-deck-border">
+                  <table className="w-full text-left text-xs">
+                    <thead className="sticky top-0 bg-deck-surface">
+                      <tr className="text-deck-dim">
+                        <th className="py-1.5 pl-2 pr-3 font-medium">Ticker</th>
+                        <th className="py-1.5 pr-3 font-medium">Invested</th>
+                        <th className="py-1.5 pr-3 font-medium">Confidence mode</th>
+                        <th className="py-1.5 pr-2 font-medium"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tickers.map((ticker) => (
+                        <tr key={ticker} className="border-t border-deck-border">
+                          <td className="py-1.5 pl-2 pr-3 font-semibold text-deck-text">{ticker}</td>
+                          <td className="py-1.5 pr-3">
+                            <input
+                              type="checkbox"
+                              checked={!!investedByTicker[ticker]}
+                              onChange={() => handleToggleInvested(ticker)}
+                              aria-label={`Mark ${ticker} as an actual holding`}
+                              className="h-4 w-4"
+                            />
+                          </td>
+                          <td className="py-1.5 pr-3">
+                            <input
+                              type="checkbox"
+                              checked={!!confidenceModeByTicker[ticker]}
+                              onChange={() => handleToggleConfidenceMode(ticker)}
+                              aria-label={`Turn on combined confidence mode for ${ticker}`}
+                              className="h-4 w-4"
+                            />
+                          </td>
+                          <td className="py-1.5 pr-2 text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveTicker(ticker)}
+                              className="text-deck-dim hover:text-red-600"
+                            >
+                              Remove
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             )}
 
             <details className="mt-4 border-t border-deck-border pt-4">
