@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { strategyLabel } from '@/lib/stockSignals'
 
 export type StockSignal = {
@@ -87,7 +87,17 @@ const RANGE_PRESETS: { label: string; days: number | null }[] = [
   { label: 'All', days: null },
 ]
 
-export default function StockChart({ history }: { history: StockHistory }) {
+export default function StockChart({
+  history,
+  focusRequest,
+}: {
+  history: StockHistory
+  // Set (with a fresh object each time, so a repeat click on the same date
+  // still re-triggers the effect below) to jump to and pin a specific date -
+  // e.g. from clicking a row in RecentTriggers. `date` must match an entry
+  // in `history.dates` exactly (the API's YYYY-MM-DD string).
+  focusRequest?: { date: string } | null
+}) {
   const { dates, close, sma50, sma200, rsi, macd, signals, smaShortWindow, smaLongWindow } = history
   const fullN = dates.length
   const [hovered, setHovered] = useState<number | null>(null)
@@ -99,6 +109,23 @@ export default function StockChart({ history }: { history: StockHistory }) {
   // desktop users a live preview without needing to click first.
   const [pinnedIndex, setPinnedIndex] = useState<number | null>(null)
   const [rangeDays, setRangeDays] = useState<number | null>(63)
+
+  // Resolve an external focus request (e.g. clicking a RecentTriggers row)
+  // into a pin. Forces the range to "All" first since pinnedIndex is in the
+  // sliced/visible index space - without that, a trigger date outside the
+  // default 3-month window would either be missing from vDates entirely or
+  // resolve to the wrong point. Depends on `dates` (not just focusRequest)
+  // so a click on an inactive ticker - which sets focusRequest immediately
+  // but only gets its `history`/`dates` a moment later, once that ticker's
+  // fetch resolves - still ends up pinned once the data arrives.
+  useEffect(() => {
+    if (!focusRequest) return
+    const idx = dates.indexOf(focusRequest.date)
+    if (idx === -1) return
+    setRangeDays(null)
+    setPinnedIndex(idx)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusRequest, dates])
   const [showSma50, setShowSma50] = useState(true)
   const [showSma200, setShowSma200] = useState(true)
   const [showRsiPanel, setShowRsiPanel] = useState(true)

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import PageHeader from '@/components/PageHeader'
 import StockChart, { StockHistory } from '@/components/charts/StockChart'
@@ -45,6 +45,11 @@ export default function StockMonitorDashboard() {
   const [history, setHistory] = useState<HistoryWithTuning | null>(null)
   const [historyError, setHistoryError] = useState<string | null>(null)
   const [historyLoading, setHistoryLoading] = useState(false)
+  // Set by clicking a RecentTriggers row - passed through to StockChart to
+  // jump to and pin that exact point. A fresh object on every click (even a
+  // repeat click on the same date) so StockChart's effect reliably re-fires.
+  const [focusRequest, setFocusRequest] = useState<{ date: string } | null>(null)
+  const chartCardRef = useRef<HTMLDivElement>(null)
 
   const [alertEmail, setAlertEmail] = useState('')
   const [alertEmailEnabled, setAlertEmailEnabled] = useState(true)
@@ -94,6 +99,17 @@ export default function StockMonitorDashboard() {
     } finally {
       setHistoryLoading(false)
     }
+  }
+
+  // Clicking a RecentTriggers row: switch to that ticker (a no-op if it's
+  // already active), scroll its chart into view, and pin the exact point
+  // the trigger fired at. If the ticker isn't active yet, `history` won't
+  // have that date until loadHistory's fetch resolves - StockChart's own
+  // effect (keyed on its `dates` prop) applies the pin once it does.
+  function handleSelectTrigger(ticker: string, date: string) {
+    setActiveTicker(ticker)
+    setFocusRequest({ date })
+    chartCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   async function handleAddTicker(e: React.FormEvent) {
@@ -484,7 +500,7 @@ export default function StockMonitorDashboard() {
 
         {/* Chart is the centerpiece - full-width, directly under the tabs,
             not competing with anything else for the first screenful. */}
-        <div className="mt-4 rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
+        <div ref={chartCardRef} className="mt-4 rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
           {!activeTicker && <p className="text-sm text-deck-dim">Add a ticker above to see its chart.</p>}
 
           {activeTicker && (
@@ -494,7 +510,7 @@ export default function StockMonitorDashboard() {
               {historyError && <p className="mt-2 text-sm text-red-600">{historyError}</p>}
               {history && !historyLoading && (
                 <div className="mt-3">
-                  <StockChart history={history} />
+                  <StockChart history={history} focusRequest={focusRequest} />
                   {history.tuned ? (
                     <p className="mt-2 text-xs text-deck-dim">
                       Using tuned parameters (last tuned{' '}
@@ -569,7 +585,7 @@ export default function StockMonitorDashboard() {
           </div>
 
           <div className="space-y-6">
-            <RecentTriggers />
+            <RecentTriggers onSelectTrigger={handleSelectTrigger} />
 
             <div className="rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
               <details>
