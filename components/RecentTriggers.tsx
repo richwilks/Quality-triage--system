@@ -38,7 +38,15 @@ type ActionFilter = 'ALL' | 'BUY' | 'SELL'
 // genuinely isn't about today, never as a timezone artifact.
 const todayIso = new Date().toISOString().slice(0, 10)
 
-export default function RecentTriggers() {
+export default function RecentTriggers({
+  onSelectTrigger,
+}: {
+  // Called with (ticker, signal_date) when a row's ticker name or the row
+  // itself is clicked, so the page can switch to that ticker's chart and
+  // pin the exact point the trigger fired at. Optional so this component
+  // still works standalone (e.g. in isolation/tests) without a handler.
+  onSelectTrigger?: (ticker: string, date: string) => void
+}) {
   const [triggers, setTriggers] = useState<Trigger[]>([])
   const [actionFilter, setActionFilter] = useState<ActionFilter>('ALL')
   const [loading, setLoading] = useState(true)
@@ -120,7 +128,12 @@ export default function RecentTriggers() {
               </thead>
               <tbody>
                 {triggers.map((t, idx) => (
-                  <tr key={idx} className="border-t border-deck-border">
+                  <tr
+                    key={idx}
+                    onClick={onSelectTrigger ? () => onSelectTrigger(t.ticker, t.signal_date) : undefined}
+                    title={onSelectTrigger ? `Jump to ${t.ticker}'s chart at this point` : undefined}
+                    className={`border-t border-deck-border ${onSelectTrigger ? 'cursor-pointer hover:bg-deck-raised' : ''}`}
+                  >
                     <td className="py-1.5 pr-3 text-deck-body">
                       {niceDateTime(t.created_at)}
                       {t.signal_date !== todayIso && (
