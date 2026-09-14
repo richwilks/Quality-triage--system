@@ -345,10 +345,38 @@ export default function StockMonitorDashboard() {
           </span>
         </div>
 
-        {/* Ticker tabs - the primary way to switch what the chart below is
-            showing, so it lives right above it rather than buried in a
-            separate "Watchlist" card you'd have to scroll back up to. */}
-        <div className="mt-4 flex items-end gap-1 overflow-x-auto border-b border-deck-border">
+        {/* Dropdown ticker picker - a long watchlist is slow to scan as a
+            horizontal tab strip (especially on a phone, where most of it is
+            scrolled off-screen). A native <select> opens the OS's own
+            searchable/scrollable list, so finding one ticker among many
+            doesn't depend on recognizing it in a row of small labels. Tabs
+            below stay for quickly flicking between a few at a time. */}
+        {!watchlistLoading && tickers.length > 0 && (
+          <div className="mt-4 flex items-center gap-2">
+            <label htmlFor="ticker-picker" className="text-xs font-medium uppercase tracking-wide text-deck-dim">
+              Jump to
+            </label>
+            <select
+              id="ticker-picker"
+              value={activeTicker ?? ''}
+              onChange={(e) => setActiveTicker(e.target.value)}
+              className="rounded-md border border-deck-border bg-deck-surface px-2 py-1.5 text-sm font-medium text-deck-text"
+            >
+              {tickers.map((ticker) => (
+                <option key={ticker} value={ticker}>
+                  {ticker}
+                  {investedByTicker[ticker] ? ' ●' : ''}
+                  {confidenceModeByTicker[ticker] ? ' ★' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Ticker tabs - a quick way to flick between a few at a time, so it
+            lives right above the chart rather than buried in a separate
+            "Watchlist" card you'd have to scroll back up to. */}
+        <div className="mt-2 flex items-end gap-1 overflow-x-auto border-b border-deck-border">
           {watchlistLoading ? (
             <p className="pb-2 text-sm text-deck-dim">Loading...</p>
           ) : (

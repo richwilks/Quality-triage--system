@@ -49,13 +49,21 @@ const COLOR = {
 }
 
 const VIEW_W = 800
-const MARGIN = { left: 44, right: 16, top: 12 }
-const PRICE_H = 260
-const PRICE_BOTTOM = 28
-const RSI_H = 140
-const RSI_BOTTOM = 28
-const MACD_H = 140
-const MACD_BOTTOM = 28
+const MARGIN = { left: 48, right: 16, top: 12 }
+// Panel heights are in the same SVG viewBox units as VIEW_W, so raising them
+// relative to VIEW_W makes every panel taller (and its text/markers larger
+// at any screen width, since the SVG scales as one unit) without touching
+// width - width already fills the card via the `w-full` className below.
+const PRICE_H = 360
+const PRICE_BOTTOM = 32
+const RSI_H = 190
+const RSI_BOTTOM = 32
+const MACD_H = 190
+const MACD_BOTTOM = 32
+// Axis/label text sizes scale with the panels above - kept as constants
+// since they're baked into the SVG viewBox coordinate space, not CSS.
+const AXIS_FONT = 13
+const LABEL_FONT = 12
 
 function buildPath(values: (number | null)[], xScale: (i: number) => number, yScale: (v: number) => number): string {
   let d = ''
@@ -292,7 +300,7 @@ export default function StockChart({
           {priceGridLines.map((g, idx) => (
             <g key={idx}>
               <line x1={MARGIN.left} x2={plotRight} y1={g.y} y2={g.y} stroke={COLOR.grid} strokeWidth={1} />
-              <text x={MARGIN.left - 6} y={g.y + 3} textAnchor="end" fontSize={10} fill={COLOR.ink}>
+              <text x={MARGIN.left - 6} y={g.y + 3} textAnchor="end" fontSize={AXIS_FONT} fill={COLOR.ink}>
                 {g.label}
               </text>
             </g>
@@ -300,10 +308,10 @@ export default function StockChart({
 
           {n > 0 && (
             <>
-              <text x={MARGIN.left} y={PRICE_H - 8} fontSize={10} fill={COLOR.ink}>
+              <text x={MARGIN.left} y={PRICE_H - 8} fontSize={AXIS_FONT} fill={COLOR.ink}>
                 {niceDate(vDates[0])}
               </text>
-              <text x={plotRight} y={PRICE_H - 8} textAnchor="end" fontSize={10} fill={COLOR.ink}>
+              <text x={plotRight} y={PRICE_H - 8} textAnchor="end" fontSize={AXIS_FONT} fill={COLOR.ink}>
                 {niceDate(vDates[n - 1])}
               </text>
             </>
@@ -431,11 +439,11 @@ export default function StockChart({
             onClick={(e) => handlePointClick(rsiRef.current, e.clientX)}
           >
             <line x1={MARGIN.left} x2={plotRight} y1={rsiYScale(70)} y2={rsiYScale(70)} stroke={COLOR.grid} strokeWidth={1} />
-            <text x={plotRight + 2} y={rsiYScale(70) + 3} fontSize={9} fill={COLOR.ink}>
+            <text x={plotRight + 2} y={rsiYScale(70) + 3} fontSize={LABEL_FONT} fill={COLOR.ink}>
               70 overbought
             </text>
             <line x1={MARGIN.left} x2={plotRight} y1={rsiYScale(30)} y2={rsiYScale(30)} stroke={COLOR.grid} strokeWidth={1} />
-            <text x={plotRight + 2} y={rsiYScale(30) + 3} fontSize={9} fill={COLOR.ink}>
+            <text x={plotRight + 2} y={rsiYScale(30) + 3} fontSize={LABEL_FONT} fill={COLOR.ink}>
               30 oversold
             </text>
 
