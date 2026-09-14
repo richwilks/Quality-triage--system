@@ -32,6 +32,14 @@ type Summary = {
   returnPct: number
 }
 
+type StrategyAccuracy = {
+  strategy: string
+  label: string
+  closedCount: number
+  winRatePct: number
+  avgReturnPct: number
+}
+
 function formatMoney(value: number, currency: string): string {
   try {
     return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value)
@@ -47,6 +55,7 @@ function niceDate(iso: string): string {
 export default function PaperTradingSummary() {
   const [trades, setTrades] = useState<Trade[]>([])
   const [summaries, setSummaries] = useState<Summary[]>([])
+  const [strategyAccuracy, setStrategyAccuracy] = useState<StrategyAccuracy[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -63,6 +72,7 @@ export default function PaperTradingSummary() {
       if (!res.ok) throw new Error(body.error || 'Could not load paper trades')
       setTrades(body.trades)
       setSummaries(body.summaries)
+      setStrategyAccuracy(body.strategyAccuracy || [])
     } catch (err: any) {
       setError(err.message || 'Could not load paper trades')
     } finally {
@@ -106,6 +116,48 @@ export default function PaperTradingSummary() {
               </div>
             ))}
           </div>
+
+          {strategyAccuracy.length > 0 && (
+            <div className="mt-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-deck-dim">Signal accuracy</p>
+              <p className="mt-1 text-xs text-deck-dim">
+                Win rate and average return per signal type, based on closed trades only - an open
+                position's outcome isn&apos;t final yet, so it isn&apos;t graded until it exits. Currencies mix
+                freely here since return is a percentage, not an amount.
+              </p>
+              <div className="mt-2 overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="text-deck-dim">
+                      <th className="py-1 pr-3 font-medium">Signal</th>
+                      <th className="py-1 pr-3 font-medium">Closed trades</th>
+                      <th className="py-1 pr-3 font-medium">Win rate</th>
+                      <th className="py-1 font-medium">Avg return</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {strategyAccuracy.map((s) => (
+                      <tr key={s.strategy} className="border-t border-deck-border">
+                        <td className="py-1.5 pr-3 font-semibold text-deck-text">{s.label}</td>
+                        <td className="py-1.5 pr-3 text-deck-body">{s.closedCount}</td>
+                        <td
+                          className={`py-1.5 pr-3 font-semibold ${s.winRatePct >= 50 ? 'text-emerald-700' : 'text-red-700'}`}
+                        >
+                          {s.winRatePct.toFixed(0)}%
+                        </td>
+                        <td
+                          className={`py-1.5 font-semibold ${s.avgReturnPct >= 0 ? 'text-emerald-700' : 'text-red-700'}`}
+                        >
+                          {s.avgReturnPct >= 0 ? '+' : ''}
+                          {s.avgReturnPct.toFixed(1)}%
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           <div className="mt-4 overflow-x-auto">
             <table className="w-full text-left text-xs">
