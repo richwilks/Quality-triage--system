@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createWatchlistAdminClient } from '@/lib/supabase/watchlistAdmin'
 import { fetchDailyCloses } from '@/lib/yahooFinance'
+import { computeStrategyAccuracy } from '@/lib/paperTrading'
 
 export const maxDuration = 20
 
@@ -92,5 +93,7 @@ export async function GET() {
     returnPct: ((s.currentValue - s.totalInvested) / s.totalInvested) * 100,
   }))
 
-  return NextResponse.json({ trades: withValue, summaries })
+  const strategyAccuracy = computeStrategyAccuracy(withValue)
+
+  return NextResponse.json({ trades: withValue, summaries, strategyAccuracy })
 }

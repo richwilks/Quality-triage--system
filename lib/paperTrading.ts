@@ -1,11 +1,15 @@
 // Simulates a flat "invest INVESTED_AMOUNT at every BUY, sell at the next
 // SELL" strategy per ticker, so a user can see what following the signals
-// would have actually earned - without risking real money. One position per
-// ticker at a time: either strategy's BUY opens it if flat, either
-// strategy's SELL closes it if open (not tracked separately per strategy).
+// as they actually fire would earn - without risking real money. One
+// position per ticker at a time: either strategy's BUY opens it if flat,
+// either strategy's SELL closes it if open (not tracked separately per
+// strategy). Callers only ever pass in signals dated "today" (see the two
+// crons), never a ticker's whole fetched history - this is a live,
+// forward-only ledger, not a backtest.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { StockSignal } from './stockSignals'
+import { strategyLabel } from './stockSignals'
 
 export const INVESTED_AMOUNT = 100
 
@@ -143,4 +147,46 @@ export async function reconcileAndPersist(
   }
 
   return result
+}
+
+export interface StrategyAccuracy {
+  strategy: string
+  label: string
+  closedCount: number
+  winRatePct: number
+  avgReturnPct: number
+}
+
+// "Which of our signals are actually right" scoreboard - grouped by
+// whichever strategy opened the trade (the call being graded), across every
+// ticker/currency the user holds (return_pct is already currency-agnostic,
+// so these average cleanly even when the trades themselves aren't). Only
+// closed trades count: an open position's outcome isn't final yet, so
+// including it here would grade a call before it's actually settled. Pure
+// function over already-computed return_pct so it's cheap to unit-test and
+// works the same whether it's grading one ticker's history or a whole
+// account's.
+export function computeStrategyAccuracy(
+  trades: { entry_strategy: string; status: 'open' | 'closed'; return_pct: number }[]
+): StrategyAccuracy[] {
+  const byStrategy = new Map<string, { wins: number; count: number; totalReturnPct: number }>()
+
+  for (const t of trades) {
+    if (t.status !== 'closed') continue
+    const s = byStrategy.get(t.entry_strategy) || { wins: 0, count: 0, totalReturnPct: 0 }
+    s.count += 1
+    s.totalReturnPct += t.return_pct
+    if (t.return_pct > 0) s.wins += 1
+    byStrategy.set(t.entry_strategy, s)
+  }
+
+  return [...byStrategy.entries()]
+    .map(([strategy, s]) => ({
+      strategy,
+      label: strategyLabel(strategy),
+      closedCount: s.count,
+      winRatePct: (s.wins / s.count) * 100,
+      avgReturnPct: s.totalReturnPct / s.count,
+    }))
+    .sort((a, b) => b.closedCount - a.closedCount)
 }
