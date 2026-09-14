@@ -351,6 +351,7 @@ export default function StockMonitorDashboard() {
                     : 'border-transparent text-deck-dim hover:text-deck-text'
                 }`}
               >
+                {ticker}
                 {(investedByTicker[ticker] || confidenceModeByTicker[ticker]) && (
                   <span
                     aria-hidden="true"
