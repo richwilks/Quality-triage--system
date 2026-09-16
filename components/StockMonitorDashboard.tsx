@@ -559,7 +559,23 @@ export default function StockMonitorDashboard() {
 
           {activeTicker && (
             <>
-              <p className="text-sm font-semibold text-deck-text">{activeTicker}</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-deck-text">{activeTicker}</p>
+                <button
+                  type="button"
+                  onClick={() => handleToggleInvested(activeTicker)}
+                  aria-pressed={!!investedByTicker[activeTicker]}
+                  title="Mark whether you actually hold this ticker - a personal note only, doesn't change signals or alerts"
+                  className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                    investedByTicker[activeTicker]
+                      ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                      : 'border-deck-border text-deck-dim hover:text-deck-text'
+                  }`}
+                >
+                  <span aria-hidden="true">{investedByTicker[activeTicker] ? '●' : '○'}</span>
+                  {investedByTicker[activeTicker] ? 'Invested' : 'Mark as invested'}
+                </button>
+              </div>
               {historyLoading && <p className="mt-2 text-sm text-deck-dim">Loading chart...</p>}
               {historyError && <p className="mt-2 text-sm text-red-600">{historyError}</p>}
               {history && !historyLoading && (
