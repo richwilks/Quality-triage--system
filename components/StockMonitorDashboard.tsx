@@ -435,7 +435,23 @@ export default function StockMonitorDashboard() {
 
         {manageWatchlistOpen && (
           <div className="mt-3 rounded-xl border border-deck-border bg-deck-surface p-4 shadow-sm">
-            <form onSubmit={handleAddTicker} className="flex gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-deck-text">Add or manage tickers</p>
+              {/* Hidden while the watchlist is empty, since manageWatchlistOpen is
+                  forced true in that state (see its definition above) - closing
+                  wouldn't actually do anything until there's at least one ticker
+                  to fall back to showing. */}
+              {tickers.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowManageWatchlist(false)}
+                  className="text-xs font-medium text-deck-accent hover:underline"
+                >
+                  Done
+                </button>
+              )}
+            </div>
+            <form onSubmit={handleAddTicker} className="mt-3 flex gap-2">
               <input
                 value={newTicker}
                 onChange={(e) => setNewTicker(e.target.value)}
