@@ -62,6 +62,9 @@ export default function StockMonitorDashboard() {
   const [t212Enabled, setT212Enabled] = useState(false)
   const [t212Environment, setT212Environment] = useState<'demo' | 'live'>('demo')
   const [t212RiskPct, setT212RiskPct] = useState('2')
+  // Portfolio-wide cap on total open-position cost basis, separate from
+  // riskPct's per-trade sizing - empty string means no cap.
+  const [t212MaxTotalInvestment, setT212MaxTotalInvestment] = useState('')
   const [t212Cash, setT212Cash] = useState<number | null>(null)
   const [t212Loading, setT212Loading] = useState(true)
   const [t212Error, setT212Error] = useState<string | null>(null)
@@ -235,6 +238,7 @@ export default function StockMonitorDashboard() {
         setT212Enabled(body.enabled)
         setT212Environment(body.environment)
         setT212RiskPct(String(body.riskPct))
+        setT212MaxTotalInvestment(body.maxTotalInvestment == null ? '' : String(body.maxTotalInvestment))
         setT212Cash(body.cash)
       }
     } finally {
@@ -267,6 +271,7 @@ export default function StockMonitorDashboard() {
           enabled: t212Enabled,
           environment: t212Environment,
           riskPct: Number(t212RiskPct),
+          maxTotalInvestment: t212MaxTotalInvestment.trim() === '' ? null : Number(t212MaxTotalInvestment),
           confirmLive: t212Environment === 'live',
         }),
       })
@@ -861,7 +866,29 @@ export default function StockMonitorDashboard() {
                     )}
 
                     <label className="mt-2 block text-sm text-deck-text">
-                      Risk per trade (% of account balance)
+                      Total investment limit (optional, strongly recommended)
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        placeholder="No limit"
+                        value={t212MaxTotalInvestment}
+                        onChange={(e) => setT212MaxTotalInvestment(e.target.value)}
+                        className="mt-1 block w-full rounded-md border border-deck-border bg-deck-surface px-2 py-1.5 text-sm text-deck-text"
+                      />
+                      <span className="mt-1 block text-xs text-deck-dim">
+                        A dedicated trading allowance that deliberately ignores every other pound in your account -
+                        set this and the risk % below is applied to this allowance only, never your real balance.
+                        Spent both by money currently tied up in open positions and by cumulative realized losses
+                        (a loss costs budget just as surely as an open position does; a gain gives some back). Once
+                        it's fully invested or lost outright, new trades stop until you manually raise this number -
+                        it never resets or refills on its own. Leave blank to fall back to sizing off real account
+                        cash instead (not recommended while testing on a live account).
+                      </span>
+                    </label>
+
+                    <label className="mt-2 block text-sm text-deck-text">
+                      Risk per trade (% of {t212MaxTotalInvestment ? 'the limit above' : 'account balance'})
                       <input
                         type="number"
                         min={0.1}
@@ -874,7 +901,10 @@ export default function StockMonitorDashboard() {
                     </label>
 
                     {t212Cash !== null && (
-                      <p className="mt-2 text-xs text-deck-dim">Current account cash: {t212Cash.toFixed(2)}</p>
+                      <p className="mt-2 text-xs text-deck-dim">
+                        Current account cash: {t212Cash.toFixed(2)}
+                        {t212MaxTotalInvestment && ' (informational only - not used for sizing while a total investment limit is set)'}
+                      </p>
                     )}
 
                     <button

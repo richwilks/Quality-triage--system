@@ -64,10 +64,13 @@ export async function GET(req: NextRequest) {
   // than once per ticker.
   const { data: t212Rows } = await supabaseAdmin
     .from('trading212_settings')
-    .select('user_id, enabled, environment, risk_pct')
+    .select('user_id, enabled, environment, risk_pct, max_total_investment')
     .eq('enabled', true)
   const t212SettingsByUser = new Map<string, Trading212Settings>(
-    (t212Rows || []).map((r) => [r.user_id, { enabled: r.enabled, environment: r.environment, risk_pct: r.risk_pct }])
+    (t212Rows || []).map((r) => [
+      r.user_id,
+      { enabled: r.enabled, environment: r.environment, risk_pct: r.risk_pct, max_total_investment: r.max_total_investment },
+    ])
   )
 
   const todayDate = new Date().toISOString().slice(0, 10)
