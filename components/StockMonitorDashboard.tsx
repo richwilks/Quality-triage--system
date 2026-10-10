@@ -5,6 +5,7 @@ import Link from 'next/link'
 import PageHeader from '@/components/PageHeader'
 import StockChart, { StockHistory } from '@/components/charts/StockChart'
 import PaperTradingSummary from '@/components/PaperTradingSummary'
+import LiveTradingSummary from '@/components/LiveTradingSummary'
 import NewsFeed from '@/components/NewsFeed'
 import RecentTriggers from '@/components/RecentTriggers'
 import { NASDAQ100_TOP20_PLUS_QQQ, FTSE100_TOP20 } from '@/lib/watchlistPresets'
@@ -58,9 +59,24 @@ export default function StockMonitorDashboard() {
   const [alertsError, setAlertsError] = useState<string | null>(null)
   const [alertsMessage, setAlertsMessage] = useState<string | null>(null)
 
+  const [t212Enabled, setT212Enabled] = useState(false)
+  const [t212Environment, setT212Environment] = useState<'demo' | 'live'>('demo')
+  const [t212RiskPct, setT212RiskPct] = useState('2')
+  const [t212Cash, setT212Cash] = useState<number | null>(null)
+  const [t212Loading, setT212Loading] = useState(true)
+  const [t212Error, setT212Error] = useState<string | null>(null)
+  const [t212Message, setT212Message] = useState<string | null>(null)
+  // Switching to Live needs a typed "LIVE" confirmation in addition to the
+  // select itself, and the server independently requires confirmLive:true
+  // on the save request - belt and braces for the one setting here that
+  // risks real money.
+  const [t212ConfirmingLive, setT212ConfirmingLive] = useState(false)
+  const [t212ConfirmText, setT212ConfirmText] = useState('')
+
   useEffect(() => {
     loadWatchlist()
     loadAlertSettings()
+    loadT212Settings()
   }, [])
 
   useEffect(() => {
@@ -207,6 +223,60 @@ export default function StockMonitorDashboard() {
       setAlertsMessage('Saved.')
     } catch (err: any) {
       setAlertsError(err.message || 'Could not save alert settings')
+    }
+  }
+
+  async function loadT212Settings() {
+    setT212Loading(true)
+    try {
+      const res = await fetch('/api/stock-monitor/trading212-settings')
+      const body = await res.json()
+      if (res.ok) {
+        setT212Enabled(body.enabled)
+        setT212Environment(body.environment)
+        setT212RiskPct(String(body.riskPct))
+        setT212Cash(body.cash)
+      }
+    } finally {
+      setT212Loading(false)
+    }
+  }
+
+  function handleT212EnvironmentChange(next: 'demo' | 'live') {
+    setT212Environment(next)
+    // Only 'demo' -> 'live' needs the typed confirmation below; switching
+    // back to demo (or re-selecting the same value) never does.
+    setT212ConfirmingLive(next === 'live')
+    setT212ConfirmText('')
+  }
+
+  async function handleSaveT212Settings() {
+    setT212Error(null)
+    setT212Message(null)
+
+    if (t212Environment === 'live' && t212ConfirmText.trim().toUpperCase() !== 'LIVE') {
+      setT212Error('Type LIVE in the confirmation box to switch to real-money trading.')
+      return
+    }
+
+    try {
+      const res = await fetch('/api/stock-monitor/trading212-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enabled: t212Enabled,
+          environment: t212Environment,
+          riskPct: Number(t212RiskPct),
+          confirmLive: t212Environment === 'live',
+        }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Could not save Trading 212 settings')
+      setT212Message('Saved.')
+      setT212ConfirmingLive(false)
+      await loadT212Settings()
+    } catch (err: any) {
+      setT212Error(err.message || 'Could not save Trading 212 settings')
     }
   }
 
@@ -740,10 +810,92 @@ export default function StockMonitorDashboard() {
                 )}
               </details>
             </div>
+
+            <div className="rounded-xl border border-deck-border bg-deck-surface p-6 shadow-sm">
+              <details>
+                <summary className="cursor-pointer text-xs font-medium uppercase tracking-wide text-deck-accent">
+                  Trading 212 (real money)
+                </summary>
+                <p className="mt-2 text-xs text-deck-dim">
+                  When enabled, confirmed and watch-tier signals place real orders on your Trading 212 account
+                  automatically - no approval step. Start in Demo (fake money, same API) and watch the activity log
+                  below before ever switching to Live. This is a decision-support tool, not a prediction system -
+                  you&apos;re responsible for anything it trades.
+                </p>
+
+                {t212Loading ? (
+                  <p className="mt-3 text-sm text-deck-dim">Loading...</p>
+                ) : (
+                  <>
+                    <label className="mt-3 flex items-center gap-1.5 text-sm text-deck-text">
+                      <input type="checkbox" checked={t212Enabled} onChange={(e) => setT212Enabled(e.target.checked)} />
+                      Enable automatic trading
+                    </label>
+
+                    <label className="mt-2 block text-sm text-deck-text">
+                      Environment
+                      <select
+                        value={t212Environment}
+                        onChange={(e) => handleT212EnvironmentChange(e.target.value as 'demo' | 'live')}
+                        className="mt-1 block w-full rounded-md border border-deck-border bg-deck-surface px-2 py-1.5 text-sm text-deck-text"
+                      >
+                        <option value="demo">Demo (fake money)</option>
+                        <option value="live">Live (real money)</option>
+                      </select>
+                    </label>
+
+                    {t212ConfirmingLive && (
+                      <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+                        <p className="font-medium">
+                          This switches to your real Trading 212 account - orders will use real money.
+                        </p>
+                        <p className="mt-1">Type LIVE below to confirm.</p>
+                        <input
+                          type="text"
+                          value={t212ConfirmText}
+                          onChange={(e) => setT212ConfirmText(e.target.value)}
+                          placeholder="LIVE"
+                          className="mt-2 w-full rounded-md border border-amber-400 px-2 py-1 text-sm"
+                        />
+                      </div>
+                    )}
+
+                    <label className="mt-2 block text-sm text-deck-text">
+                      Risk per trade (% of account balance)
+                      <input
+                        type="number"
+                        min={0.1}
+                        max={10}
+                        step={0.1}
+                        value={t212RiskPct}
+                        onChange={(e) => setT212RiskPct(e.target.value)}
+                        className="mt-1 block w-full rounded-md border border-deck-border bg-deck-surface px-2 py-1.5 text-sm text-deck-text"
+                      />
+                    </label>
+
+                    {t212Cash !== null && (
+                      <p className="mt-2 text-xs text-deck-dim">Current account cash: {t212Cash.toFixed(2)}</p>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={handleSaveT212Settings}
+                      className="mt-3 w-full rounded-md bg-deck-accent px-3 py-2 text-sm font-medium text-white"
+                    >
+                      Save
+                    </button>
+
+                    {t212Error && <p className="mt-2 text-sm text-red-600">{t212Error}</p>}
+                    {t212Message && <p className="mt-2 text-sm text-emerald-700">{t212Message}</p>}
+                  </>
+                )}
+              </details>
+            </div>
           </div>
         </div>
 
         <PaperTradingSummary />
+        <LiveTradingSummary />
 
         <Link
           href="/dashboard/stock-monitor/backtest"
