@@ -102,7 +102,7 @@ export default function LiveTradingSummary() {
       {loading && <p className="mt-3 text-sm text-deck-dim">Loading...</p>}
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
-      {!loading && !error && trades.some((t) => t.status === 'open') && (
+      {!loading && !error && trades.length > 0 && (
         <p className="mt-3 text-xs text-deck-dim">
           Currently invested (open positions, cost basis):{' '}
           <strong className="text-deck-text">
@@ -110,8 +110,26 @@ export default function LiveTradingSummary() {
               .filter((t) => t.status === 'open')
               .reduce((sum, t) => sum + t.quantity * t.entry_price, 0)
               .toFixed(2)}
-          </strong>{' '}
-          - compared against your total investment limit (if set) in Trading 212 settings above.
+          </strong>
+          {trades.some((t) => t.status === 'closed') && (
+            <>
+              {' '}· Realized P&amp;L so far:{' '}
+              <strong
+                className={
+                  trades.filter((t) => t.status === 'closed').reduce((sum, t) => sum + t.pnl, 0) >= 0
+                    ? 'text-emerald-700'
+                    : 'text-red-700'
+                }
+              >
+                {trades
+                  .filter((t) => t.status === 'closed')
+                  .reduce((sum, t) => sum + t.pnl, 0)
+                  .toFixed(2)}
+              </strong>
+            </>
+          )}{' '}
+          - both count against your total investment limit (if set) in Trading 212 settings above; once it's fully
+          invested or lost, new trades stop until you raise the limit.
         </p>
       )}
 

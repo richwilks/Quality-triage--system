@@ -17,9 +17,11 @@ export interface Trading212Settings {
   enabled: boolean
   environment: Trading212Env
   risk_pct: number
-  // Hard cap on total cost basis across every OPEN live position at once
-  // (not per-trade) - null means no cap. Compared against raw numbers with
-  // no currency conversion: every current ticker trades in USD, so on a
+  // A dedicated trading allowance, deliberately independent of the real
+  // account's cash balance (see computeNetAvailableBudget) - null means
+  // uncapped (falls back to sizing off real account cash, the original
+  // behavior before this existed). Compared against raw numbers with no
+  // currency conversion: every current ticker trades in USD, so on a
   // GBP-denominated limit this is conservative right now (it stops sooner
   // than a true £-equivalent cap would, since £1 currently buys more than
   // $1) - but isn't generally currency-correct. Set the limit in whichever
@@ -56,24 +58,22 @@ export function calculatePositionSize(cash: number, riskPct: number, price: numb
   return Math.max(0, Math.floor((cash * (riskPct / 100)) / price))
 }
 
-// Pure, so it's cheap to unit-test in isolation. Shrinks (never grows) the
-// risk-%-based quantity so the NEW position's cost basis never pushes
-// total open exposure past maxTotalInvestment - a portfolio-wide cap, not
-// a per-trade one. null/undefined means uncapped (returns quantity
-// unchanged). Returns 0 once there's no headroom left at all, same
-// "quantity <= 0 means skip, don't place an order" contract as
-// calculatePositionSize.
-export function capQuantityForInvestmentLimit(
-  quantity: number,
-  price: number,
-  currentlyInvested: number,
-  maxTotalInvestment: number | null | undefined
+// Pure, so it's cheap to unit-test in isolation. This is a dedicated
+// trading allowance, not a percentage of whatever else sits in the real
+// account - deliberately independent of account cash. It depletes two
+// ways: capital currently tied up in open positions, and cumulative
+// realized losses (a losing trade spends the budget just as surely as an
+// open position does; a realized gain gives some of it back). Once this
+// reaches zero - fully invested right now, or lost outright - callers
+// must stop opening new positions; the only ways back are an open
+// position closing (frees currentlyInvested) or the user raising
+// maxTotalInvestment themselves (a deliberate "top up", never automatic).
+export function computeNetAvailableBudget(
+  maxTotalInvestment: number,
+  cumulativeRealizedPnl: number,
+  currentlyInvested: number
 ): number {
-  if (maxTotalInvestment == null) return quantity
-  if (!Number.isFinite(price) || price <= 0) return 0
-  const headroom = maxTotalInvestment - currentlyInvested
-  if (headroom <= 0) return 0
-  return Math.max(0, Math.min(quantity, Math.floor(headroom / price)))
+  return maxTotalInvestment + cumulativeRealizedPnl - currentlyInvested
 }
 
 async function logAttempt(
@@ -129,6 +129,20 @@ async function getCurrentlyInvested(supabase: SupabaseClient, userId: string, en
   return (data || []).reduce((sum, r) => sum + r.quantity * r.entry_price, 0)
 }
 
+// Sums realized P&L (quantity * (exit_price - entry_price)) across every
+// CLOSED position for this user+environment, across ALL tickers - this is
+// what lets a losing streak permanently eat into the budget (never
+// replayed/reset by itself) while a winning one gives some of it back.
+async function getCumulativeRealizedPnl(supabase: SupabaseClient, userId: string, environment: Trading212Env): Promise<number> {
+  const { data } = await supabase
+    .from('live_trades')
+    .select('quantity, entry_price, exit_price')
+    .eq('user_id', userId)
+    .eq('environment', environment)
+    .eq('status', 'closed')
+  return (data || []).reduce((sum, r) => sum + r.quantity * ((r.exit_price ?? r.entry_price) - r.entry_price), 0)
+}
+
 export async function reconcileAndPersistLive(
   supabase: SupabaseClient,
   userId: string,
@@ -143,22 +157,45 @@ export async function reconcileAndPersistLive(
   const result = reconcileTicker(ticker, currency, openEntryDate, cutoffDate, actionableSignals, close)
 
   for (const t of result.toInsert) {
-    const cashResult = await getAccountCash(environment)
-    if (!cashResult.ok) {
-      await logAttempt(supabase, userId, ticker, 'BUY', environment, { status: 'error', error_message: cashResult.error })
-      continue
-    }
+    let quantity: number
 
-    const riskSizedQuantity = calculatePositionSize(cashResult.data.cash, risk_pct, t.entry_price)
-    const currentlyInvested = await getCurrentlyInvested(supabase, userId, environment)
-    const quantity = capQuantityForInvestmentLimit(riskSizedQuantity, t.entry_price, currentlyInvested, max_total_investment)
-    if (quantity <= 0) {
-      const reason =
-        riskSizedQuantity <= 0
-          ? `${risk_pct}% of ${cashResult.data.cash} at ${t.entry_price}/share rounded down to 0 shares`
-          : `total investment limit (${max_total_investment}) reached - ${currentlyInvested} already invested`
-      await logAttempt(supabase, userId, ticker, 'BUY', environment, { status: 'skipped', error_message: reason })
-      continue
+    if (max_total_investment != null) {
+      // A dedicated trading allowance, not a percentage of the real
+      // account - account cash is never consulted here at all.
+      const currentlyInvested = await getCurrentlyInvested(supabase, userId, environment)
+      const cumulativeRealizedPnl = await getCumulativeRealizedPnl(supabase, userId, environment)
+      const netAvailableBudget = computeNetAvailableBudget(max_total_investment, cumulativeRealizedPnl, currentlyInvested)
+      if (netAvailableBudget <= 0) {
+        await logAttempt(supabase, userId, ticker, 'BUY', environment, {
+          status: 'skipped',
+          error_message: `Trading budget of ${max_total_investment} exhausted (currently invested ${currentlyInvested}, realized P&L ${cumulativeRealizedPnl.toFixed(2)}) - raise the total investment limit to resume`,
+        })
+        continue
+      }
+      quantity = calculatePositionSize(netAvailableBudget, risk_pct, t.entry_price)
+      if (quantity <= 0) {
+        await logAttempt(supabase, userId, ticker, 'BUY', environment, {
+          status: 'skipped',
+          error_message: `${risk_pct}% of remaining budget ${netAvailableBudget.toFixed(2)} at ${t.entry_price}/share rounded down to 0 shares`,
+        })
+        continue
+      }
+    } else {
+      // No budget configured - fall back to sizing off the real account
+      // balance, same as before a total investment limit existed.
+      const cashResult = await getAccountCash(environment)
+      if (!cashResult.ok) {
+        await logAttempt(supabase, userId, ticker, 'BUY', environment, { status: 'error', error_message: cashResult.error })
+        continue
+      }
+      quantity = calculatePositionSize(cashResult.data.cash, risk_pct, t.entry_price)
+      if (quantity <= 0) {
+        await logAttempt(supabase, userId, ticker, 'BUY', environment, {
+          status: 'skipped',
+          error_message: `${risk_pct}% of ${cashResult.data.cash} at ${t.entry_price}/share rounded down to 0 shares`,
+        })
+        continue
+      }
     }
 
     const instrumentCode = await getInstrumentCode(supabase, environment, ticker)

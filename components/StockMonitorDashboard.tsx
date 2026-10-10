@@ -866,7 +866,29 @@ export default function StockMonitorDashboard() {
                     )}
 
                     <label className="mt-2 block text-sm text-deck-text">
-                      Risk per trade (% of account balance)
+                      Total investment limit (optional, strongly recommended)
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        placeholder="No limit"
+                        value={t212MaxTotalInvestment}
+                        onChange={(e) => setT212MaxTotalInvestment(e.target.value)}
+                        className="mt-1 block w-full rounded-md border border-deck-border bg-deck-surface px-2 py-1.5 text-sm text-deck-text"
+                      />
+                      <span className="mt-1 block text-xs text-deck-dim">
+                        A dedicated trading allowance that deliberately ignores every other pound in your account -
+                        set this and the risk % below is applied to this allowance only, never your real balance.
+                        Spent both by money currently tied up in open positions and by cumulative realized losses
+                        (a loss costs budget just as surely as an open position does; a gain gives some back). Once
+                        it's fully invested or lost outright, new trades stop until you manually raise this number -
+                        it never resets or refills on its own. Leave blank to fall back to sizing off real account
+                        cash instead (not recommended while testing on a live account).
+                      </span>
+                    </label>
+
+                    <label className="mt-2 block text-sm text-deck-text">
+                      Risk per trade (% of {t212MaxTotalInvestment ? 'the limit above' : 'account balance'})
                       <input
                         type="number"
                         min={0.1}
@@ -878,25 +900,11 @@ export default function StockMonitorDashboard() {
                       />
                     </label>
 
-                    <label className="mt-2 block text-sm text-deck-text">
-                      Total investment limit (optional)
-                      <input
-                        type="number"
-                        min={0}
-                        step={1}
-                        placeholder="No limit"
-                        value={t212MaxTotalInvestment}
-                        onChange={(e) => setT212MaxTotalInvestment(e.target.value)}
-                        className="mt-1 block w-full rounded-md border border-deck-border bg-deck-surface px-2 py-1.5 text-sm text-deck-text"
-                      />
-                      <span className="mt-1 block text-xs text-deck-dim">
-                        A hard ceiling on total open positions across every ticker at once, separate from the
-                        per-trade % above - new trades shrink or skip once this is reached. Leave blank for no cap.
-                      </span>
-                    </label>
-
                     {t212Cash !== null && (
-                      <p className="mt-2 text-xs text-deck-dim">Current account cash: {t212Cash.toFixed(2)}</p>
+                      <p className="mt-2 text-xs text-deck-dim">
+                        Current account cash: {t212Cash.toFixed(2)}
+                        {t212MaxTotalInvestment && ' (informational only - not used for sizing while a total investment limit is set)'}
+                      </p>
                     )}
 
                     <button
