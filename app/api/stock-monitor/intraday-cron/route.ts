@@ -10,6 +10,7 @@ import { getSignalParams } from '@/lib/paramTuning'
 import { fetchNewsSignals } from '@/lib/newsSignal'
 import { notifyReconcileResult, notifyWatchSignals, notifyConfidenceScores } from '@/lib/signalAlerts'
 import { fetchRecentHeadlines, formatNewsSnippet } from '@/lib/newsContext'
+import { reconcileAndPersistLive, type Trading212Settings } from '@/lib/liveTrading'
 
 // Bumped from 60s: the per-ticker loop below is sequential, and a bigger
 // watchlist (e.g. the Nasdaq-100 top 20 + QQQ bulk-add) needs more headroom.
@@ -57,6 +58,17 @@ export async function GET(req: NextRequest) {
     usersByTicker.set(row.ticker, users)
     if (row.confidence_mode) confidenceModeUsers.add(`${row.ticker}|${row.user_id}`)
   }
+
+  // Live trading is opt-in per user (trading212_settings.enabled, defaults
+  // false) - fetched once up front, same as the watchlist above, rather
+  // than once per ticker.
+  const { data: t212Rows } = await supabaseAdmin
+    .from('trading212_settings')
+    .select('user_id, enabled, environment, risk_pct')
+    .eq('enabled', true)
+  const t212SettingsByUser = new Map<string, Trading212Settings>(
+    (t212Rows || []).map((r) => [r.user_id, { enabled: r.enabled, environment: r.environment, risk_pct: r.risk_pct }])
+  )
 
   const todayDate = new Date().toISOString().slice(0, 10)
   const summary: { ticker: string; usersReconciled: number; opened: number; closed: number; skipped?: string; error?: string }[] = []
@@ -128,6 +140,12 @@ export async function GET(req: NextRequest) {
     }
     if (todayWatchSignals.length > 0 || todayConfidenceScores.length > 0) await getNewsSnippet()
 
+    // Live trading acts on both confirmed and watch-tier signals (per the
+    // user's explicit choice - more trades, lower average conviction per
+    // trade than confirmed-only) - unlike paper trading's todaySignals,
+    // which is confirmed/NEWS signals only.
+    const liveSignals = [...todaySignals, ...todayWatchSignals].sort((a, b) => a.index - b.index)
+
     let opened = 0
     let closed = 0
     const confidenceModeUserIds: string[] = []
@@ -135,6 +153,19 @@ export async function GET(req: NextRequest) {
       const result = await reconcileAndPersist(supabaseAdmin, userId, ticker, currency, todaySignals, close)
       opened += result.toInsert.length
       closed += result.toClose.length
+
+      const t212Settings = t212SettingsByUser.get(userId)
+      if (t212Settings && liveSignals.length > 0) {
+        // Never let a Trading 212 failure break paper trading or alerts
+        // for this or any other ticker/user - lib/liveTrading.ts already
+        // logs failures to live_trade_log; this is just a last-resort
+        // guard against something unexpected (e.g. a DB error) escaping.
+        try {
+          await reconcileAndPersistLive(supabaseAdmin, userId, ticker, currency, t212Settings, liveSignals, close)
+        } catch (err) {
+          console.error('Live trading reconciliation failed', { ticker, userId, err })
+        }
+      }
       // Confidence mode replaces this user's per-indicator alerts on this
       // ticker with the combined-score notification below, per the ask -
       // reconcileAndPersist above (and the paper-trading ledger it drives)

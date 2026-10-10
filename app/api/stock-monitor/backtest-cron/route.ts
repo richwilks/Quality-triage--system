@@ -6,6 +6,7 @@ import { fetchDailyCloses } from '@/lib/yahooFinance'
 import { reconcileAndPersist } from '@/lib/paperTrading'
 import { getSignalParams } from '@/lib/paramTuning'
 import { fetchNewsSignals } from '@/lib/newsSignal'
+import { reconcileAndPersistLive, type Trading212Settings } from '@/lib/liveTrading'
 
 // Bumped from 60s: the per-ticker loop below is sequential, and a bigger
 // watchlist (e.g. the Nasdaq-100 top 20 + QQQ bulk-add) needs more headroom.
@@ -41,6 +42,16 @@ export async function GET(req: NextRequest) {
     usersByTicker.set(row.ticker, users)
   }
 
+  // See intraday-cron for why this is fetched once up front - opt-in per
+  // user, defaults to disabled.
+  const { data: t212Rows } = await supabaseAdmin
+    .from('trading212_settings')
+    .select('user_id, enabled, environment, risk_pct')
+    .eq('enabled', true)
+  const t212SettingsByUser = new Map<string, Trading212Settings>(
+    (t212Rows || []).map((r) => [r.user_id, { enabled: r.enabled, environment: r.environment, risk_pct: r.risk_pct }])
+  )
+
   const summary: { ticker: string; usersReconciled: number; opened: number; closed: number; error?: string }[] = []
 
   for (const [ticker, userIds] of usersByTicker) {
@@ -71,6 +82,15 @@ export async function GET(req: NextRequest) {
       )
       opened += toInsert.length
       closed += toClose.length
+
+      const t212Settings = t212SettingsByUser.get(userId)
+      if (t212Settings && todaySignals.length > 0) {
+        try {
+          await reconcileAndPersistLive(supabaseAdmin, userId, ticker, currency, t212Settings, todaySignals, close)
+        } catch (err) {
+          console.error('Live trading reconciliation failed', { ticker, userId, err })
+        }
+      }
     }
 
     summary.push({ ticker, usersReconciled: userIds.length, opened, closed })
