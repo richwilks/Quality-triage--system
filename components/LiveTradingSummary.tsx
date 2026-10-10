@@ -102,6 +102,19 @@ export default function LiveTradingSummary() {
       {loading && <p className="mt-3 text-sm text-deck-dim">Loading...</p>}
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
+      {!loading && !error && trades.some((t) => t.status === 'open') && (
+        <p className="mt-3 text-xs text-deck-dim">
+          Currently invested (open positions, cost basis):{' '}
+          <strong className="text-deck-text">
+            {trades
+              .filter((t) => t.status === 'open')
+              .reduce((sum, t) => sum + t.quantity * t.entry_price, 0)
+              .toFixed(2)}
+          </strong>{' '}
+          - compared against your total investment limit (if set) in Trading 212 settings above.
+        </p>
+      )}
+
       {!loading && !error && trades.length > 0 && (
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-left text-xs">

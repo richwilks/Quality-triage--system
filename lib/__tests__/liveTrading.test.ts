@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculatePositionSize } from '../liveTrading'
+import { calculatePositionSize, capQuantityForInvestmentLimit } from '../liveTrading'
 
 describe('calculatePositionSize', () => {
   it('floors to a whole share from cash * riskPct / price', () => {
@@ -25,5 +25,32 @@ describe('calculatePositionSize', () => {
   it('scales with risk percentage', () => {
     expect(calculatePositionSize(10000, 1, 100)).toBe(1) // 1% of 10,000 = 100 -> 1 share
     expect(calculatePositionSize(10000, 5, 100)).toBe(5) // 5% of 10,000 = 500 -> 5 shares
+  })
+})
+
+describe('capQuantityForInvestmentLimit', () => {
+  it('returns the quantity unchanged when uncapped (null/undefined)', () => {
+    expect(capQuantityForInvestmentLimit(5, 100, 0, null)).toBe(5)
+    expect(capQuantityForInvestmentLimit(5, 100, 0, undefined)).toBe(5)
+  })
+
+  it('shrinks the quantity to fit remaining headroom under the cap', () => {
+    // 200 limit, 150 already invested -> 50 headroom -> at 20/share, 2 shares fit, not the original 5
+    expect(capQuantityForInvestmentLimit(5, 20, 150, 200)).toBe(2)
+  })
+
+  it('never grows the quantity even when headroom exceeds the risk-sized amount', () => {
+    // plenty of headroom (200 limit, 0 invested) - still capped at the original risk-sized 3, not more
+    expect(capQuantityForInvestmentLimit(3, 20, 0, 200)).toBe(3)
+  })
+
+  it('returns 0 once the limit is already reached or exceeded', () => {
+    expect(capQuantityForInvestmentLimit(5, 20, 200, 200)).toBe(0)
+    expect(capQuantityForInvestmentLimit(5, 20, 250, 200)).toBe(0)
+  })
+
+  it('returns 0 rather than a fractional share when headroom cannot afford one', () => {
+    // 200 limit, 190 invested -> 10 headroom -> at 20/share, 0.5 shares -> floors to 0
+    expect(capQuantityForInvestmentLimit(5, 20, 190, 200)).toBe(0)
   })
 })

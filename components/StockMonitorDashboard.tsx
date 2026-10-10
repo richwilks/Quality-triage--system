@@ -62,6 +62,9 @@ export default function StockMonitorDashboard() {
   const [t212Enabled, setT212Enabled] = useState(false)
   const [t212Environment, setT212Environment] = useState<'demo' | 'live'>('demo')
   const [t212RiskPct, setT212RiskPct] = useState('2')
+  // Portfolio-wide cap on total open-position cost basis, separate from
+  // riskPct's per-trade sizing - empty string means no cap.
+  const [t212MaxTotalInvestment, setT212MaxTotalInvestment] = useState('')
   const [t212Cash, setT212Cash] = useState<number | null>(null)
   const [t212Loading, setT212Loading] = useState(true)
   const [t212Error, setT212Error] = useState<string | null>(null)
@@ -235,6 +238,7 @@ export default function StockMonitorDashboard() {
         setT212Enabled(body.enabled)
         setT212Environment(body.environment)
         setT212RiskPct(String(body.riskPct))
+        setT212MaxTotalInvestment(body.maxTotalInvestment == null ? '' : String(body.maxTotalInvestment))
         setT212Cash(body.cash)
       }
     } finally {
@@ -267,6 +271,7 @@ export default function StockMonitorDashboard() {
           enabled: t212Enabled,
           environment: t212Environment,
           riskPct: Number(t212RiskPct),
+          maxTotalInvestment: t212MaxTotalInvestment.trim() === '' ? null : Number(t212MaxTotalInvestment),
           confirmLive: t212Environment === 'live',
         }),
       })
@@ -871,6 +876,23 @@ export default function StockMonitorDashboard() {
                         onChange={(e) => setT212RiskPct(e.target.value)}
                         className="mt-1 block w-full rounded-md border border-deck-border bg-deck-surface px-2 py-1.5 text-sm text-deck-text"
                       />
+                    </label>
+
+                    <label className="mt-2 block text-sm text-deck-text">
+                      Total investment limit (optional)
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        placeholder="No limit"
+                        value={t212MaxTotalInvestment}
+                        onChange={(e) => setT212MaxTotalInvestment(e.target.value)}
+                        className="mt-1 block w-full rounded-md border border-deck-border bg-deck-surface px-2 py-1.5 text-sm text-deck-text"
+                      />
+                      <span className="mt-1 block text-xs text-deck-dim">
+                        A hard ceiling on total open positions across every ticker at once, separate from the
+                        per-trade % above - new trades shrink or skip once this is reached. Leave blank for no cap.
+                      </span>
                     </label>
 
                     {t212Cash !== null && (

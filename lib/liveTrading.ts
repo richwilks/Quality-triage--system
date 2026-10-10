@@ -17,6 +17,14 @@ export interface Trading212Settings {
   enabled: boolean
   environment: Trading212Env
   risk_pct: number
+  // Hard cap on total cost basis across every OPEN live position at once
+  // (not per-trade) - null means no cap. Compared against raw numbers with
+  // no currency conversion: every current ticker trades in USD, so on a
+  // GBP-denominated limit this is conservative right now (it stops sooner
+  // than a true £-equivalent cap would, since £1 currently buys more than
+  // $1) - but isn't generally currency-correct. Set the limit in whichever
+  // currency most of your positions trade in for predictable behavior.
+  max_total_investment: number | null
 }
 
 export async function getTrading212Settings(
@@ -25,11 +33,16 @@ export async function getTrading212Settings(
 ): Promise<Trading212Settings | null> {
   const { data } = await supabase
     .from('trading212_settings')
-    .select('enabled, environment, risk_pct')
+    .select('enabled, environment, risk_pct, max_total_investment')
     .eq('user_id', userId)
     .maybeSingle()
   if (!data || !data.enabled) return null
-  return { enabled: data.enabled, environment: data.environment, risk_pct: data.risk_pct }
+  return {
+    enabled: data.enabled,
+    environment: data.environment,
+    risk_pct: data.risk_pct,
+    max_total_investment: data.max_total_investment,
+  }
 }
 
 // Pure, so it's cheap to unit-test in isolation from the Supabase/Trading
@@ -41,6 +54,26 @@ export async function getTrading212Settings(
 export function calculatePositionSize(cash: number, riskPct: number, price: number): number {
   if (!Number.isFinite(cash) || !Number.isFinite(riskPct) || !Number.isFinite(price) || price <= 0) return 0
   return Math.max(0, Math.floor((cash * (riskPct / 100)) / price))
+}
+
+// Pure, so it's cheap to unit-test in isolation. Shrinks (never grows) the
+// risk-%-based quantity so the NEW position's cost basis never pushes
+// total open exposure past maxTotalInvestment - a portfolio-wide cap, not
+// a per-trade one. null/undefined means uncapped (returns quantity
+// unchanged). Returns 0 once there's no headroom left at all, same
+// "quantity <= 0 means skip, don't place an order" contract as
+// calculatePositionSize.
+export function capQuantityForInvestmentLimit(
+  quantity: number,
+  price: number,
+  currentlyInvested: number,
+  maxTotalInvestment: number | null | undefined
+): number {
+  if (maxTotalInvestment == null) return quantity
+  if (!Number.isFinite(price) || price <= 0) return 0
+  const headroom = maxTotalInvestment - currentlyInvested
+  if (headroom <= 0) return 0
+  return Math.max(0, Math.min(quantity, Math.floor(headroom / price)))
 }
 
 async function logAttempt(
@@ -83,6 +116,19 @@ async function readLedgerState(
   return { openEntryDate, cutoffDate }
 }
 
+// Sums cost basis (quantity * entry_price) across every OPEN position for
+// this user+environment, across ALL tickers - the total-investment cap is
+// portfolio-wide, not per-ticker.
+async function getCurrentlyInvested(supabase: SupabaseClient, userId: string, environment: Trading212Env): Promise<number> {
+  const { data } = await supabase
+    .from('live_trades')
+    .select('quantity, entry_price')
+    .eq('user_id', userId)
+    .eq('environment', environment)
+    .eq('status', 'open')
+  return (data || []).reduce((sum, r) => sum + r.quantity * r.entry_price, 0)
+}
+
 export async function reconcileAndPersistLive(
   supabase: SupabaseClient,
   userId: string,
@@ -92,7 +138,7 @@ export async function reconcileAndPersistLive(
   actionableSignals: StockSignal[],
   close: number[]
 ): Promise<ReconcileResult> {
-  const { environment, risk_pct } = settings
+  const { environment, risk_pct, max_total_investment } = settings
   const { openEntryDate, cutoffDate } = await readLedgerState(supabase, userId, ticker, environment)
   const result = reconcileTicker(ticker, currency, openEntryDate, cutoffDate, actionableSignals, close)
 
@@ -103,12 +149,15 @@ export async function reconcileAndPersistLive(
       continue
     }
 
-    const quantity = calculatePositionSize(cashResult.data.cash, risk_pct, t.entry_price)
+    const riskSizedQuantity = calculatePositionSize(cashResult.data.cash, risk_pct, t.entry_price)
+    const currentlyInvested = await getCurrentlyInvested(supabase, userId, environment)
+    const quantity = capQuantityForInvestmentLimit(riskSizedQuantity, t.entry_price, currentlyInvested, max_total_investment)
     if (quantity <= 0) {
-      await logAttempt(supabase, userId, ticker, 'BUY', environment, {
-        status: 'skipped',
-        error_message: `${risk_pct}% of ${cashResult.data.cash} at ${t.entry_price}/share rounded down to 0 shares`,
-      })
+      const reason =
+        riskSizedQuantity <= 0
+          ? `${risk_pct}% of ${cashResult.data.cash} at ${t.entry_price}/share rounded down to 0 shares`
+          : `total investment limit (${max_total_investment}) reached - ${currentlyInvested} already invested`
+      await logAttempt(supabase, userId, ticker, 'BUY', environment, { status: 'skipped', error_message: reason })
       continue
     }
 
