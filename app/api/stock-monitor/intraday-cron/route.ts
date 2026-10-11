@@ -17,9 +17,13 @@ import { reconcileAndPersistLive, type Trading212Settings } from '@/lib/liveTrad
 export const maxDuration = 120
 
 // Intraday companion to backtest-cron (see vercel.json for the schedule -
-// every 15 minutes, 07:00-21:00 UTC, wide enough to cover both the LSE's
-// session (07:00/08:00-15:30/16:30 UTC across BST/GMT, for .L tickers) and
-// the US market's (13:30/14:30-20:00/21:00 UTC across EDT/EST). Where
+// every 15 minutes, 13:00-21:00 UTC, covering the US market's open/close
+// across both EDT and EST (13:30/14:30-20:00/21:00 UTC). Narrowed from a
+// wider 07:00-21:00 window that also covered the LSE's session (for .L
+// tickers) once the watchlist held none - if UK tickers are ever added
+// back, this range needs widening again (back to roughly 07:00 UTC) or
+// LSE-hours signals will simply be missed until the next US-hours tick or
+// backtest-cron's end-of-day catch-up. Where
 // backtest-cron reconciles once a day off the
 // real closing price, this appends today's still-forming bar (from
 // Finnhub's free /quote endpoint) onto the daily history and runs the same
