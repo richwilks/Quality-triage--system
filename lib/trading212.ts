@@ -1,17 +1,15 @@
-// Thin client for Trading 212's public API (docs.trading212.com, currently
-// beta) - the real-money counterpart to the paper-trading ledger in
+// Thin client for Trading 212's public API (docs.trading212.com) - the
+// real-money counterpart to the paper-trading ledger in
 // lib/paperTrading.ts. Follows the same plain-`fetch` + discriminated
 // `{ ok: true, data } | { ok: false, error }` result convention as
 // lib/yahooFinance.ts and lib/finnhub.ts, rather than pulling in a new HTTP
 // client dependency.
 //
-// CONFIRM BEFORE RELYING ON IN PRODUCTION: Trading 212's own docs are
-// internally inconsistent on the auth header (a raw API key vs HTTP Basic
-// of "key:secret") and on exactly which response field names come back.
-// This implementation uses the raw-key form shown on the orders reference
-// page and defensively probes a couple of likely field names rather than
-// assuming one - verify both against your own API key during Demo testing
-// before ever switching environment to 'live'.
+// Auth: confirmed (via Trading 212's own docs/agent-skills guide) to be
+// HTTP Basic, with the API Key as the username and a separate API Secret
+// as the password - base64("KEY:SECRET") in the Authorization header. A
+// raw key alone (no secret) reliably 401s even when the key itself is
+// valid, which is exactly the failure mode this replaced.
 
 export type Trading212Env = 'demo' | 'live'
 
@@ -19,16 +17,20 @@ function baseUrl(env: Trading212Env): string {
   return env === 'live' ? 'https://live.trading212.com/api/v0' : 'https://demo.trading212.com/api/v0'
 }
 
-function apiKey(env: Trading212Env): string | null {
-  return (env === 'live' ? process.env.TRADING212_LIVE_API_KEY : process.env.TRADING212_DEMO_API_KEY) || null
+function apiCredentials(env: Trading212Env): { key: string; secret: string } | null {
+  const key = (env === 'live' ? process.env.TRADING212_LIVE_API_KEY : process.env.TRADING212_DEMO_API_KEY) || null
+  const secret = (env === 'live' ? process.env.TRADING212_LIVE_API_SECRET : process.env.TRADING212_DEMO_API_SECRET) || null
+  if (!key || !secret) return null
+  return { key, secret }
 }
 
 async function t212Fetch(env: Trading212Env, path: string, init?: RequestInit): Promise<Response> {
-  const key = apiKey(env)
-  if (!key) throw new Error(`Trading 212 ${env} API key is not configured`)
+  const creds = apiCredentials(env)
+  if (!creds) throw new Error(`Trading 212 ${env} API key/secret is not configured`)
+  const basicAuth = Buffer.from(`${creds.key}:${creds.secret}`).toString('base64')
   return fetch(`${baseUrl(env)}${path}`, {
     ...init,
-    headers: { ...(init?.headers || {}), Authorization: key, 'Content-Type': 'application/json' },
+    headers: { ...(init?.headers || {}), Authorization: `Basic ${basicAuth}`, 'Content-Type': 'application/json' },
   })
 }
 
